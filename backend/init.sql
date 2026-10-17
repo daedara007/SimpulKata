@@ -98,7 +98,7 @@ CREATE OR REPLACE TRIGGER trg_transcripts_updated_at
 INSERT INTO users (email, password_hash, name, balance, role)
 VALUES (
     'admin@simpulkata.id',
-    '$2b$10$rOzJqiQkXV3YR5w6lXxYuOGJ5YQ9Gez3Lb7E0kMvqPZnD5FoTwBSe',
+    '$2b$10$YqurtUNTBpdjMu.5jZNlV.ocS3vJZEGZY9.ey6uSXGiRycZT6B45S',
     'Administrator',
     999999,
     'admin'

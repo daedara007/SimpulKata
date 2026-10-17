@@ -102,16 +102,28 @@ async function processAudio(request, reply) {
       });
     }
 
-    // 4. Ambil user dummy (admin) untuk MVP sebelum JWT diaktifkan di Tugas 3
+    // 4. Ambil user pengunggah dari token JWT yang sudah terautentikasi
+    const userId = request.user?.id;
+    if (!userId) {
+      await safeUnlink(savedFilePath);
+      return reply.status(401).send({
+        status: 'error',
+        code: 'UNAUTHORIZED',
+        message: 'Akses tidak sah. Silakan login terlebih dahulu.',
+      });
+    }
+
     const userRes = await db.query(
-      `SELECT id, email, balance FROM users WHERE email = 'admin@simpulkata.id' LIMIT 1`
+      `SELECT id, email, balance FROM users WHERE id = $1 LIMIT 1`,
+      [userId]
     );
 
     if (userRes.rows.length === 0) {
-      return reply.status(500).send({
+      await safeUnlink(savedFilePath);
+      return reply.status(404).send({
         status: 'error',
         code: 'USER_NOT_FOUND',
-        message: 'Data user pengunggah tidak ditemukan di sistem.',
+        message: 'Data pengguna tidak ditemukan di sistem.',
       });
     }
 
@@ -127,37 +139,36 @@ async function processAudio(request, reply) {
       });
     }
 
-    // 5. Buat record awal di tabel transcripts (status: 'processing')
-    const insertRes = await db.query(
-      `INSERT INTO transcripts (user_id, original_file_name, file_path, status, duration_seconds)
-       VALUES ($1, $2, $3, 'processing', 0)
-       RETURNING id`,
-      [user.id, originalFileName, `storage/uploads/${uniqueFileName}`]
-    );
+    // 5. Ekstrak durasi audio secara lokal sebelum memanggil AI Whisper (Hemat biaya & waktu!)
+    const durationSeconds = await aiService.getAudioDuration(savedFilePath);
+    console.log(`[AudioController] Durasi audio terdeteksi: ${durationSeconds} detik (Saldo user: ${user.balance} detik)`);
 
-    transcriptId = insertRes.rows[0].id;
-    console.log(`[AudioController] Record transcript dibuat: ${transcriptId} (status: processing)`);
-
-    // 6. Transkripsi audio menggunakan Hugging Face Whisper
-    console.log(`[AudioController] Memulai transkripsi untuk transcript: ${transcriptId}...`);
-    const { text: rawText, duration_seconds: durationSeconds } = await aiService.transcribeAudio(savedFilePath);
-
-    // Cek apakah saldo cukup untuk durasi audio yang baru diketahui
-    if (user.balance < durationSeconds) {
-      await db.query(
-        `UPDATE transcripts SET status = 'failed', duration_seconds = $1 WHERE id = $2`,
-        [durationSeconds, transcriptId]
-      );
+    // Validasi apakah sisa saldo kuota pengguna mencukupi untuk durasi audio ini
+    if (durationSeconds > 0 && user.balance < durationSeconds) {
       await safeUnlink(savedFilePath);
-
       return reply.status(402).send({
         status: 'error',
         code: 'INSUFFICIENT_QUOTA',
-        message: `Durasi audio (${durationSeconds} detik) melebihi sisa saldo kuota Anda (${user.balance} detik).`,
+        message: `Durasi audio (${durationSeconds} detik) melebihi sisa saldo kuota Anda (${user.balance} detik). Silakan hubungi admin atau top up kuota.`,
       });
     }
 
-    // 7. Buat rangkuman teks menggunakan Hugging Face Mistral-7B
+    // 6. Buat record awal di tabel transcripts (status: 'processing', durasi sudah dicatat)
+    const insertRes = await db.query(
+      `INSERT INTO transcripts (user_id, original_file_name, file_path, status, duration_seconds)
+       VALUES ($1, $2, $3, 'processing', $4)
+       RETURNING id`,
+      [user.id, originalFileName, `storage/uploads/${uniqueFileName}`, durationSeconds]
+    );
+
+    transcriptId = insertRes.rows[0].id;
+    console.log(`[AudioController] Record transcript dibuat: ${transcriptId} (status: processing, durasi: ${durationSeconds}s)`);
+
+    // 7. Transkripsi audio menggunakan Hugging Face Whisper
+    console.log(`[AudioController] Memulai transkripsi untuk transcript: ${transcriptId}...`);
+    const { text: rawText } = await aiService.transcribeAudio(savedFilePath, durationSeconds);
+
+    // 8. Buat rangkuman teks menggunakan Hugging Face Llama
     console.log(`[AudioController] Memulai pembuatan rangkuman teks untuk transcript: ${transcriptId}...`);
     const { summary: summaryText, tokens_used: tokensUsed } = await aiService.summarizeText(rawText);
 
@@ -274,16 +285,17 @@ async function getHistory(request, reply) {
     const offset = (page - 1) * limit;
     const filterStatus = request.query?.status?.toLowerCase();
 
-    let whereClause = '';
-    const params = [];
+    const userId = request.user?.id;
+    let whereClause = ' WHERE user_id = $1';
+    const params = [userId];
 
     // Filter status jika valid dan bukan 'all'
     if (filterStatus && ['completed', 'failed', 'processing', 'pending'].includes(filterStatus)) {
       params.push(filterStatus);
-      whereClause = ` WHERE status = $${params.length}`;
+      whereClause += ` AND status = $${params.length}`;
     }
 
-    // 1. Hitung total records (SD-11 langkah 3 & 4: selectTranscripts -> return(transcriptList, totalRecords))
+    // 1. Hitung total records pengguna (SD-11 langkah 3 & 4: selectTranscripts -> return(transcriptList, totalRecords))
     const countRes = await db.query(`SELECT COUNT(*) AS total FROM transcripts${whereClause}`, params);
     const totalRecords = parseInt(countRes.rows[0]?.total || '0', 10);
 

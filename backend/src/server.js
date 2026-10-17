@@ -59,6 +59,27 @@ fastify.register(require('@fastify/multipart'), {
 });
 
 // ----------------------------------------------------------
+// PLUGIN: @fastify/jwt
+// Autentikasi berbasis token JWT (SRS UC-01 & UC-02)
+// ----------------------------------------------------------
+fastify.register(require('@fastify/jwt'), {
+  secret: process.env.JWT_SECRET || 'simpulkata-jwt-default-secret-key-change-me',
+});
+
+// Decorator untuk memproteksi routes yang mewajibkan login
+fastify.decorate('authenticate', async function (request, reply) {
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    return reply.status(401).send({
+      status: 'error',
+      code: 'UNAUTHORIZED',
+      message: 'Akses ditolak. Token autentikasi tidak valid atau telah kedaluwarsa. Silakan login kembali.',
+    });
+  }
+});
+
+// ----------------------------------------------------------
 // ROUTES DASAR
 // ----------------------------------------------------------
 
@@ -104,6 +125,7 @@ fastify.get('/health/db', async (request, reply) => {
 // ----------------------------------------------------------
 // ROUTES APLIKASI
 // ----------------------------------------------------------
+fastify.register(require('./routes/auth'), { prefix: '/api/auth' });
 fastify.register(require('./routes/audio'), { prefix: '/api' });
 
 

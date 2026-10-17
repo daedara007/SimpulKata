@@ -17,10 +17,41 @@
           </div>
         </div>
         <div class="flex items-center gap-3">
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            Fastify & Whisper & Llama
-          </span>
+          <!-- Tombol Beranda -->
+          <button
+            type="button"
+            class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            @click="$emit('navigate', 'home')"
+          >
+            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <span>Beranda</span>
+          </button>
+
+          <!-- Info User & Sisa Saldo (Tugas 5) -->
+          <div v-if="userData?.name" class="hidden sm:flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              {{ userData.name }}
+            </span>
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700" :title="'Sisa kuota: ' + (userData.balance || 0) + ' detik'">
+              ⏱️ {{ formatDuration(userData.balance || 0) }} kuota
+            </span>
+          </div>
+
+          <!-- Tombol Logout (Tugas 5) -->
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700/80 hover:border-rose-500/30 transition-all cursor-pointer"
+            title="Keluar dari akun"
+            @click="handleLogoutClick"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span>Keluar</span>
+          </button>
         </div>
       </div>
     </header>
@@ -44,7 +75,6 @@
                 </div>
                 <div>
                   <h3 class="font-bold text-sm sm:text-base text-white">Riwayat Transkripsi</h3>
-                  <p class="text-[10px] text-slate-500 font-medium">SRS UC-11 &bull; SD-11</p>
                 </div>
                 <span class="ml-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700">
                   {{ totalRecords }}
@@ -194,13 +224,12 @@
                   </span>
                 </div>
 
-                <!-- Metadata Item: Tanggal/Timestamp, Durasi, Word Count, Token Count (SRS UC-11 Post Conditions) -->
+                <!-- Metadata Item: Tanggal/Timestamp, Durasi, Word Count -->
                 <div class="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
                   <span>{{ formatDate(item.created_at) }}</span>
                   <div class="flex items-center gap-2 text-[10px]">
                     <span v-if="item.duration_seconds > 0" class="text-slate-300 font-mono">⏱️ {{ formatDuration(item.duration_seconds) }}</span>
                     <span v-if="item.word_count > 0" class="text-indigo-400 font-medium">📝 {{ item.word_count }} kata</span>
-                    <span v-if="item.tokens_used > 0" class="text-slate-500 font-mono">• {{ item.tokens_used }} tkn</span>
                   </div>
                 </div>
               </button>
@@ -244,7 +273,7 @@
               Transkripsi & Rangkuman <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Audio AI</span>
             </h2>
             <p class="text-slate-400 text-xs sm:text-sm">
-              Unggah file audio rapat atau kuliah Anda. Sistem akan mentranskripsi dengan Whisper dan merangkumnya secara otomatis dengan Llama 3.1.
+              Unggah berkas audio rapat atau perkuliahan Anda. Sistem AI akan mentranskripsikan percakapan secara presisi dan menyusun rangkuman intisari secara otomatis.
             </p>
           </div>
 
@@ -370,7 +399,7 @@
               <div class="bg-gradient-to-r from-indigo-500 to-purple-500 h-1.5 rounded-full animate-pulse w-full"></div>
             </div>
             <p class="text-[11px] text-slate-400 text-center">
-              Proses mencakup konversi audio, transkripsi Whisper-large-v3, dan perangkuman Llama-3.1-8B.
+              Sistem sedang menganalisis berkas audio, mentranskripsikan percakapan, dan menyusun rangkuman intisari.
             </p>
           </div>
 
@@ -409,21 +438,21 @@
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                  <span>Hasil Pemrosesan AI</span>
+                  <span>Hasil Transkripsi & Rangkuman</span>
                   <span class="text-xs font-normal px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     Selesai
                   </span>
                 </h3>
-                <p v-if="transcriptId" class="text-xs text-slate-400 mt-0.5">
-                  ID Transkrip: <span class="font-mono text-slate-300">{{ transcriptId }}</span>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  Teks transkripsi lengkap dan intisari rangkuman audio
                 </p>
               </div>
               <div class="flex items-center gap-2 text-xs">
-                <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
-                  ⏱️ Durasi: <strong class="text-white">{{ formatDuration(meta.durationSeconds) }}</strong>
+                <span v-if="meta.durationSeconds" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
+                  ⏱️ Kuota Terpakai: <strong class="text-white">{{ formatDuration(meta.durationSeconds) }}</strong>
                 </span>
-                <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
-                  ⚡ Token: <strong class="text-white">{{ meta.tokensUsed }}</strong>
+                <span v-if="userData?.balance !== undefined" class="px-2.5 py-1 rounded-lg bg-indigo-950/60 text-indigo-300 border border-indigo-500/30">
+                  🔋 Sisa Kuota: <strong class="text-white font-mono">{{ formatDuration(userData.balance) }}</strong>
                 </span>
               </div>
             </div>
@@ -435,9 +464,9 @@
                 <div class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
-                    <h4 class="text-sm font-semibold text-slate-200">Transkripsi Mentah</h4>
+                    <h4 class="text-sm font-semibold text-slate-200">Teks Transkripsi</h4>
                     <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                      Whisper
+                      Lengkap
                     </span>
                   </div>
                   <button
@@ -471,9 +500,9 @@
                 <div class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
-                    <h4 class="text-sm font-semibold text-slate-200">Rangkuman Terstruktur</h4>
+                    <h4 class="text-sm font-semibold text-slate-200">Rangkuman Intisari</h4>
                     <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                      Llama 3.1
+                      Ringkas
                     </span>
                   </div>
                   <button
@@ -510,14 +539,50 @@
 
     <!-- Footer -->
     <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-500 mt-auto">
-      <p>SimpulKata MVP &bull; Fastify &bull; PostgreSQL &bull; Hugging Face AI</p>
+      <p>&copy; 2026 SimpulKata. Platform Transkripsi & Rangkuman AI.</p>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
+
+// =========================================================
+// PROPS & EMITS (Tugas 5)
+// =========================================================
+const props = defineProps({
+  currentUser: {
+    type: Object,
+    default: () => null,
+  },
+});
+
+const emit = defineEmits(['logout', 'navigate']);
+
+const userData = ref(props.currentUser || {});
+
+watch(() => props.currentUser, (newVal) => {
+  if (newVal) {
+    userData.value = newVal;
+  }
+}, { deep: true });
+
+async function fetchUserProfile() {
+  try {
+    const res = await axios.get('http://localhost:3000/api/auth/me');
+    if (res.data?.status === 'success') {
+      userData.value = res.data.data;
+      localStorage.setItem('simpulkata_user', JSON.stringify(res.data.data));
+    }
+  } catch (err) {
+    console.error('Gagal memuat profil pengguna:', err);
+  }
+}
+
+function handleLogoutClick() {
+  emit('logout');
+}
 
 // =========================================================
 // STATE
@@ -561,6 +626,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 // LIFECYCLE HOOK
 // =========================================================
 onMounted(() => {
+  fetchUserProfile();
   fetchHistory(1);
 });
 
@@ -713,9 +779,9 @@ async function processAudio() {
   timerInterval = setInterval(() => {
     loadingTimer.value++;
     if (loadingTimer.value === 3) {
-      loadingMessage.value = 'Whisper sedang mentranskripsi audio...';
+      loadingMessage.value = 'Sistem sedang mentranskripsikan audio...';
     } else if (loadingTimer.value === 12) {
-      loadingMessage.value = 'Llama 3.1 sedang merangkum hasil transkripsi...';
+      loadingMessage.value = 'Sistem sedang menyusun rangkuman intisari...';
     }
   }, 1000);
 
@@ -740,8 +806,9 @@ async function processAudio() {
       };
       selectedHistoryId.value = data.transcript_id;
 
-      // Auto-update riwayat terbaru setelah upload berhasil!
-      await fetchHistory();
+      // Auto-update riwayat dan sisa saldo setelah pemrosesan selesai!
+      await fetchHistory(1);
+      await fetchUserProfile();
 
       // Scroll halus ke area hasil
       setTimeout(() => {

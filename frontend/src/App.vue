@@ -1,7 +1,144 @@
+<template>
+  <div class="min-h-screen bg-slate-950 font-sans antialiased text-slate-100 selection:bg-indigo-500 selection:text-white">
+    <transition name="fade" mode="out-in">
+      <!-- Landing Page / Homepage (SaaS Style) -->
+      <Home
+        v-if="currentView === 'home'"
+        :key="'home'"
+        :is-authenticated="Boolean(token)"
+        @navigate="handleNavigate"
+      />
+
+      <!-- Workspace / Dashboard Transkripsi -->
+      <Dashboard
+        v-else-if="currentView === 'dashboard' && token"
+        :key="'dashboard'"
+        :current-user="currentUser"
+        @logout="handleLogout"
+        @navigate="handleNavigate"
+      />
+
+      <!-- Halaman Autentikasi (Login & Register) -->
+      <Auth
+        v-else
+        :key="'auth'"
+        :initial-tab="authInitialTab"
+        @login-success="handleLoginSuccess"
+        @back-to-home="handleNavigate('home')"
+      />
+    </transition>
+  </div>
+</template>
+
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue';
+import Home from './components/Home.vue';
 import Dashboard from './components/Dashboard.vue';
+import Auth from './components/Auth.vue';
+
+const token = ref(localStorage.getItem('simpulkata_token') || '');
+const currentUser = ref(null);
+const currentView = ref('home'); // 'home' | 'auth' | 'dashboard'
+const authInitialTab = ref('login'); // 'login' | 'register'
+
+try {
+  const savedUser = localStorage.getItem('simpulkata_user');
+  if (savedUser) {
+    currentUser.value = JSON.parse(savedUser);
+  }
+} catch (e) {
+  console.warn('Gagal mem-parse data user dari localStorage:', e);
+}
+
+// Inisialisasi tampilan awal berdasarkan URL hash atau status login
+function initViewFromHash() {
+  const hash = window.location.hash.toLowerCase();
+  if (hash === '#dashboard' && token.value) {
+    currentView.value = 'dashboard';
+  } else if (hash === '#register') {
+    authInitialTab.value = 'register';
+    currentView.value = 'auth';
+  } else if (hash === '#login' || hash === '#auth') {
+    authInitialTab.value = 'login';
+    currentView.value = 'auth';
+  } else {
+    // Default pengunjung melihat Landing Page / Homepage
+    currentView.value = token.value ? 'dashboard' : 'home';
+  }
+}
+
+function handleNavigate(targetView, tab = 'login') {
+  if (targetView === 'auth') {
+    authInitialTab.value = tab;
+    currentView.value = 'auth';
+    window.location.hash = `#${tab}`;
+  } else if (targetView === 'dashboard') {
+    if (token.value) {
+      currentView.value = 'dashboard';
+      window.location.hash = '#dashboard';
+    } else {
+      authInitialTab.value = 'login';
+      currentView.value = 'auth';
+      window.location.hash = '#login';
+    }
+  } else {
+    currentView.value = 'home';
+    window.location.hash = '';
+  }
+}
+
+function handleLoginSuccess({ token: newToken, user: newUser }) {
+  token.value = newToken;
+  currentUser.value = newUser;
+  currentView.value = 'dashboard';
+  window.location.hash = '#dashboard';
+}
+
+function handleLogout() {
+  token.value = '';
+  currentUser.value = null;
+  localStorage.removeItem('simpulkata_token');
+  localStorage.removeItem('simpulkata_user');
+  currentView.value = 'home';
+  window.location.hash = '';
+}
+
+function handleSessionExpired() {
+  handleLogout();
+  alert('Sesi Anda telah berakhir atau tidak valid. Silakan masuk kembali.');
+}
+
+onMounted(() => {
+  initViewFromHash();
+  window.addEventListener('hashchange', initViewFromHash);
+  window.addEventListener('simpulkata:session-expired', handleSessionExpired);
+  window.addEventListener('simpulkata:logout', handleLogout);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('hashchange', initViewFromHash);
+  window.removeEventListener('simpulkata:session-expired', handleSessionExpired);
+  window.removeEventListener('simpulkata:logout', handleLogout);
+});
 </script>
 
-<template>
-  <Dashboard />
-</template>
+<style>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+</style>

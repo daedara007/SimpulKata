@@ -64,27 +64,46 @@ async function convertAudioToMp3(inputPath) {
 }
 
 /**
- * Mentranskripsikan file audio fisik menjadi teks menggunakan Whisper di Hugging Face.
- * Juga mengekstrak durasi audio secara lokal menggunakan music-metadata.
+ * Mengekstrak durasi file audio secara lokal menggunakan music-metadata.
+ * Sangat cepat (beberapa milidetik) tanpa memanggil API AI eksternal.
  *
- * @param {string} filePath - Path absolut atau relatif ke file audio fisik di server
- * @returns {Promise<{ text: string, duration_seconds: number }>}
+ * @param {string} filePath - Path ke file audio fisik di server
+ * @returns {Promise<number>} - Durasi audio dalam detik (pembulatan ke atas)
  */
-async function transcribeAudio(filePath) {
+async function getAudioDuration(filePath) {
   if (!fs.existsSync(filePath)) {
     const err = new Error(`File audio tidak ditemukan di: ${filePath}`);
     err.code = 'FILE_NOT_FOUND';
     throw err;
   }
 
-  // Step 1: Deteksi durasi audio secara lokal
-  let duration_seconds = 0;
   try {
     const metadata = await mm.parseFile(filePath);
-    duration_seconds = Math.ceil(metadata.format.duration || 0);
+    return Math.ceil(metadata.format.duration || 0);
   } catch (metaErr) {
-    console.warn('[aiService] Gagal membaca metadata durasi audio:', metaErr.message);
-    duration_seconds = 0;
+    console.warn('[aiService] Gagal membaca metadata durasi audio via music-metadata:', metaErr.message);
+    return 0;
+  }
+}
+
+/**
+ * Mentranskripsikan file audio fisik menjadi teks menggunakan Whisper di Hugging Face.
+ *
+ * @param {string} filePath - Path absolut atau relatif ke file audio fisik di server
+ * @param {number|null} knownDuration - Durasi audio yang sudah diketahui sebelumnya (opsional)
+ * @returns {Promise<{ text: string, duration_seconds: number }>}
+ */
+async function transcribeAudio(filePath, knownDuration = null) {
+  if (!fs.existsSync(filePath)) {
+    const err = new Error(`File audio tidak ditemukan di: ${filePath}`);
+    err.code = 'FILE_NOT_FOUND';
+    throw err;
+  }
+
+  // Gunakan durasi yang sudah dihitung sebelumnya atau ekstrak jika belum ada
+  let duration_seconds = knownDuration;
+  if (duration_seconds === null || duration_seconds === undefined) {
+    duration_seconds = await getAudioDuration(filePath);
   }
 
   // Step 2: Konversi ke MP3 jika diperlukan (.m4a atau .wav agar ukuran kecil & tidak kena limit 413)
@@ -233,6 +252,7 @@ async function summarizeText(text) {
 }
 
 module.exports = {
+  getAudioDuration,
   transcribeAudio,
   summarizeText,
 };

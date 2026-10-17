@@ -12,8 +12,9 @@
 const audioController = require('../controllers/audioController');
 
 async function audioRoutes(fastify, options) {
-  fastify.post('/process-audio', audioController.processAudio);
-  fastify.get('/history', audioController.getHistory);
+  // Seluruh rute pemrosesan audio dan riwayat mewajibkan autentikasi JWT
+  fastify.post('/process-audio', { preHandler: [fastify.authenticate] }, audioController.processAudio);
+  fastify.get('/history', { preHandler: [fastify.authenticate] }, audioController.getHistory);
 }
 
 module.exports = audioRoutes;
