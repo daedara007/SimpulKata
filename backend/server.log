@@ -1,0 +1,163 @@
+nohup: ignoring input
+◇ injected env (9) from .env
+[aiService] PERINGATAN: HUGGINGFACE_API_KEY belum diisi atau masih placeholder di .env
+[06:59:35 UTC] [32mINFO[39m: [36m[Startup] Menguji koneksi ke database...[39m
+[DB] Koneksi berhasil. Waktu server DB: Sat Oct 17 2026 02:59:36 GMT-0400 (Eastern Daylight Time)
+[06:59:36 UTC] [32mINFO[39m: [36mServer listening at http://127.0.0.1:3000[39m
+[06:59:36 UTC] [32mINFO[39m: [36mServer listening at http://192.168.1.102:3000[39m
+[06:59:36 UTC] [32mINFO[39m: [36mServer listening at http://172.18.0.1:3000[39m
+[06:59:36 UTC] [32mINFO[39m: [36m[Startup] SimpulKata Backend berjalan di http://0.0.0.0:3000[39m
+[06:59:36 UTC] [32mINFO[39m: [36m[Startup] Health check: http://localhost:3000/health[39m
+[06:59:36 UTC] [32mINFO[39m: [36m[Startup] DB health  : http://localhost:3000/health/db[39m
+[06:59:36 UTC] [32mINFO[39m: [36mincoming request[39m
+    [35mreqId[39m: "req-1"
+    [35mreq[39m: {
+      "method": "GET",
+      "url": "/health",
+      "host": "localhost:3000",
+      "remoteAddress": "127.0.0.1",
+      "remotePort": 47694
+    }
+[06:59:36 UTC] [32mINFO[39m: [36mrequest completed[39m
+    [35mreqId[39m: "req-1"
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 17.375434999999925
+[07:01:40 UTC] [32mINFO[39m: [36mincoming request[39m
+    [35mreqId[39m: "req-2"
+    [35mreq[39m: {
+      "method": "GET",
+      "url": "/health/db",
+      "host": "localhost:3000",
+      "remoteAddress": "127.0.0.1",
+      "remotePort": 36354
+    }
+[07:01:40 UTC] [32mINFO[39m: [36mrequest completed[39m
+    [35mreqId[39m: "req-2"
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 43.58034699999553
+[07:02:10 UTC] [32mINFO[39m: [36mincoming request[39m
+    [35mreqId[39m: "req-3"
+    [35mreq[39m: {
+      "method": "POST",
+      "url": "/api/process-audio",
+      "host": "localhost:3000",
+      "remoteAddress": "127.0.0.1",
+      "remotePort": 34720
+    }
+[AudioController] File disimpan di: /home/kevin007/proyek/ippl/simpulkata/backend/storage/uploads/1792220530246-moi1wj4.mp3
+[AudioController] Record transcript dibuat: 2b30ea7a-6904-49e1-841e-f5c7bc4f2a5f (status: processing)
+[AudioController] Memulai transkripsi untuk transcript: 2b30ea7a-6904-49e1-841e-f5c7bc4f2a5f...
+[aiService] Gagal membaca metadata durasi audio: The value of "position" is out of range. It must be >= -1 && <= 9007199254740991. Received -15
+[aiService] Mengirim audio ke HF Whisper (openai/whisper-large-v3) - Percobaan 1...
+Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
+Auto selected provider: fal-ai
+[AudioController] Error saat memproses audio: Error: Gagal transkripsi audio via Hugging Face: Failed to perform inference: Invalid username or password.
+    at Object.transcribeAudio (/home/kevin007/proyek/ippl/simpulkata/backend/src/services/aiService.js:97:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Object.processAudio (/home/kevin007/proyek/ippl/simpulkata/backend/src/controllers/audioController.js:133:66) {
+  code: 'AI_SERVICE_ERROR',
+  originalError: InferenceClientProviderApiError: Failed to perform inference: Invalid username or password.
+      at innerRequest (/home/kevin007/proyek/ippl/simpulkata/backend/node_modules/@huggingface/inference/dist/commonjs/utils/request.js:52:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async automaticSpeechRecognition (/home/kevin007/proyek/ippl/simpulkata/backend/node_modules/@huggingface/inference/dist/commonjs/tasks/audio/automaticSpeechRecognition.js:15:27)
+      at async Object.transcribeAudio (/home/kevin007/proyek/ippl/simpulkata/backend/src/services/aiService.js:71:22)
+      at async Object.processAudio (/home/kevin007/proyek/ippl/simpulkata/backend/src/controllers/audioController.js:133:66) {
+    httpRequest: {
+      url: 'https://router.huggingface.co/fal-ai/fal-ai/whisper',
+      method: 'POST',
+      headers: [Object],
+      body: [Object]
+    },
+    httpResponse: {
+      requestId: 'Root=1-6ad31d73-75043c7f094ec2140efb5b3b',
+      status: 401,
+      body: [Object]
+    }
+  }
+}
+[AudioController] File sementara dibersihkan: /home/kevin007/proyek/ippl/simpulkata/backend/storage/uploads/1792220530246-moi1wj4.mp3
+[07:02:11 UTC] [32mINFO[39m: [36mrequest completed[39m
+    [35mreqId[39m: "req-3"
+    [35mres[39m: {
+      "statusCode": 503
+    }
+    [35mresponseTime[39m: 1177.608476000023
+[07:15:38 UTC] [32mINFO[39m: [36mincoming request[39m
+    [35mreqId[39m: "req-4"
+    [35mreq[39m: {
+      "method": "GET",
+      "url": "/",
+      "host": "192.168.1.102:3000",
+      "remoteAddress": "192.168.1.100",
+      "remotePort": 61809
+    }
+[07:15:38 UTC] [32mINFO[39m: [36mrequest completed[39m
+    [35mreqId[39m: "req-4"
+    [35mres[39m: {
+      "statusCode": 404
+    }
+    [35mresponseTime[39m: 3.217371000093408
+[07:15:38 UTC] [32mINFO[39m: [36mincoming request[39m
+    [35mreqId[39m: "req-5"
+    [35mreq[39m: {
+      "method": "GET",
+      "url": "/favicon.ico",
+      "host": "192.168.1.102:3000",
+      "remoteAddress": "192.168.1.100",
+      "remotePort": 61809
+    }
+[07:15:38 UTC] [32mINFO[39m: [36mrequest completed[39m
+    [35mreqId[39m: "req-5"
+    [35mres[39m: {
+      "statusCode": 404
+    }
+    [35mresponseTime[39m: 1.4633069999981672
+[07:15:54 UTC] [32mINFO[39m: [36mincoming request[39m
+    [35mreqId[39m: "req-6"
+    [35mreq[39m: {
+      "method": "GET",
+      "url": "/api/process-audio",
+      "host": "192.168.1.102:3000",
+      "remoteAddress": "192.168.1.100",
+      "remotePort": 61809
+    }
+[07:15:54 UTC] [32mINFO[39m: [36mrequest completed[39m
+    [35mreqId[39m: "req-6"
+    [35mres[39m: {
+      "statusCode": 404
+    }
+    [35mresponseTime[39m: 1.8686760000418872
+[08:04:01 UTC] [32mINFO[39m: [36mincoming request[39m
+    [35mreqId[39m: "req-7"
+    [35mreq[39m: {
+      "method": "GET",
+      "url": "/health",
+      "host": "192.168.1.102:3000",
+      "remoteAddress": "192.168.1.100",
+      "remotePort": 53566
+    }
+[08:04:01 UTC] [32mINFO[39m: [36mrequest completed[39m
+    [35mreqId[39m: "req-7"
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2.1531099998392165
+[08:04:11 UTC] [32mINFO[39m: [36mincoming request[39m
+    [35mreqId[39m: "req-8"
+    [35mreq[39m: {
+      "method": "GET",
+      "url": "/health/db",
+      "host": "192.168.1.102:3000",
+      "remoteAddress": "192.168.1.100",
+      "remotePort": 53566
+    }
+[08:04:11 UTC] [32mINFO[39m: [36mrequest completed[39m
+    [35mreqId[39m: "req-8"
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 53.90526899974793

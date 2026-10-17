@@ -1,0 +1,58 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-14: Memperbarui Saldo (Webhook Pembayaran)
+
+actor "Payment Gateway" as pg
+participant ":WebhookPaymentController" as ctrl
+participant ":TabelOrders" as dbOrder
+participant ":TabelUsers" as dbUser
+participant ":TabelTransactions" as dbTrans
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+pg -> ctrl : 1. kirimNotifikasiWebhook(payload, signature)
+activate pg
+activate ctrl
+
+ctrl -> ctrl : 2. validasiDigitalSignature(payload, signature)
+activate ctrl
+deactivate ctrl
+
+alt Digital Signature Valid (Normal Flow)
+    ctrl -> dbOrder : 3. getOrderByOrderId(payload.orderId)
+    activate dbOrder
+    dbOrder -->> ctrl : 4. return(orderData)
+    deactivate dbOrder
+
+    alt Order Masih Berstatus 'pending' (Normal Flow)
+        ctrl -> dbOrder : 5. updateStatusOrder(payload.orderId, Status='completed')
+        activate dbOrder
+        dbOrder -->> ctrl : 6. return(orderUpdated)
+        deactivate dbOrder
+
+        ctrl -> dbUser : 7. tambahSaldoKuota(orderData.userId, orderData.jumlahMenit)
+        activate dbUser
+        dbUser -->> ctrl : 8. return(saldoUpdated)
+        deactivate dbUser
+
+        ctrl -> dbTrans : 9. insertTransaksi(orderData.userId, payload.orderId, payload.grossAmount, Status='success')
+        activate dbTrans
+        dbTrans -->> ctrl : 10. return(transaksiSaved)
+        deactivate dbTrans
+
+        ctrl -->> pg : 11. return HTTP 200 OK ('Webhook berhasil diproses')
+
+    else else / Alternative: Order Sudah Selesai (Duplicate Webhook)
+        ctrl -->> pg : 5b. return HTTP 200 OK ('Order sudah berstatus selesai, abaikan duplikat')
+    end
+
+else else / Exceptional: Digital Signature Tidak Valid
+    ctrl -->> pg : 3b. return HTTP 400 Bad Request ('Signature tidak valid')
+end
+
+deactivate ctrl
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate pg
+@enduml

@@ -1,0 +1,64 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-07: Mengunggah Berkas Audio
+
+actor "Pengguna Reguler" as user
+participant ":HalamanUnggahAudio" as view
+participant ":AudioController" as ctrl
+participant ":FileSystemServer" as fs
+participant ":TabelUsers" as dbUser
+participant ":TabelAudios" as dbAudio
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. klikMenuUnggahAudio()
+activate user
+activate view
+view -->> user : 2. tampilkanFormUpload()
+
+user -> view : 3. pilihFileAudio(berkasAudio)
+
+view -> view : 4. validasiKlien(formatFile, ukuranFile)
+activate view
+deactivate view
+
+alt Format (.mp3/.wav) dan Ukuran (<= 50MB) Valid (Normal Flow)
+    user -> view : 5. klikMulaiUnggah()
+    view -> ctrl : 6. uploadAudio(userId, berkasAudio)
+    activate ctrl
+
+    ctrl -> dbUser : 7. selectBalance(userId)
+    activate dbUser
+    dbUser -->> ctrl : 8. return(quotaBalance)
+    deactivate dbUser
+
+    alt Saldo Kuota Cukup (> 0 Menit) (Normal Flow)
+        ctrl -> fs : 9. simpanBerkasKeFolder('storage/uploads/', berkasAudio)
+        activate fs
+        fs -->> ctrl : 10. return(filePath)
+        deactivate fs
+
+        ctrl -> dbAudio : 11. insertAudioMetadata(userId, namaFile, filePath, ukuran, Status='Ready')
+        activate dbAudio
+        dbAudio -->> ctrl : 12. return(audioId)
+        deactivate dbAudio
+
+        ctrl -->> view : 13. return(uploadSuccess, audioId)
+        view -->> user : 14. tampilkanProgressBar(100%)\n& notifikasiSukses('File berhasil diunggah')
+
+    else else / Exceptional: Saldo Kuota Habis (<= 0)
+        ctrl -->> view : 9b. return(errorKuotaTidakCukup)
+        view -->> user : 10b. tampilkanPesanError('Kuota tidak mencukupi. Silakan top up')
+    end
+    deactivate ctrl
+
+else else / Exceptional: Format Tidak Sesuai atau Ukuran > 50MB
+    view -->> user : 5b. tampilkanPesanError('Format harus .mp3/.wav dan ukuran maksimal 50MB')
+end
+
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

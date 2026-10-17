@@ -1,0 +1,73 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-12: Menghapus Riwayat Transkripsi
+
+actor "Pengguna Reguler" as user
+participant ":HalamanRiwayatTranskripsi" as view
+participant ":HistoryController" as ctrl
+participant ":FileSystemServer" as fs
+participant ":TabelTranscripts" as dbTrans
+participant ":TabelSummaries" as dbSumm
+participant ":TabelAudios" as dbAudio
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. klikHapusRiwayat(transcriptId)
+activate user
+activate view
+view -->> user : 2. tampilkanModalKonfirmasi('Yakin ingin menghapus?')
+
+alt Pengguna Mengonfirmasi 'Ya' (Normal Flow)
+    user -> view : 3a. konfirmasiHapus()
+    view -> ctrl : 4a. deleteTranscript(userId, transcriptId)
+    activate ctrl
+
+    ctrl -> dbTrans : 5. cekKepemilikanDanGetAudioId(userId, transcriptId)
+    activate dbTrans
+    dbTrans -->> ctrl : 6. return(transcriptRecord, audioId)
+    deactivate dbTrans
+
+    alt Valid dan Milik Pengguna Sendiri (Normal Flow)
+        ctrl -> dbSumm : 7. deleteSummaryByTranscriptId(transcriptId)
+        activate dbSumm
+        dbSumm -->> ctrl : 8. return(summariesDeleted)
+        deactivate dbSumm
+
+        ctrl -> dbTrans : 9. deleteTranscriptById(transcriptId)
+        activate dbTrans
+        dbTrans -->> ctrl : 10. return(transcriptDeleted)
+        deactivate dbTrans
+
+        ctrl -> dbAudio : 11. getAudioFilePath(audioId)
+        activate dbAudio
+        dbAudio -->> ctrl : 12. return(filePath)
+        deactivate dbAudio
+
+        opt Berkas Tersimpan di Penyimpanan Lokal
+            ctrl -> fs : 13. hapusBerkas(filePath)
+            activate fs
+            fs -->> ctrl : 14. return(fileDeleted)
+            deactivate fs
+        end
+
+        ctrl -->> view : 15. return(deleteSuccess)
+        view -> view : 16. perbaruiTampilanTabel()
+        view -->> user : 17. tampilkanNotifikasiSukses('Data berhasil dihapus')
+
+    else else / Exceptional: Akses Ditolak (Bukan Milik Pengguna)
+        ctrl -->> view : 7b. return(errorAksesDitolak)
+        view -->> user : 8b. tampilkanPesanError('Anda tidak berwenang menghapus data ini')
+    end
+    deactivate ctrl
+
+else else / Alternative: Pengguna Memilih 'Batal'
+    user -> view : 3b. klikBatal()
+    view -->> user : 4b. tutupModalKonfirmasi()
+end
+
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

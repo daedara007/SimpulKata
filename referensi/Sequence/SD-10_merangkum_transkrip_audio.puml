@@ -1,0 +1,76 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-10: Merangkum Transkrip Audio
+
+actor "Pengguna Reguler" as user
+participant ":HalamanRangkuman" as view
+participant ":SummaryController" as ctrl
+participant ":API_AI_LLM" as llm
+participant ":TabelUsers" as dbUser
+participant ":TabelTranscripts" as dbTrans
+participant ":TabelSummaries" as dbSumm
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. klikBuatRangkuman(transcriptId)
+activate user
+activate view
+
+view -> ctrl : 2. generateSummary(userId, transcriptId)
+activate ctrl
+
+ctrl -> dbTrans : 3. getTextTranscript(transcriptId)
+activate dbTrans
+dbTrans -->> ctrl : 4. return(rawTranscriptText)
+deactivate dbTrans
+
+ctrl -> ctrl : 5. evaluasiPanjangToken(rawTranscriptText)
+activate ctrl
+deactivate ctrl
+
+alt Panjang Teks Valid (<= 128.000 token) (Normal Flow)
+    ctrl -> dbUser : 6. selectBalance(userId)
+    activate dbUser
+    dbUser -->> ctrl : 7. return(quotaBalance)
+    deactivate dbUser
+
+    alt Saldo Kuota Tersedia (> 0) (Normal Flow)
+        ctrl -> ctrl : 8. susunPromptSistem(rawTranscriptText)
+        activate ctrl
+        deactivate ctrl
+
+        ctrl -> llm : 9. requestChatCompletion(prompt, rawTranscriptText)
+        activate llm
+        llm -->> ctrl : 10. return(structuredSummaryText, tokensUsed)
+        deactivate llm
+
+        ctrl -> dbSumm : 11. insertSummary(transcriptId, structuredSummaryText, Status='Completed')
+        activate dbSumm
+        dbSumm -->> ctrl : 12. return(summaryId)
+        deactivate dbSumm
+
+        ctrl -> dbUser : 13. kurangiSaldoKuota(userId, tokenCost)
+        activate dbUser
+        dbUser -->> ctrl : 14. return(updatedBalance)
+        deactivate dbUser
+
+        ctrl -->> view : 15. return(summarySuccess, structuredSummaryText)
+        view -->> user : 16. tampilkanHasilRangkuman()\n& notifikasiSukses('Rangkuman berhasil dibuat')
+
+    else else / Exceptional: Saldo Kuota Habis
+        ctrl -->> view : 8b. return(errorKuotaTidakCukup)
+        view -->> user : 9b. tampilkanPesanError('Kuota tidak mencukupi untuk membuat rangkuman')
+    end
+
+else else / Exceptional: Teks Melebihi Batas Maksimal (> 128.000 token)
+    ctrl -->> view : 6b. return(errorPanjangToken)
+    view -->> user : 7b. tampilkanPesanError('Transkrip terlalu panjang untuk diproses')
+end
+
+deactivate ctrl
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

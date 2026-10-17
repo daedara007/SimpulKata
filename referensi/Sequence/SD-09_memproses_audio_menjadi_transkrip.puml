@@ -1,0 +1,73 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-09: Memproses Audio Menjadi Transkrip
+
+actor "Pengguna Reguler" as user
+participant ":HalamanTranskripsi" as view
+participant ":TranscriptionController" as ctrl
+participant ":API_AI_STT" as stt
+participant ":FileSystemServer" as fs
+participant ":TabelUsers" as dbUser
+participant ":TabelAudios" as dbAudio
+participant ":TabelTranscripts" as dbTrans
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. klikMulaiTranskripsi(audioId)
+activate user
+activate view
+
+view -> ctrl : 2. requestTranscribe(userId, audioId)
+activate ctrl
+
+ctrl -> dbUser : 3. selectBalance(userId)
+activate dbUser
+dbUser -->> ctrl : 4. return(quotaBalance)
+deactivate dbUser
+
+alt Saldo Kuota Mencukupi (> 0) (Normal Flow)
+    ctrl -> dbAudio : 5. updateStatus(audioId, 'Processing')
+    activate dbAudio
+    dbAudio -->> ctrl : 6. return(updated)
+    deactivate dbAudio
+
+    ctrl -> dbAudio : 7. getFilePath(audioId)
+    activate dbAudio
+    dbAudio -->> ctrl : 8. return(filePath)
+    deactivate dbAudio
+
+    ctrl -> fs : 9. bacaFileAudio(filePath)
+    activate fs
+    fs -->> ctrl : 10. return(audioBuffer)
+    deactivate fs
+
+    ctrl -> stt : 11. requestSpeechToText(audioBuffer, model='whisper')
+    activate stt
+    stt -->> ctrl : 12. return(rawTranscriptText, durationMinutes)
+    deactivate stt
+
+    ctrl -> dbTrans : 13. insertTranscript(audioId, rawTranscriptText, durationMinutes, Status='Completed')
+    activate dbTrans
+    dbTrans -->> ctrl : 14. return(transcriptId)
+    deactivate dbTrans
+
+    ctrl -> dbUser : 15. kurangiSaldoKuota(userId, durationMinutes)
+    activate dbUser
+    dbUser -->> ctrl : 16. return(updatedBalance)
+    deactivate dbUser
+
+    ctrl -->> view : 17. return(transcribeSuccess, rawTranscriptText)
+    view -->> user : 18. tampilkanHasilTranskrip()\n& notifikasiSukses('Transkripsi berhasil diselesaikan')
+
+else else / Exceptional: Saldo Kuota Tidak Mencukupi
+    ctrl -->> view : 5b. return(errorKuotaHabis)
+    view -->> user : 6b. tampilkanPesanError('Kuota tidak mencukupi. Silakan top up')
+end
+
+deactivate ctrl
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

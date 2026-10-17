@@ -1,0 +1,53 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-16: Melihat Daftar Pengguna
+
+actor "Administrator" as admin
+participant ":HalamanDaftarPengguna" as view
+participant ":AdminController" as ctrl
+participant ":TabelUsers" as dbUser
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+admin -> view : 1. bukaMenuDaftarPengguna(filterStatus, kataKunci, page)
+activate admin
+activate view
+
+view -> ctrl : 2. getUsersList(adminToken, filterStatus, kataKunci, page, limit=50)
+activate ctrl
+
+ctrl -> ctrl : 3. verifikasiHakAksesAdmin(adminToken)
+activate ctrl
+deactivate ctrl
+
+ctrl -> dbUser : 4. selectUsers(filterStatus, kataKunci, offset, limit)
+activate dbUser
+dbUser -->> ctrl : 5. return(userList, totalUsers)
+deactivate dbUser
+
+ctrl -->> view : 6. return(userList, totalUsers)
+deactivate ctrl
+
+view -->> admin : 7. renderTabelPengguna(id, nama, email, saldoKuota, status)
+
+opt Administrator Memilih 'Export Daftar Pengguna'
+    admin -> view : 8. klikExportUserList()
+    view -> ctrl : 9. exportUsersCsv(adminToken)
+    activate ctrl
+
+    ctrl -> ctrl : 10. susunDataCSV(userList)
+    activate ctrl
+    deactivate ctrl
+
+    ctrl -->> view : 11. return(csvFileStream)
+    deactivate ctrl
+
+    view -->> admin : 12. unduhBerkas('users.csv')
+end
+
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate admin
+@enduml

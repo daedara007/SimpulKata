@@ -1,0 +1,53 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-13: Melakukan Checkout Pembelian Kuota
+
+actor "Pengguna Reguler" as user
+participant ":HalamanTopUpKuota" as view
+participant ":PaymentController" as ctrl
+participant ":PaymentGateway" as pg
+participant ":TabelOrders" as dbOrder
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. klikMenuTopUpKuota()
+activate user
+activate view
+view -->> user : 2. tampilkanPilihanPaketKuota()
+
+user -> view : 3. pilihPaketKuota(packageId)
+user -> view : 4. klikBeli()
+
+view -> ctrl : 5. createCheckout(userId, packageId)
+activate ctrl
+
+ctrl -> ctrl : 6. tentukanHargaDanMenit(packageId)
+activate ctrl
+deactivate ctrl
+
+ctrl -> dbOrder : 7. insertOrder(userId, packageId, nominal, Status='pending')
+activate dbOrder
+dbOrder -->> ctrl : 8. return(orderId)
+deactivate dbOrder
+
+ctrl -> pg : 9. createTransaction(orderId, nominal, customerDetails)
+activate pg
+pg -->> ctrl : 10. return(checkoutUrl, transactionToken)
+deactivate pg
+
+ctrl -> dbOrder : 11. updateOrderGatewayToken(orderId, transactionToken)
+activate dbOrder
+dbOrder -->> ctrl : 12. return(updated)
+deactivate dbOrder
+
+ctrl -->> view : 13. return(checkoutUrl)
+deactivate ctrl
+
+view -->> user : 14. alihkanKeHalamanGateway(checkoutUrl)
+
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

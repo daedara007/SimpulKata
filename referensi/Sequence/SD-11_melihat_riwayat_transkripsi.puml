@@ -1,0 +1,42 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-11: Melihat Riwayat Transkripsi
+
+actor "Pengguna Reguler" as user
+participant ":HalamanRiwayatTranskripsi" as view
+participant ":HistoryController" as ctrl
+participant ":TabelTranscripts" as dbTrans
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. klikMenuRiwayatTranskripsi(filterStatus, page)
+activate user
+activate view
+
+view -> ctrl : 2. getHistory(userId, page, limit=20, filterStatus)
+activate ctrl
+
+ctrl -> dbTrans : 3. selectTranscripts(userId, page, limit, filterStatus)
+activate dbTrans
+dbTrans -->> ctrl : 4. return(transcriptList, totalRecords)
+deactivate dbTrans
+
+ctrl -> ctrl : 5. formatDataRiwayat(transcriptList, totalRecords)
+activate ctrl
+deactivate ctrl
+
+ctrl -->> view : 6. return(historyData, totalRecords)
+deactivate ctrl
+
+alt Terdapat Data Riwayat (Normal Flow)
+    view -->> user : 7a. renderTabelRiwayat(daftarItem, badgeStatus, pagination)
+else else / Alternative: Tidak Ada Riwayat
+    view -->> user : 7b. tampilkanPesan('Belum ada transkripsi. Silakan unggah atau rekam audio')
+end
+
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

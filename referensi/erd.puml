@@ -1,0 +1,89 @@
+@startuml
+' Konfigurasi Visual
+hide circle
+skinparam linetype ortho
+skinparam EntityBackgroundColor Moccasin
+skinparam EntityBorderColor DarkGoldenRod
+skinparam EntityAttributeIconSize 0
+
+' --- DEFINISI ENTITAS ---
+
+entity "users" {
+  * id : UUID <<PK>>
+  --
+  * email : VARCHAR(255) <<UNIQUE>>
+  * password_hash : VARCHAR(255)
+  * name : VARCHAR(100)
+  * balance : INTEGER 
+  * role : VARCHAR(20) 
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "user_sessions" {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * refresh_token : VARCHAR(255)
+  * ip_address : VARCHAR(45)
+  * user_agent : TEXT
+  * expires_at : TIMESTAMP
+  * created_at : TIMESTAMP
+}
+
+entity "otp_requests" {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * otp_code : VARCHAR(6)
+  * context : VARCHAR(50) 
+  * expires_at : TIMESTAMP
+  * is_used : BOOLEAN
+  * created_at : TIMESTAMP
+}
+
+entity "transcripts" {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * original_file_name : VARCHAR(255)
+  * file_path : VARCHAR(255)
+  * duration_seconds : INTEGER
+  * raw_text : TEXT
+  * summary_text : TEXT
+  * status : VARCHAR(50) 
+  * tokens_used : INTEGER
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "orders" {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * amount : DECIMAL(12,2)
+  * package_minutes : INTEGER
+  * status : VARCHAR(50) 
+  * payment_url : VARCHAR(255)
+  * webhook_processed : BOOLEAN
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "system_logs" {
+  * id : UUID <<PK>>
+  --
+  * level : VARCHAR(20) 
+  * source : VARCHAR(100)
+  * message : TEXT
+  * created_at : TIMESTAMP
+}
+
+' --- RELASI ---
+
+users ||--o{ user_sessions : "memiliki (1:N)"
+users ||--o{ otp_requests : "melakukan (1:N)"
+users ||--o{ transcripts : "memiliki (1:N)"
+users ||--o{ orders : "melakukan (1:N)"
+
+@enduml

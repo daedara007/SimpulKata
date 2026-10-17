@@ -1,0 +1,68 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-02: Melakukan Login
+
+actor "Pengguna / Admin" as user
+participant ":HalamanLogin" as view
+participant ":AuthController" as ctrl
+participant ":TabelUsers" as db
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. bukaHalamanLogin()
+activate user
+activate view
+view -->> user : 2. tampilkanFormLogin()
+
+user -> view : 3. inputKredensial(Email, Kata_Sandi)
+user -> view : 4. klikMasuk()
+
+view -> ctrl : 5. login(Email, Kata_Sandi)
+activate ctrl
+
+ctrl -> db : 6. getUserByEmail(Email)
+activate db
+db -->> ctrl : 7. return(userData)
+deactivate db
+
+alt Email Terdaftar & Akun Tidak Terkunci (Normal Flow)
+    ctrl -> ctrl : 8. verifikasiHashPassword(Kata_Sandi, userData.Password_Hash)
+    activate ctrl
+    deactivate ctrl
+
+    alt Password Benar dan Cocok
+        ctrl -> ctrl : 9. generateSessionToken(userData.id, userData.role)
+        activate ctrl
+        deactivate ctrl
+
+        ctrl -> db : 10. resetFailedAttemptsAndUpdateLogin(userData.id)
+        activate db
+        db -->> ctrl : 11. return(updateSuccess)
+        deactivate db
+
+        ctrl -->> view : 12. return(loginSuccess, sessionToken, userData.role)
+        view -> view : 13. simpanSessionToken(sessionToken)
+        view -->> user : 14. tampilkanDashboardSesuaiRole(userData.role)
+
+    else else / Exceptional: Password Salah
+        ctrl -> db : 9b. incrementFailedAttempts(userData.id)
+        activate db
+        db -->> ctrl : 10b. return(updatedAttempts)
+        deactivate db
+
+        ctrl -->> view : 11b. return(errorKredensialSalah)
+        view -->> user : 12b. tampilkanPesanError('Email atau kata sandi salah')
+    end
+
+else else / Exceptional: Email Tidak Ditemukan atau Akun Terkunci (5x Salah)
+    ctrl -->> view : 8b. return(errorAkunTerkunciAtauTidakAda)
+    view -->> user : 9c. tampilkanPesanError('Akun terkunci / email tidak terdaftar')
+end
+
+deactivate ctrl
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

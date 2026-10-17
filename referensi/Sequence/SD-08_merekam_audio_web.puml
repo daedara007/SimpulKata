@@ -1,0 +1,94 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-08: Perekaman Audio & Penanganan Offline (SimpulKata)
+
+actor "Pengguna Reguler" as user
+participant ":Frontend (Vue.js)" as view
+participant ":MediaRecorder API" as mr
+participant ":IndexedDB" as idb
+participant ":Backend (Fastify)" as ctrl
+participant ":Storage" as fs
+participant ":Database" as dbAudio
+
+' --- AWAL INTERAKSI ---
+user -> view : 1. klikMulaiRekam()
+activate user
+activate view
+
+view -> mr : 2. getUserMedia({audio: true})\n& startRecording(5000ms)
+activate mr
+mr -->> view : 3. return(audioStream)
+view -->> user : 4. tampilkanTimerDanIndikatorMerekam()
+
+loop Setiap Interval 5 Detik
+    mr -> view : 5. ondataavailable(audioChunk)
+    view -> idb : 6. simpanDrafSementara(audioChunk)
+    activate idb
+    idb -->> view : 7. return(chunkSaved)
+    deactivate idb
+end
+
+user -> view : 8. klikHentikanRekaman()
+view -> mr : 9. stopRecording()
+mr -->> view : 10. onstop(finalAudioBlob)
+deactivate mr
+
+view -> idb : 11. simpanFinalDraf(finalAudioBlob)
+activate idb
+idb -->> view : 12. return(saved)
+deactivate idb
+
+' --- PROSES TRANSKRIPSI & OFFLINE HANDLING ---
+user -> view : 13. klikTombolTranskripsi()
+
+alt navigator.onLine == false (Offline)
+    view -->> user : 14. tampilkanNotif("Koneksi Terputus - Draf Tersimpan")
+    
+    loop Sampai Koneksi Internet Pulih
+        view -> view : 15. tunggu(10 detik)
+        view -> view : 16. cekUlangKoneksi()
+    end
+    
+    view -->> user : 17. tampilkanNotif("Terhubung Kembali - Mengirim Ulang Draf")
+else navigator.onLine == true (Online)
+    view -> view : 18. setStatus("Mengirim Data")
+end
+
+' --- PENGIRIMAN DATA KE BACKEND ---
+view -> idb : 19. ambilBerkasAudio()
+activate idb
+idb -->> view : 20. return(audioBlob)
+deactivate idb
+
+view -> ctrl : 21. POST /upload (jwtToken, audioBlob)
+activate ctrl
+
+ctrl -> ctrl : 22. validasiTokenJWT() & validasiFormat()
+
+ctrl -> fs : 23. simpanKeStorage(audioBlob)
+activate fs
+fs -->> ctrl : 24. return(savedFilePath)
+deactivate fs
+
+ctrl -> dbAudio : 25. insertAudioMetadata(userId, savedFilePath)
+activate dbAudio
+dbAudio -->> ctrl : 26. return(audioId)
+deactivate dbAudio
+
+ctrl -->> view : 27. HTTP 200 OK (Data Transkripsi/AudioId)
+deactivate ctrl
+
+' --- PEMBERSIHAN & HASIL ---
+view -> idb : 28. hapusDrafBerkasAudio()
+activate idb
+idb -->> view : 29. return(cleared)
+deactivate idb
+
+view -->> user : 30. tampilkanHasilTranskripsi()
+
+deactivate view
+deactivate user
+@enduml

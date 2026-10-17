@@ -1,0 +1,96 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-01: Melakukan Registrasi Akun
+
+actor "Pengguna Reguler" as user
+participant ":HalamanRegistrasi" as view
+participant ":AuthController" as ctrl
+participant ":LayananEmail" as mail
+participant ":TabelUsers" as db
+participant ":TabelOTP" as dbOtp
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. klikDaftar()
+activate user
+activate view
+view -->> user : 2. tampilkanFormRegistrasi()
+
+user -> view : 3. inputDataRegistrasi(Nama_Lengkap, Email, Kata_Sandi, Konfirmasi_Sandi)
+user -> view : 4. submitFormRegistrasi()
+
+view -> ctrl : 5. registerUser(dataRegistrasi)
+activate ctrl
+
+ctrl -> ctrl : 6. validasiInput(formatEmail, panjangSandi >= 8, kecocokanSandi)
+activate ctrl
+deactivate ctrl
+
+alt Validasi Input Berhasil (Normal Flow)
+    ctrl -> db : 7. cekEmailTerdaftar(Email)
+    activate db
+    db -->> ctrl : 8. return(emailBelumAda)
+    deactivate db
+
+    ctrl -> ctrl : 9. hashKataSandi(Kata_Sandi)
+    activate ctrl
+    deactivate ctrl
+
+    ctrl -> db : 10. insertUserBaru(Nama_Lengkap, Email, Hash_Sandi, Status='PENDING')
+    activate db
+    db -->> ctrl : 11. return(userId)
+    deactivate db
+
+    ctrl -> ctrl : 12. generateKodeOTP()
+    activate ctrl
+    deactivate ctrl
+
+    ctrl -> dbOtp : 13. simpanOTP(userId, kodeOTP, expiredAt=5Menit)
+    activate dbOtp
+    dbOtp -->> ctrl : 14. return(otpSaved)
+    deactivate dbOtp
+
+    ctrl -> mail : 15. kirimEmailOTP(Email, kodeOTP)
+    activate mail
+    mail -->> ctrl : 16. return(emailTerkirim)
+    deactivate mail
+
+    ctrl -->> view : 17. return(registrasiBerhasil, userId)
+    view -->> user : 18. tampilkanHalamanVerifikasiOTP(pesan='Silakan cek email')
+
+    user -> view : 19. inputKodeOTP(kodeOTP)
+    user -> view : 20. submitVerifikasiOTP()
+
+    view -> ctrl : 21. verifikasiOTP(userId, kodeOTP)
+
+    ctrl -> dbOtp : 22. getValidOTP(userId, kodeOTP)
+    activate dbOtp
+    dbOtp -->> ctrl : 23. return(otpData)
+    deactivate dbOtp
+
+    alt OTP Valid dan Belum Kadaluarsa
+        ctrl -> db : 24. updateStatusUser(userId, Status='ACTIVE')
+        activate db
+        db -->> ctrl : 25. return(updateSuccess)
+        deactivate db
+
+        ctrl -->> view : 26. return(verifikasiSukses)
+        view -->> user : 27. tampilkanNotifikasiSukses & alihkanKeHalamanLogin(UC-02)
+
+    else else / Exceptional: OTP Salah atau Kadaluarsa
+        ctrl -->> view : 24b. return(errorOtpTidakValid)
+        view -->> user : 25b. tampilkanPesanError('OTP salah atau kadaluarsa')
+    end
+
+else else / Exceptional: Validasi Input Gagal (Format Salah / Password < 8 / Konfirmasi Beda)
+    ctrl -->> view : 7b. return(errorValidasi)
+    view -->> user : 8b. tampilkanPesanError('Data registrasi tidak valid')
+end
+
+deactivate ctrl
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

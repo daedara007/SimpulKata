@@ -1,0 +1,77 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-04: Mengubah Profil
+
+actor "Pengguna Reguler" as user
+participant ":HalamanProfil" as view
+participant ":UserController" as ctrl
+participant ":LayananEmail" as mail
+participant ":TabelUsers" as db
+participant ":TabelOTP" as dbOtp
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. bukaMenuProfil()
+activate user
+activate view
+
+view -> ctrl : 2. getProfileData(userId)
+activate ctrl
+ctrl -> db : 3. selectUserById(userId)
+activate db
+db -->> ctrl : 4. return(userProfile)
+deactivate db
+ctrl -->> view : 5. return(userProfile)
+view -->> user : 6. tampilkanDataProfil(Nama, Email)
+
+user -> view : 7. editDataProfil(Nama_Baru, Email_Baru, Password_Saat_Ini)
+user -> view : 8. klikSimpanPerubahan()
+
+view -> ctrl : 9. updateProfile(userId, Nama_Baru, Email_Baru, Password_Saat_Ini)
+
+ctrl -> db : 10. getPasswordHash(userId)
+activate db
+db -->> ctrl : 11. return(currentHash)
+deactivate db
+
+ctrl -> ctrl : 12. verifikasiPassword(Password_Saat_Ini, currentHash)
+activate ctrl
+deactivate ctrl
+
+alt Password Saat Ini Benar (Normal Flow)
+    opt Jika Email Berubah
+        ctrl -> ctrl : 13. generateEmailOTP()
+        activate ctrl
+        deactivate ctrl
+
+        ctrl -> dbOtp : 14. simpanEmailOTP(userId, Email_Baru, otpCode)
+        activate dbOtp
+        dbOtp -->> ctrl : 15. return(otpSaved)
+        deactivate dbOtp
+
+        ctrl -> mail : 16. kirimEmailVerifikasi(Email_Baru, otpCode)
+        activate mail
+        mail -->> ctrl : 17. return(emailSent)
+        deactivate mail
+    end
+
+    ctrl -> db : 18. updateProfileData(userId, Nama_Baru)
+    activate db
+    db -->> ctrl : 19. return(updateSuccess)
+    deactivate db
+
+    ctrl -->> view : 20. return(successStatus)
+    view -->> user : 21. tampilkanNotifikasiSukses('Profil berhasil diperbarui')
+
+else else / Exceptional: Password Saat Ini Salah
+    ctrl -->> view : 13b. return(errorPasswordSalah)
+    view -->> user : 14b. tampilkanPesanError('Password saat ini salah')
+end
+
+deactivate ctrl
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

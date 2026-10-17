@@ -1,0 +1,43 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-17: Melihat Transaksi Global
+
+actor "Administrator" as admin
+participant ":HalamanTransaksiGlobal" as view
+participant ":AdminController" as ctrl
+participant ":TabelTransactions" as dbTrans
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+admin -> view : 1. bukaMenuTransaksiGlobal(filterStatus, rentangTanggal, page)
+activate admin
+activate view
+
+view -> ctrl : 2. getGlobalTransactions(adminToken, filterStatus, rentangTanggal, page, limit=50)
+activate ctrl
+
+ctrl -> ctrl : 3. verifikasiRoleAdmin(adminToken)
+activate ctrl
+deactivate ctrl
+
+ctrl -> dbTrans : 4. selectGlobalTransactions(filterStatus, rentangTanggal, offset, limit)
+activate dbTrans
+dbTrans -->> ctrl : 5. return(transactionList, totalTransactions)
+deactivate dbTrans
+
+ctrl -> dbTrans : 6. hitungTotalPendapatan(rentangTanggal)
+activate dbTrans
+dbTrans -->> ctrl : 7. return(totalRevenue)
+deactivate dbTrans
+
+ctrl -->> view : 8. return(transactionList, totalRevenue, totalTransactions)
+deactivate ctrl
+
+view -->> admin : 9. renderDashboardTransaksi(totalRevenueWidget, tabelTransaksiGlobal)
+
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate admin
+@enduml

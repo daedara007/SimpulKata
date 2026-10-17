@@ -1,0 +1,53 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-15: Memantau Log Sistem
+
+actor "Administrator" as admin
+participant ":HalamanLogSistem" as view
+participant ":AdminController" as ctrl
+participant ":TabelLogs" as dbLog
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+admin -> view : 1. bukaMenuLogSistem(filterLevel, filterTanggal)
+activate admin
+activate view
+
+view -> ctrl : 2. getSystemLogs(adminToken, filterLevel, filterTanggal)
+activate ctrl
+
+ctrl -> ctrl : 3. verifikasiRoleAdmin(adminToken)
+activate ctrl
+deactivate ctrl
+
+ctrl -> dbLog : 4. selectRecentLogs(filterLevel, filterTanggal, limit=1000)
+activate dbLog
+dbLog -->> ctrl : 5. return(logEntries)
+deactivate dbLog
+
+ctrl -->> view : 6. return(logEntries)
+deactivate ctrl
+
+view -->> admin : 7. renderTabelLog(timestamp, level, source, message)
+
+opt Administrator Memilih 'Export CSV'
+    admin -> view : 8. klikExportCSV()
+    view -> ctrl : 9. exportLogsCsv(adminToken, filterLevel, filterTanggal)
+    activate ctrl
+
+    ctrl -> ctrl : 10. konversiLogKeFormatCSV(logEntries)
+    activate ctrl
+    deactivate ctrl
+
+    ctrl -->> view : 11. return(csvFileStream)
+    deactivate ctrl
+
+    view -->> admin : 12. unduhBerkas('logs.csv')
+end
+
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate admin
+@enduml

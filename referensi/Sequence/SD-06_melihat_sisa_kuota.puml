@@ -1,0 +1,44 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-06: Melihat Sisa Kuota
+
+actor "Pengguna Reguler" as user
+participant ":DashboardUtama" as view
+participant ":QuotaController" as ctrl
+participant ":TabelUsers" as db
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. bukaDashboardUtama()
+activate user
+activate view
+
+view -> ctrl : 2. getQuota(userId)
+activate ctrl
+
+ctrl -> db : 3. selectBalance(userId)
+activate db
+db -->> ctrl : 4. return(quotaBalance)
+deactivate db
+
+ctrl -> ctrl : 5. evaluasiStatusThreshold(quotaBalance)
+activate ctrl
+deactivate ctrl
+
+ctrl -->> view : 6. return(quotaBalance, badgeStatus)
+deactivate ctrl
+
+alt Kuota Masih Cukup (> 10 Menit)
+    view -->> user : 7a. tampilkanKartuKuota(badge='Hijau', sisaMenit)
+else else / Alternative: Kuota Menipis (5 - 10 Menit)
+    view -->> user : 7b. tampilkanKartuKuota(badge='Kuning')\n& tampilkanTombolTopUp()
+else else / Alternative: Kuota Habis (0 Menit)
+    view -->> user : 7c. tampilkanPeringatanHabis(badge='Merah')\n& tampilkanPesanTopUp()
+end
+
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

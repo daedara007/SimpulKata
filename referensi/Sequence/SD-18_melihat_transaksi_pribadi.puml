@@ -1,0 +1,38 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-18: Melihat Transaksi Pribadi
+
+actor "Pengguna Reguler" as user
+participant ":HalamanRiwayatTransaksi" as view
+participant ":PaymentController" as ctrl
+participant ":TabelOrders" as dbOrder
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. klikMenuRiwayatTransaksi()
+activate user
+activate view
+
+view -> ctrl : 2. getUserOrders(userId)
+activate ctrl
+
+ctrl -> dbOrder : 3. selectOrdersByUserId(userId)
+activate dbOrder
+dbOrder -->> ctrl : 4. return(userOrdersList)
+deactivate dbOrder
+
+ctrl -->> view : 5. return(userOrdersList)
+deactivate ctrl
+
+alt Terdapat Riwayat Transaksi (Normal Flow)
+    view -->> user : 6a. renderTabelTransaksi(tanggal, namaPaket, nominal, statusBadge)
+else else / Alternative: Belum Ada Transaksi
+    view -->> user : 6b. tampilkanPesan('Anda belum pernah melakukan pembelian kuota')
+end
+
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

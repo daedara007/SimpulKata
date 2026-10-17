@@ -1,0 +1,72 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-05: Mengubah Kata Sandi
+
+actor "Pengguna Reguler" as user
+participant ":HalamanUbahPassword" as view
+participant ":UserController" as ctrl
+participant ":TabelUsers" as db
+participant ":TabelSessions" as dbSess
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. bukaMenuUbahPassword()
+activate user
+activate view
+view -->> user : 2. tampilkanFormUbahPassword()
+
+user -> view : 3. inputDataPassword(Password_Saat_Ini, Password_Baru, Konfirmasi_Baru)
+user -> view : 4. klikSimpanPassword()
+
+view -> ctrl : 5. changePassword(userId, Password_Saat_Ini, Password_Baru, Konfirmasi_Baru)
+activate ctrl
+
+ctrl -> ctrl : 6. validasiKebijakanPassword(Password_Baru, Konfirmasi_Baru)
+activate ctrl
+deactivate ctrl
+
+alt Validasi Kebijakan Password Lolos (Normal Flow)
+    ctrl -> db : 7. getPasswordHash(userId)
+    activate db
+    db -->> ctrl : 8. return(currentHash)
+    deactivate db
+
+    ctrl -> ctrl : 9. verifikasiPasswordLama(Password_Saat_Ini, currentHash)
+    activate ctrl
+    deactivate ctrl
+
+    alt Password Saat Ini Benar (Normal Flow)
+        ctrl -> ctrl : 10. hashPassword(Password_Baru)
+        activate ctrl
+        deactivate ctrl
+
+        ctrl -> db : 11. updatePasswordHash(userId, newPasswordHash)
+        activate db
+        db -->> ctrl : 12. return(updateSuccess)
+        deactivate db
+
+        ctrl -> dbSess : 13. revokeAllActiveSessions(userId)
+        activate dbSess
+        dbSess -->> ctrl : 14. return(sessionsRevoked)
+        deactivate dbSess
+
+        ctrl -->> view : 15. return(changePasswordSuccess)
+        view -->> user : 16. tampilkanNotifikasiSukses\n& alihkanKeHalamanLogin(UC-02)
+
+    else else / Exceptional: Password Saat Ini Salah
+        ctrl -->> view : 10b. return(errorPasswordLamaSalah)
+        view -->> user : 11b. tampilkanPesanError('Password saat ini tidak benar')
+    end
+
+else else / Exceptional: Format Tidak Valid (Panjang < 8 / Konfirmasi Beda)
+    ctrl -->> view : 7b. return(errorValidasiFormat)
+    view -->> user : 8b. tampilkanPesanError('Password minimal 8 karakter dan konfirmasi harus cocok')
+end
+
+deactivate ctrl
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml

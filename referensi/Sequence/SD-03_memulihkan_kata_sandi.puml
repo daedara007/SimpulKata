@@ -1,0 +1,92 @@
+@startuml
+skinparam style strictuml
+skinparam SequenceMessageAlign center
+skinparam maxMessageSize 150
+
+title SD-03: Memulihkan Kata Sandi Melalui Email
+
+actor "Pengguna Reguler" as user
+participant ":HalamanLupaPassword" as view
+participant ":AuthController" as ctrl
+participant ":LayananEmail" as mail
+participant ":TabelUsers" as db
+participant ":TabelOTP" as dbOtp
+
+'' --- AWAL INTERAKSI: AKTIVASI AKTOR ---
+user -> view : 1. klikLupaKataSandi()
+activate user
+activate view
+view -->> user : 2. tampilkanFormLupaPassword()
+
+user -> view : 3. inputEmailTerdaftar(Email)
+user -> view : 4. klikKirimOTP()
+
+view -> ctrl : 5. requestResetPassword(Email)
+activate ctrl
+
+ctrl -> db : 6. getUserByEmail(Email)
+activate db
+db -->> ctrl : 7. return(userData)
+deactivate db
+
+alt Email Terdaftar (Normal Flow)
+    ctrl -> ctrl : 8. generateKodeOTP()
+    activate ctrl
+    deactivate ctrl
+
+    ctrl -> dbOtp : 9. simpanResetOTP(userData.id, kodeOTP, expiredAt=5Menit)
+    activate dbOtp
+    dbOtp -->> ctrl : 10. return(otpSaved)
+    deactivate dbOtp
+
+    ctrl -> mail : 11. kirimEmailResetOTP(Email, kodeOTP)
+    activate mail
+    mail -->> ctrl : 12. return(emailSent)
+    deactivate mail
+
+    ctrl -->> view : 13. return(otpSentSuccess)
+    view -->> user : 14. tampilkanFormInputOtpDanSandiBaru()
+
+    user -> view : 15. inputDataReset(kodeOTP, Password_Baru)
+    user -> view : 16. klikSimpanPasswordBaru()
+
+    view -> ctrl : 17. submitResetPassword(Email, kodeOTP, Password_Baru)
+
+    ctrl -> dbOtp : 18. getValidOTP(userData.id, kodeOTP)
+    activate dbOtp
+    dbOtp -->> ctrl : 19. return(otpRecord)
+    deactivate dbOtp
+
+    alt OTP Valid & Password Baru >= 8 Karakter (Normal Flow)
+        ctrl -> ctrl : 20. hashPassword(Password_Baru)
+        activate ctrl
+        deactivate ctrl
+
+        ctrl -> db : 21. updatePasswordUser(userData.id, newPasswordHash)
+        activate db
+        db -->> ctrl : 22. return(updateSuccess)
+        deactivate db
+
+        ctrl -> dbOtp : 23. invalidateOTP(userData.id)
+        activate dbOtp
+        dbOtp -->> ctrl : 24. return(invalidated)
+        deactivate dbOtp
+
+        ctrl -->> view : 25. return(resetSuccess)
+        view -->> user : 26. tampilkanNotifikasiSukses\n& alihkanKeHalamanLogin(UC-02)
+
+    else else / Exceptional: OTP Salah atau Kadaluarsa (>5 Menit)
+        ctrl -->> view : 20b. return(errorOtpInvalid)
+        view -->> user : 21b. tampilkanPesanError('OTP tidak valid atau sudah kadaluarsa')
+    end
+
+else else / Exceptional: Email Tidak Terdaftar di Sistem
+    ctrl -->> view : 8b. return(errorEmailNotFound)
+    view -->> user : 9b. tampilkanPesanError('Email tidak ditemukan dalam database')
+end
+
+deactivate ctrl
+deactivate view
+'' --- AKHIR INTERAKSI: DEAKTIVASI AKTOR ---
+deactivate user
+@enduml
