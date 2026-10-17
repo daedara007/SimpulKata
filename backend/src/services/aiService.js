@@ -188,16 +188,18 @@ async function summarizeText(text) {
   }
 
   const systemInstruction =
-    'Anda adalah asisten cerdas. Buat rangkuman terstruktur dan profesional ' +
-    'dari transkripsi rapat/kuliah berikut. Gunakan poin-poin yang jelas dan bahasa Indonesia yang baik.';
+    'Anda adalah asisten cerdas pembuat notula dan rangkuman profesional. ' +
+    'Tugas Anda: Buat rangkuman terstruktur langsung dari transkripsi rapat/kuliah berikut. ' +
+    'PENTING: Jangan sertakan kalimat pembuka atau pengantar seperti "Berikut adalah rangkuman...", langsung mulai dari inti/poin utama. ' +
+    'Gunakan bahasa Indonesia yang baik dan poin-poin yang jelas.';
 
   const prompt = `<s>[INST] ${systemInstruction}\n\n${text.trim()} [/INST]`;
-  const model = process.env.HF_SUMMARY_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3';
+  const model = process.env.HF_SUMMARY_MODEL || 'meta-llama/Llama-3.1-8B-Instruct';
 
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      console.log(`[aiService] Mengirim teks ke HF Mistral (${model}) - Percobaan ${attempt}...`);
+      console.log(`[aiService] Mengirim teks ke HF LLM (${model}) - Percobaan ${attempt}...`);
       let summaryText = '';
 
       // Prioritas 1: Gunakan chatCompletion (standar conversational HF router)
@@ -227,6 +229,13 @@ async function summarizeText(text) {
         });
         summaryText = (genRes && genRes.generated_text ? genRes.generated_text : '').trim();
       }
+
+      // Bersihkan kalimat pengantar jika masih dihasilkan model
+      summaryText = summaryText
+        .replace(/^(Berikut (ini )?adalah (hasil )?rangkuman.*?:?\s*\n+)+/i, '')
+        .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
+        .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
+        .trim();
 
       // Estimasi token kasar: ~4 karakter per token
       const tokens_used = Math.ceil((prompt.length + summaryText.length) / 4);

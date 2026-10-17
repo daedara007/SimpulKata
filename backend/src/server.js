@@ -83,12 +83,7 @@ fastify.decorate('authenticate', async function (request, reply) {
 // ROUTES DASAR
 // ----------------------------------------------------------
 
-/**
- * GET /health
- * Endpoint health check untuk verifikasi server berjalan
- * Berguna untuk: Docker health check, monitoring, dan pengujian Postman awal
- */
-fastify.get('/health', async (request, reply) => {
+const healthHandler = async (request, reply) => {
   return {
     status: 'ok',
     service: 'SimpulKata Backend',
@@ -96,7 +91,10 @@ fastify.get('/health', async (request, reply) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
   };
-});
+};
+
+fastify.get('/health', healthHandler);
+fastify.get('/api/health', healthHandler);
 
 /**
  * GET /health/db

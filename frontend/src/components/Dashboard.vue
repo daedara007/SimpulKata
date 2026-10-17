@@ -521,8 +521,15 @@
                 </div>
                 <!-- Scrollable Summary Area -->
                 <div class="p-4 flex-1">
-                  <div class="h-96 overflow-y-auto pr-2 text-sm leading-relaxed text-slate-200 whitespace-pre-wrap select-text space-y-2">
-                    {{ summaryText || 'Belum ada rangkuman.' }}
+                  <div class="h-96 overflow-y-auto pr-2 text-sm leading-relaxed text-slate-200 select-text">
+                    <div
+                      v-if="summaryText"
+                      class="summary-markdown"
+                      v-html="renderedSummary"
+                    ></div>
+                    <div v-else class="text-slate-500 italic">
+                      Belum ada rangkuman.
+                    </div>
                   </div>
                 </div>
                 <div class="px-4 py-2 bg-slate-900/40 border-t border-slate-800/60 text-[11px] text-slate-500 flex justify-between">
@@ -545,8 +552,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
+import { marked } from 'marked';
+
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
 
 // =========================================================
 // PROPS & EMITS (Tugas 5)
@@ -605,6 +618,26 @@ const meta = ref({
   tokensUsed: 0,
 });
 const errorMessage = ref('');
+
+// Render Markdown Rangkuman secara bersih (menghilangkan bintang ** dan format rapi)
+const renderedSummary = computed(() => {
+  if (!summaryText.value) return '';
+
+  // Bersihkan teks pembuka/pengantar percakapan yang biasa dikeluarkan LLM
+  let cleanText = summaryText.value
+    .replace(/^(Berikut (ini )?adalah (hasil )?rangkuman.*?:?\s*\n+)+/i, '')
+    .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
+    .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
+    .replace(/^(Ringkasan (dari )?transkripsi.*?:?\s*\n+)+/i, '')
+    .trim();
+
+  try {
+    return marked.parse(cleanText);
+  } catch (e) {
+    console.warn('Gagal mem-parse markdown rangkuman:', e);
+    return cleanText;
+  }
+});
 
 // State Riwayat (UC-11 & SD-11)
 const historyList = ref([]);
@@ -912,7 +945,16 @@ function countWords(str) {
 async function copyText(text, type) {
   if (!text) return;
   try {
-    await navigator.clipboard.writeText(text);
+    let textToCopy = text;
+    if (type === 'summary') {
+      textToCopy = text
+        .replace(/^(Berikut (ini )?adalah (hasil )?rangkuman.*?:?\s*\n+)+/i, '')
+        .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
+        .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
+        .replace(/^(Ringkasan (dari )?transkripsi.*?:?\s*\n+)+/i, '')
+        .trim();
+    }
+    await navigator.clipboard.writeText(textToCopy);
     if (type === 'raw') {
       copiedRaw.value = true;
       setTimeout(() => (copiedRaw.value = false), 2000);
@@ -925,3 +967,65 @@ async function copyText(text, type) {
   }
 }
 </script>
+
+<style scoped>
+:deep(.summary-markdown) {
+  color: #e2e8f0;
+}
+
+:deep(.summary-markdown p) {
+  margin-bottom: 0.85rem;
+  line-height: 1.65;
+}
+
+:deep(.summary-markdown strong),
+:deep(.summary-markdown b) {
+  font-weight: 700;
+  color: #c7d2fe;
+}
+
+:deep(.summary-markdown h1),
+:deep(.summary-markdown h2),
+:deep(.summary-markdown h3),
+:deep(.summary-markdown h4) {
+  font-weight: 700;
+  color: #ffffff;
+  margin-top: 1.1rem;
+  margin-bottom: 0.4rem;
+  letter-spacing: -0.01em;
+}
+
+:deep(.summary-markdown h1) { font-size: 1.15rem; }
+:deep(.summary-markdown h2) { font-size: 1.05rem; }
+:deep(.summary-markdown h3) { font-size: 0.95rem; }
+
+:deep(.summary-markdown ul) {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin-bottom: 0.85rem;
+}
+
+:deep(.summary-markdown ol) {
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+  margin-bottom: 0.85rem;
+}
+
+:deep(.summary-markdown li) {
+  margin-bottom: 0.35rem;
+  line-height: 1.6;
+}
+
+:deep(.summary-markdown hr) {
+  border-color: rgba(51, 65, 85, 0.6);
+  margin: 1rem 0;
+}
+
+:deep(.summary-markdown blockquote) {
+  border-left: 3px solid #818cf8;
+  padding-left: 0.75rem;
+  color: #94a3b8;
+  font-style: italic;
+  margin: 0.75rem 0;
+}
+</style>
