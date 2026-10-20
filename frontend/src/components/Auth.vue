@@ -352,7 +352,7 @@ async function handleLogin() {
   isLoading.value = true;
 
   try {
-    const response = await axios.post('http://localhost:3000/api/auth/login', {
+    const response = await axios.post('/api/auth/login', {
       email: loginForm.email,
       password: loginForm.password,
     });
@@ -400,7 +400,7 @@ async function handleRegister() {
   isLoading.value = true;
 
   try {
-    const response = await axios.post('http://localhost:3000/api/auth/register', {
+    const response = await axios.post('/api/auth/register', {
       name: registerForm.name,
       email: registerForm.email,
       password: registerForm.password,

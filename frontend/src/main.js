@@ -3,6 +3,9 @@ import './style.css';
 import App from './App.vue';
 import axios from 'axios';
 
+// Konfigurasi baseURL Axios (mendukung relative path / proxy atau custom domain via ENV)
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || '';
+
 // =========================================================
 // AXIOS GLOBAL INTERCEPTOR (SRS UC-01 & UC-02)
 // =========================================================

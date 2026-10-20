@@ -583,7 +583,7 @@ watch(() => props.currentUser, (newVal) => {
 
 async function fetchUserProfile() {
   try {
-    const res = await axios.get('http://localhost:3000/api/auth/me');
+    const res = await axios.get('/api/auth/me');
     if (res.data?.status === 'success') {
       userData.value = res.data.data;
       localStorage.setItem('simpulkata_user', JSON.stringify(res.data.data));
@@ -694,7 +694,7 @@ async function fetchHistory(page = 1) {
       params.status = statusFilter.value;
     }
 
-    const response = await axios.get('http://localhost:3000/api/history', { params });
+    const response = await axios.get('/api/history', { params });
     if (response.data?.status === 'success') {
       historyList.value = response.data.data || [];
       totalRecords.value = response.data.totalRecords ?? historyList.value.length;
@@ -822,7 +822,7 @@ async function processAudio() {
     const formData = new FormData();
     formData.append('audio', selectedFile.value);
 
-    const response = await axios.post('http://localhost:3000/api/process-audio', formData, {
+    const response = await axios.post('/api/process-audio', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
