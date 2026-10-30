@@ -151,6 +151,7 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `GET` | `/api/users/profile` | Protected (JWT) | Mengambil data profil lengkap pengguna (SRS UC-04 & SD-04) |
 | `PUT` | `/api/users/profile` | Protected (JWT) | Memperbarui nama, avatar, & trigger OTP email baru dengan konfirmasi password saat ini (SRS UC-04 & SD-04) |
 | `POST` | `/api/users/verify-email-change` | Protected (JWT) | Memverifikasi OTP 6-digit untuk meresmikan alamat email baru (SRS UC-04 & SD-04) |
+| `PUT` | `/api/users/change-password` | Protected (JWT) | Mengubah kata sandi pengguna dengan validasi sandi saat ini & revoke seluruh sesi aktif (SRS UC-05 & SD-05) |
 | `POST` | `/api/process-audio` | Protected (JWT) | Mengunggah audio, validasi kuota, transkripsi & rangkuman |
 | `GET` | `/api/history` | Protected (JWT) | Mengambil arsip riwayat pengguna (pagination & filter) |
 | `GET` | `/health` / `/api/health` | Publik | Healthcheck server Fastify |

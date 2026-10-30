@@ -8,6 +8,7 @@ import type {
   User,
   UpdateProfilePayload,
   VerifyEmailChangePayload,
+  ChangePasswordPayload,
   ApiResponse,
 } from '../types';
 
@@ -55,6 +56,18 @@ export class UserModel {
   ): Promise<ApiResponse<{ user: User }>> {
     const res = await apiClient.post<ApiResponse<{ user: User }>>(
       '/api/users/verify-email-change',
+      payload
+    );
+    return res.data;
+  }
+
+  /**
+   * Mengubah kata sandi pengguna saat login
+   * PUT /api/users/change-password (SRS UC-05, SD-05)
+   */
+  async changePassword(payload: ChangePasswordPayload): Promise<ApiResponse> {
+    const res = await apiClient.put<ApiResponse>(
+      '/api/users/change-password',
       payload
     );
     return res.data;

@@ -56,6 +56,12 @@ export interface VerifyEmailChangePayload {
   newEmail: string;
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export interface ApiResponse<T = any> {
   status: 'success' | 'error';
   code?: string;

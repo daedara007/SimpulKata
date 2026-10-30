@@ -13,8 +13,9 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import { userModel, otpModel } from '../models';
+import { userModel, otpModel, sessionModel } from '../models';
 import emailService from '../services/emailService';
+import { ChangePasswordDTO } from '../types';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -348,6 +349,122 @@ export class UserController {
         status: 'error',
         code: 'VERIFY_EMAIL_CHANGE_ERROR',
         message: 'Terjadi kesalahan pada server saat memverifikasi pergantian email.',
+      });
+    }
+  }
+
+  /**
+   * PUT /api/users/change-password
+   * Mengubah kata sandi pengguna yang sedang login (SRS UC-05, Sequence SD-05)
+   */
+  async changePassword(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const userId = request.user?.id;
+      if (!userId) {
+        return reply.status(401).send({
+          status: 'error',
+          code: 'UNAUTHORIZED',
+          message: 'Akses ditolak. Silakan login terlebih dahulu.',
+        });
+      }
+
+      const { currentPassword, newPassword, confirmPassword } = (request.body || {}) as Partial<ChangePasswordDTO>;
+
+      // 1. Validasi Keberadaan Field (SD-05 Langkah 6)
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Password saat ini, password baru, dan konfirmasi password wajib diisi.',
+        });
+      }
+
+      // 2. Validasi Panjang Password Baru (SRS UC-05 A2)
+      if (typeof newPassword !== 'string' || newPassword.length < 8) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Password minimal 8 karakter.',
+        });
+      }
+
+      // 3. Validasi Kompleksitas Password (SRS UC-05 E2: Mengandung huruf dan angka)
+      const hasLetter = /[A-Za-z]/.test(newPassword);
+      const hasDigit = /\d/.test(newPassword);
+      if (!hasLetter || !hasDigit) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Password harus mengandung huruf dan angka.',
+        });
+      }
+
+      // 4. Validasi Kesesuaian Konfirmasi Password (SRS UC-05 A3, SD-05 A3)
+      if (newPassword !== confirmPassword) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Kedua password tidak cocok.',
+        });
+      }
+
+      // 5. Validasi Password Baru Tidak Boleh Sama dengan Password Lama (SRS UC-05 / Aturan Keamanan)
+      if (currentPassword === newPassword) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'SAME_PASSWORD',
+          message: 'Password baru tidak boleh sama dengan password lama.',
+        });
+      }
+
+      // 6. Ambil Hash Password Saat Ini dari Database (SD-05 Langkah 7-8)
+      const currentHash = await userModel.getPasswordHash(userId);
+      if (!currentHash) {
+        return reply.status(404).send({
+          status: 'error',
+          code: 'USER_NOT_FOUND',
+          message: 'Data kredensial pengguna tidak ditemukan.',
+        });
+      }
+
+      // 7. Verifikasi Password Lama via Bcrypt (SD-05 Langkah 9, A1)
+      const isPasswordCorrect = await bcrypt.compare(currentPassword, currentHash);
+      if (!isPasswordCorrect) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'INVALID_PASSWORD',
+          message: 'Password saat ini tidak benar.',
+        });
+      }
+
+      // 8. Hash Password Baru (SD-05 Langkah 10)
+      const saltRounds = 10;
+      const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+      // 9. Simpan Hash Password Baru ke Tabel users (SD-05 Langkah 11-12)
+      const updateSuccess = await userModel.updatePassword(userId, newPasswordHash);
+      if (!updateSuccess) {
+        return reply.status(500).send({
+          status: 'error',
+          code: 'UPDATE_PASSWORD_ERROR',
+          message: 'Gagal mengubah password. Silakan coba lagi.',
+        });
+      }
+
+      // 10. Cabut Seluruh Sesi Aktif di Tabel user_sessions (SD-05 Langkah 13-14)
+      await sessionModel.deleteByUserId(userId);
+
+      // 11. Kembalikan Respons Sukses (SD-05 Langkah 15)
+      return reply.status(200).send({
+        status: 'success',
+        message: 'Kata sandi berhasil diubah. Silakan login kembali dengan kata sandi baru Anda.',
+      });
+    } catch (error: any) {
+      console.error('[UserController] Error saat changePassword:', error);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'CHANGE_PASSWORD_ERROR',
+        message: 'Terjadi kesalahan pada server saat mengubah kata sandi.',
       });
     }
   }

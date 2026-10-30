@@ -38,6 +38,12 @@ export interface VerifyEmailChangeDTO {
   newEmail: string;
 }
 
+export interface ChangePasswordDTO {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export interface UpdatePendingUserDTO {
   name: string;
   passwordHash: string;

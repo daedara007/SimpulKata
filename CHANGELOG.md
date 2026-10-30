@@ -10,6 +10,18 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [Unreleased] - 2026-10-30
 
 ### Added
+- **Fitur Mengubah Kata Sandi saat Login (`UC-05`, `SD-05`)**:
+  - **Backend API (`PUT /api/users/change-password`)**:
+    - Memverifikasi kata sandi lama via `bcrypt.compare` dengan hash di database (`userModel.getPasswordHash`).
+    - Validasi kebijakan kata sandi baru: minimal 8 karakter, wajib kombinasi huruf dan angka (SRS E2), konfirmasi sandi harus cocok (SRS A3), dan kata sandi baru tidak boleh sama dengan kata sandi lama (SRS A4).
+    - Hashing kata sandi baru (bcrypt 10 rounds) dan pembaruan pada tabel `users` (`userModel.updatePassword`).
+    - Pencabutan seluruh sesi aktif pengguna di tabel `user_sessions` (`sessionModel.deleteByUserId`) untuk mitigasi keamanan sesi ganda (SD-05 Langkah 13).
+  - **Frontend UI & State Management (Vue 3 + TypeScript)**:
+    - Menambahkan sistem tab navigasi `[👤 Profil Saya]` dan `[🔒 Ubah Sandi]` pada modal profil & akun di `frontend/src/components/Dashboard.vue`.
+    - Menyediakan form pengubahan kata sandi lengkap dengan tombol toggle visibilitas sandi (mata) untuk field *Password Saat Ini*, *Password Baru*, dan *Konfirmasi Password Baru*.
+    - Menampilkan checklist interaktif ketentuan kata sandi (minimal 8 karakter, kombinasi huruf & angka, konfirmasi cocok, berbeda dari sandi lama).
+    - Menambahkan method `userModel.changePassword` pada `frontend/src/models/userModel.ts` dan integrasi ke composable controller `useProfileController.ts`.
+    - Menghapus sesi lokal (`authModel.clearSession`) dan mengalihkan pengguna kembali ke halaman login (UC-02) secara otomatis setelah pengubahan kata sandi berhasil.
 - **Fitur Mengubah Profil Pengguna (Nama, Avatar, dan Email dengan Verifikasi OTP & Password) (`UC-04`, `SD-04`)**:
   - **Skema Database**: Menambahkan kolom `avatar_url VARCHAR(500)` pada tabel `users` (`simpulkata_db`), serta memperbarui skrip `backend/init.sql` dan diagram `referensi/erd.puml`.
   - **Endpoint Backend API (`/api/users`)**:
