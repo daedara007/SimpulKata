@@ -222,11 +222,6 @@ export function useAuthController(initialTab: AuthTab = 'login', emit?: (...args
       return { success: false };
     }
 
-    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-      errorMessage.value = 'Kata sandi harus mengandung kombinasi huruf dan angka.';
-      return { success: false };
-    }
-
     if (password !== confirmPassword) {
       errorMessage.value = 'Konfirmasi kata sandi tidak cocok.';
       return { success: false };
@@ -415,11 +410,6 @@ export function useAuthController(initialTab: AuthTab = 'login', emit?: (...args
 
     if (!pass || pass.length < 8) {
       errorMessage.value = 'Kata sandi baru minimal 8 karakter.';
-      return { success: false };
-    }
-
-    if (!/[A-Za-z]/.test(pass) || !/\d/.test(pass)) {
-      errorMessage.value = 'Kata sandi baru harus mengandung kombinasi huruf dan angka.';
       return { success: false };
     }
 
