@@ -32,6 +32,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import axios from 'axios';
 import Home from './components/Home.vue';
 import Dashboard from './components/Dashboard.vue';
 import Auth from './components/Auth.vue';
@@ -123,7 +124,11 @@ function handleLoginSuccess({ token: newToken, user: newUser }) {
 function handleLogout() {
   const refreshToken = localStorage.getItem('simpulkata_refresh_token');
   if (refreshToken) {
-    axios.post('/api/auth/logout', { refreshToken }).catch(() => {});
+    try {
+      axios.post('/api/auth/logout', { refreshToken }).catch(() => {});
+    } catch (e) {
+      console.warn('[Logout] Gagal memanggil endpoint logout:', e);
+    }
   }
   token.value = '';
   currentUser.value = null;
