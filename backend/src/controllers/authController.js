@@ -696,17 +696,9 @@ class AuthController {
         });
       }
 
-      // 3. Verifikasi apakah kata sandi baru sama dengan kata sandi lama (SRS UC-03 Alur A3)
-      const isSamePassword = await bcrypt.compare(newPassword, user.password_hash);
-      if (isSamePassword) {
-        return reply.status(400).send({
-          status: 'error',
-          code: 'PASSWORD_UNCHANGED',
-          message: 'Password baru harus berbeda dengan password lama.',
-        });
-      }
-
-      // 4. Verifikasi OTP aktif dari tabel otp_requests (SD-03 Langkah 18-19, E2)
+      // 3. Verifikasi OTP aktif dari tabel otp_requests terlebih dahulu (SD-03 Langkah 18-19, E2)
+      // OTP WAJIB divalidasi terlebih dahulu sebelum memeriksa password baru untuk mencegah
+      // eksploitasi password oracle (menebak password lama pengguna tanpa mengetahui OTP)
       const validOtp = await otpModel.findLatestValid({
         userId: user.id,
         otpCode: sanitizedOtp,
@@ -718,6 +710,16 @@ class AuthController {
           status: 'error',
           code: 'INVALID_OTP',
           message: 'OTP tidak valid atau sudah kadaluarsa.',
+        });
+      }
+
+      // 4. Setelah OTP valid, verifikasi apakah kata sandi baru sama dengan kata sandi lama (SRS UC-03 Alur A3)
+      const isSamePassword = await bcrypt.compare(newPassword, user.password_hash);
+      if (isSamePassword) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'PASSWORD_UNCHANGED',
+          message: 'Password baru harus berbeda dengan password lama.',
         });
       }
 
