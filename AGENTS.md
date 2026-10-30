@@ -47,16 +47,17 @@
 - **Markdown Parsing**: Library `marked` untuk merender rangkuman AI secara rapi menjadi elemen HTML semantik tanpa teks mentah berbintang (`**`).
 
 ### 2.2. Backend
-- **Runtime**: Node.js (v20+).
-- **Framework Web**: Fastify 4 (dengan logger `pino-pretty`).
+- **Runtime**: Node.js (v20+ / Node 24).
+- **Bahasa & Tooling**: TypeScript 5+ (Strict mode), `tsx` untuk runtime development watch (`npm run dev`), `tsc` untuk kompilasi production build ke `dist/` (`npm run build`).
+- **Framework Web**: Fastify 5 (dengan logger `pino-pretty`).
 - **Plugins**:
   - `@fastify/cors`: Pengaturan CORS origin.
   - `@fastify/multipart`: Menerima unggahan audio (limit: 50MB, field: `'audio'`).
-  - `@fastify/jwt`: Verifikasi dan pembuatan token sesi JWT.
+  - `@fastify/jwt`: Verifikasi dan pembuatan token sesi JWT beserta TypeScript module augmentation.
 - **Pemrosesan Audio Lokal**:
   - `music-metadata`: Ekstraksi durasi audio langsung dari buffer/file lokal sebelum memanggil AI.
   - `ffmpeg`: Konversi format audio (.wav/.m4a ke mono mp3 16kHz) jika diperlukan.
-- **Database Client**: `pg` (Pool query ke PostgreSQL).
+- **Database Client**: `pg` (Pool query ke PostgreSQL dengan typed DAO model).
 
 ### 2.3. Model Kecerdasan Buatan (AI)
 - **Speech-to-Text (STT)**: `openai/whisper-large-v3` via Hugging Face Inference API. Whisper menghasilkan teks transkripsi kontinu tuturan alami (tanpa *speaker diarization*).

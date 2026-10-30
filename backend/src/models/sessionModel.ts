@@ -1,20 +1,27 @@
-'use strict';
-
 /**
- * models/sessionModel.js - Data Access Object (DAO) untuk tabel 'user_sessions'
+ * models/sessionModel.ts - Data Access Object (DAO) untuk tabel 'user_sessions'
  * Berdasarkan referensi/erd.puml
  */
 
-const db = require('../db');
+import db from '../db';
+import {
+  UserSessionRow,
+  SessionWithUser,
+  CreateSessionDTO,
+} from '../types';
 
-class SessionModel {
+export class SessionModel {
   /**
    * Membuat rekaman sesi baru saat login
-   * @param {Object} param0
-   * @returns {Promise<Object>}
    */
-  async create({ userId, refreshToken, ipAddress = null, userAgent = null, daysValid = 7 }) {
-    const res = await db.query(
+  async create({
+    userId,
+    refreshToken,
+    ipAddress = null,
+    userAgent = null,
+    daysValid = 7,
+  }: CreateSessionDTO): Promise<UserSessionRow> {
+    const res = await db.query<UserSessionRow>(
       `INSERT INTO user_sessions (user_id, refresh_token, ip_address, user_agent, expires_at)
        VALUES ($1, $2, $3, $4, NOW() + ($5 || ' days')::INTERVAL)
        RETURNING id, user_id, refresh_token, ip_address, user_agent, expires_at, created_at`,
@@ -25,11 +32,9 @@ class SessionModel {
 
   /**
    * Mencari sesi aktif beserta relasi user berdasarkan refresh token
-   * @param {string} refreshToken
-   * @returns {Promise<Object|null>}
    */
-  async findByRefreshToken(refreshToken) {
-    const res = await db.query(
+  async findByRefreshToken(refreshToken: string): Promise<SessionWithUser | null> {
+    const res = await db.query<SessionWithUser>(
       `SELECT s.id, s.user_id, s.expires_at, s.created_at,
               u.id AS user_pk, u.name, u.email, u.role, u.balance
        FROM user_sessions s
@@ -44,15 +49,15 @@ class SessionModel {
   /**
    * Melakukan Refresh Token Rotation (RTR):
    * Memperbarui refresh token dan masa berlaku sesi yang aktif
-   * @param {string} sessionId
-   * @param {string} newRefreshToken
-   * @param {string|null} ipAddress
-   * @param {string|null} userAgent
-   * @param {number} daysValid
-   * @returns {Promise<Object>}
    */
-  async rotate(sessionId, newRefreshToken, ipAddress = null, userAgent = null, daysValid = 7) {
-    const res = await db.query(
+  async rotate(
+    sessionId: string,
+    newRefreshToken: string,
+    ipAddress: string | null = null,
+    userAgent: string | null = null,
+    daysValid: number = 7
+  ): Promise<{ id: string; refresh_token: string; expires_at: Date | string }> {
+    const res = await db.query<{ id: string; refresh_token: string; expires_at: Date | string }>(
       `UPDATE user_sessions
        SET refresh_token = $1,
            ip_address = COALESCE($2, ip_address),
@@ -67,40 +72,37 @@ class SessionModel {
 
   /**
    * Menghapus sesi berdasarkan refresh token (Logout spesifik sesi)
-   * @param {string} refreshToken
-   * @returns {Promise<number>} Jumlah baris yang terhapus
    */
-  async deleteByRefreshToken(refreshToken) {
+  async deleteByRefreshToken(refreshToken: string): Promise<number> {
     const res = await db.query(
       `DELETE FROM user_sessions WHERE refresh_token = $1`,
       [refreshToken]
     );
-    return res.rowCount;
+    return res.rowCount ?? 0;
   }
 
   /**
    * Menghapus seluruh sesi milik seorang pengguna (Logout dari semua perangkat)
-   * @param {string} userId
-   * @returns {Promise<number>}
    */
-  async deleteByUserId(userId) {
+  async deleteByUserId(userId: string): Promise<number> {
     const res = await db.query(
       `DELETE FROM user_sessions WHERE user_id = $1`,
       [userId]
     );
-    return res.rowCount;
+    return res.rowCount ?? 0;
   }
 
   /**
    * Menghapus seluruh sesi yang sudah kedaluwarsa (Pembersihan berkala)
-   * @returns {Promise<number>}
    */
-  async deleteExpired() {
+  async deleteExpired(): Promise<number> {
     const res = await db.query(
       `DELETE FROM user_sessions WHERE expires_at < NOW()`
     );
-    return res.rowCount;
+    return res.rowCount ?? 0;
   }
 }
 
-module.exports = new SessionModel();
+export const sessionModel = new SessionModel();
+export default sessionModel;
+

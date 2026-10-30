@@ -29,6 +29,23 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
   - **Email Service & Template Responsif**: Membangun `backend/src/services/emailService.js` dengan template email HTML modern bermerek SimpulKata dan mekanisme fallback logger konsol untuk lingkungan pengujian/development.
 
 ### Refactored
+- **Migrasi Menyeluruh Backend ke TypeScript (Fastify 5 + Strict Mode)**:
+  - Mengonversi seluruh kode sumber backend dari JavaScript (CommonJS) menjadi TypeScript murni (`.ts`).
+  - Menyiapkan konfigurasi `backend/tsconfig.json` dengan `target: ES2022`, module resolution `bundler`, dan kompilasi output ke `backend/dist/`.
+  - Mengonfigurasi skrip eksekusi modern pada `backend/package.json`: `tsx watch src/server.ts` untuk hot-reload development instan dan `tsc` untuk production build.
+  - Membangun layer pengetikan terpusat pada `backend/src/types/`:
+    - `user.ts`: Interface entitas `UserRow`, `UserSafe`, `CreateUserDTO`, `UserSessionRow`, `SessionWithUser`.
+    - `otp.ts`: Interface entitas `OtpRequestRow`, `CreateOtpDTO`, `OtpCooldownResult`.
+    - `transcript.ts`: Interface entitas `TranscriptRow`, `TranscriptStatus`, `CreateTranscriptDTO`, `UpdateCompletedDTO`.
+    - `fastify.d.ts`: TypeScript module augmentation untuk decorator `fastify.authenticate` dan payload `@fastify/jwt`.
+  - Mengonversi seluruh layer arsitektur backend ke TypeScript:
+    - **Database (`src/db.ts`)**: Generic query function `query<T>`, connection pool lifecycle, client transaction handler.
+    - **Models (`src/models/*.ts`)**: `userModel.ts`, `sessionModel.ts`, `otpModel.ts`, `transcriptModel.ts`, `index.ts`.
+    - **Services (`src/services/*.ts`)**: `emailService.ts` (Resend SDK typed client, template generator, console fallback), `aiService.ts` (Whisper transcription, LLM summarization, duration probe).
+    - **Controllers (`src/controllers/*.ts`)**: `authController.ts` (registrasi, login, verifikasi OTP, refresh token, reset password), `audioController.ts` (multipart upload handler, background processing pipeline, history pagination).
+    - **Routes & Server (`src/routes/*.ts`, `src/server.ts`)**: Typed Fastify plugins, error handler, not-found handler, startup database health check & background cleaner routines.
+  - Menyelaraskan kontainer Docker `backend/Dockerfile` dengan kompilasi otomatis `npm run build` dan eksekusi produksi `node dist/server.js`.
+  - Memverifikasi keberhasilan integrasi dengan `npm run type-check` (`tsc --noEmit`, 0 error), `npm run build`, dan pengujian regresi E2E auth 100% lulus.
 - **Migrasi Menyeluruh Frontend ke TypeScript (Vue 3 + Vite)**:
   - Mengonversi seluruh kode sumber frontend dari JavaScript (ES Modules) menjadi TypeScript murni (`.ts` & `<script setup lang="ts">`).
   - Menyediakan konfigurasi `tsconfig.json`, `tsconfig.node.json`, dan `env.d.ts` dengan pengetikan ketat (*strict mode*).

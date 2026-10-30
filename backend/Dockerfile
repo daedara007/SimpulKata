@@ -14,11 +14,14 @@ RUN npm install
 # Salin seluruh source code backend
 COPY . .
 
+# Kompilasi TypeScript ke JavaScript (dist/)
+RUN npm run build
+
 # Buat folder penyimpanan uploads jika belum ada
 RUN mkdir -p storage/uploads
 
 # Expose port aplikasi
 EXPOSE 3000
 
-# Jalankan server Fastify
-CMD ["node", "src/server.js"]
+# Jalankan server Fastify dari output kompilasi TypeScript
+CMD ["node", "dist/server.js"]

@@ -1,7 +1,5 @@
-'use strict';
-
 /**
- * controllers/audioController.js - Controller Pemrosesan Audio & Riwayat (MVC Architecture)
+ * controllers/audioController.ts - Controller Pemrosesan Audio & Riwayat (MVC Architecture)
  *
  * Mengimplementasikan orkestrasi:
  * - UC-07: Mengunggah berkas audio (SD-07)
@@ -10,16 +8,17 @@
  * - UC-11: Melihat riwayat transkripsi (SD-11)
  *
  * Menggunakan:
- * - UserModel (models/userModel.js)
- * - TranscriptModel (models/transcriptModel.js)
- * - AiService (services/aiService.js)
+ * - UserModel (models/userModel.ts)
+ * - TranscriptModel (models/transcriptModel.ts)
+ * - AiService (services/aiService.ts)
  */
 
-const fs = require('fs');
-const path = require('path');
-const { pipeline } = require('stream/promises');
-const { userModel, transcriptModel } = require('../models');
-const aiService = require('../services/aiService');
+import { FastifyRequest, FastifyReply } from 'fastify';
+import fs from 'fs';
+import path from 'path';
+import { pipeline } from 'stream/promises';
+import { userModel, transcriptModel } from '../models';
+import aiService from '../services/aiService';
 
 // Daftar ekstensi audio yang didukung (sesuai SRS UC-07)
 const ALLOWED_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a']);
@@ -29,26 +28,35 @@ const UPLOAD_DIR = path.resolve(__dirname, '../../storage/uploads');
 
 /**
  * Helper untuk menghapus file sementara dari disk dengan aman (Rule 3)
- * @param {string} filePath
  */
-async function safeUnlink(filePath) {
+export async function safeUnlink(filePath: string | null): Promise<void> {
   if (filePath && fs.existsSync(filePath)) {
     try {
       await fs.promises.unlink(filePath);
       console.log(`[AudioController] File sementara dibersihkan: ${filePath}`);
-    } catch (err) {
+    } catch (err: any) {
       console.warn(`[AudioController] Gagal menghapus file sementara: ${err.message}`);
     }
   }
 }
 
+export interface PipelineParams {
+  transcriptId: string;
+  savedFilePath: string;
+  durationSeconds: number;
+  userId: string | null;
+}
+
 /**
  * Pipeline pemrosesan transkripsi Whisper dan perangkum LLM
  * Dapat dijalankan secara asinkron di latar belakang (CR-06) atau sinkron
- * @param {Object} param0
- * @returns {Promise<Object>}
  */
-async function runTranscriptionPipeline({ transcriptId, savedFilePath, durationSeconds, userId }) {
+export async function runTranscriptionPipeline({
+  transcriptId,
+  savedFilePath,
+  durationSeconds,
+  userId,
+}: PipelineParams): Promise<any> {
   let isQuotaReserved = true;
 
   try {
@@ -71,7 +79,7 @@ async function runTranscriptionPipeline({ transcriptId, savedFilePath, durationS
         summaryText: 'Tidak ada ucapan atau percakapan yang terdeteksi dalam rekaman audio ini. Kuota telah dikembalikan.',
       });
 
-      const error = new Error('Tidak ada ucapan atau percakapan yang terdeteksi dalam rekaman audio ini.');
+      const error: any = new Error('Tidak ada ucapan atau percakapan yang terdeteksi dalam rekaman audio ini.');
       error.code = 'NO_SPEECH_DETECTED';
       error.statusCode = 422;
       throw error;
@@ -84,13 +92,13 @@ async function runTranscriptionPipeline({ transcriptId, savedFilePath, durationS
     console.log(`[AudioPipeline] Memulai pembuatan rangkuman teks untuk transcript: ${transcriptId}...`);
     let summaryText = '';
     let tokensUsed = 0;
-    let summaryWarning = null;
+    let summaryWarning: string | null = null;
 
     try {
       const summaryResult = await aiService.summarizeText(rawText);
       summaryText = summaryResult.summary;
       tokensUsed = summaryResult.tokens_used;
-    } catch (sumErr) {
+    } catch (sumErr: any) {
       console.warn(`[AudioPipeline] Gagal membuat rangkuman teks untuk transcript ${transcriptId}:`, sumErr.message);
       summaryWarning = sumErr.message || 'Layanan rangkuman AI sedang tidak tersedia.';
       summaryText = `*(Rangkuman otomatis belum tersedia: ${summaryWarning}. Transkripsi lengkap telah berhasil disimpan.)*`;
@@ -116,7 +124,7 @@ async function runTranscriptionPipeline({ transcriptId, savedFilePath, durationS
       tokens_used: tokensUsed,
       ...(summaryWarning ? { warning: summaryWarning } : {}),
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[AudioPipeline] Error saat memproses pipeline transcript ${transcriptId}:`, error);
 
     // Bersihkan berkas fisik
@@ -127,7 +135,7 @@ async function runTranscriptionPipeline({ transcriptId, savedFilePath, durationS
       try {
         await userModel.refundBalance(userId, durationSeconds);
         console.log(`[AudioPipeline] Mengembalikan kuota ${durationSeconds}s ke user ${userId} karena pemrosesan gagal`);
-      } catch (refundErr) {
+      } catch (refundErr: any) {
         console.error('[AudioPipeline] Gagal mengembalikan kuota:', refundErr.message);
       }
     }
@@ -138,7 +146,7 @@ async function runTranscriptionPipeline({ transcriptId, savedFilePath, durationS
         await transcriptModel.updateFailed(transcriptId, {
           summaryText: `Gagal memproses audio: ${error.message || 'Terjadi kesalahan sistem saat pemrosesan AI'}`,
         });
-      } catch (dbErr) {
+      } catch (dbErr: any) {
         console.error('[AudioPipeline] Gagal update status transcript ke failed:', dbErr.message);
       }
     }
@@ -147,16 +155,19 @@ async function runTranscriptionPipeline({ transcriptId, savedFilePath, durationS
   }
 }
 
-class AudioController {
+export class AudioController {
   /**
    * POST /api/process-audio
    * Handler utama untuk unggah, validasi durasi & kuota, serta pemrosesan transkrip
    */
-  async processAudio(request, reply) {
-    let savedFilePath = null;
-    let transcriptId = null;
+  async processAudio(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    let savedFilePath: string | null = null;
+    let transcriptId: string | null = null;
     let durationSeconds = 0;
-    let userId = null;
+    let userId: string | null = null;
     let isQuotaReserved = false;
 
     try {
@@ -209,7 +220,7 @@ class AudioController {
       }
 
       // 4. Ambil user pengunggah dari token JWT
-      userId = request.user?.id;
+      userId = request.user?.id || null;
       if (!userId) {
         await safeUnlink(savedFilePath);
         return reply.status(401).send({
@@ -280,7 +291,7 @@ class AudioController {
       transcriptId = newTranscript.id;
       console.log(`[AudioController] Record transcript dibuat: ${transcriptId} (status: processing, durasi: ${durationSeconds}s)`);
 
-      const isSync = request.query?.sync === 'true';
+      const isSync = (request.query as { sync?: string } | undefined)?.sync === 'true';
 
       if (isSync) {
         // Mode Sinkron (Kompatibilitas): Menunggu AI pipeline selesai dalam satu request HTTP
@@ -317,11 +328,11 @@ class AudioController {
         savedFilePath,
         durationSeconds,
         userId,
-      }).catch((bgErr) => {
+      }).catch((bgErr: any) => {
         console.error(`[AudioController] Background pipeline gagal untuk ${transcriptId}:`, bgErr.message);
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AudioController] Error saat memproses audio:', error);
 
       // Bersihkan file fisik jika masih ada
@@ -332,7 +343,7 @@ class AudioController {
         try {
           await userModel.refundBalance(userId, durationSeconds);
           console.log(`[AudioController] Mengembalikan kuota ${durationSeconds}s ke user ${userId} karena pemrosesan gagal`);
-        } catch (refundErr) {
+        } catch (refundErr: any) {
           console.error('[AudioController] Gagal mengembalikan kuota:', refundErr.message);
         }
       }
@@ -343,7 +354,7 @@ class AudioController {
           await transcriptModel.updateFailed(transcriptId, {
             summaryText: `Gagal memproses audio: ${error.message || 'Kesalahan sistem'}`,
           });
-        } catch (dbErr) {
+        } catch (dbErr: any) {
           console.error('[AudioController] Gagal update status transcript ke failed:', dbErr.message);
         }
       }
@@ -395,9 +406,12 @@ class AudioController {
    * GET /api/transcripts/:id
    * Mengambil status dan hasil transkrip tertentu (CR-06, TC-TRS-011)
    */
-  async getTranscriptStatus(request, reply) {
+  async getTranscriptStatus(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
     try {
-      const { id } = request.params;
+      const { id } = (request.params || {}) as { id?: string };
       const userId = request.user?.id;
 
       if (!id || typeof id !== 'string') {
@@ -405,6 +419,14 @@ class AudioController {
           status: 'error',
           code: 'INVALID_ID',
           message: 'ID transkrip tidak valid.',
+        });
+      }
+
+      if (!userId) {
+        return reply.status(401).send({
+          status: 'error',
+          code: 'UNAUTHORIZED',
+          message: 'Akses tidak sah.',
         });
       }
 
@@ -428,7 +450,7 @@ class AudioController {
           word_count: wordCount,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AudioController] Gagal mengambil status transkrip:', error);
       return reply.status(500).send({
         status: 'error',
@@ -442,26 +464,42 @@ class AudioController {
    * GET /api/history
    * Mengambil riwayat transkripsi audio dari database (SRS UC-11 & Sequence Diagram SD-11)
    */
-  async getHistory(request, reply) {
+  async getHistory(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
     try {
+      const query = (request.query || {}) as {
+        page?: string;
+        limit?: string;
+        status?: string | string[];
+      };
+
       // 1. Sanitasi page & limit dengan aman (CR-07, TC-HIST-011)
-      const rawPage = parseInt(request.query?.page, 10);
+      const rawPage = parseInt(query.page as string, 10);
       const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
 
-      const rawLimit = parseInt(request.query?.limit, 10);
+      const rawLimit = parseInt(query.limit as string, 10);
       const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 20;
 
       const offset = (page - 1) * limit;
 
       // 2. Sanitasi filter status
-      let filterStatus = null;
-      if (typeof request.query?.status === 'string') {
-        filterStatus = request.query.status.toLowerCase().trim();
-      } else if (Array.isArray(request.query?.status) && typeof request.query.status[0] === 'string') {
-        filterStatus = request.query.status[0].toLowerCase().trim();
+      let filterStatus: string | null = null;
+      if (typeof query.status === 'string') {
+        filterStatus = query.status.toLowerCase().trim();
+      } else if (Array.isArray(query.status) && typeof query.status[0] === 'string') {
+        filterStatus = query.status[0].toLowerCase().trim();
       }
 
       const userId = request.user?.id;
+      if (!userId) {
+        return reply.status(401).send({
+          status: 'error',
+          code: 'UNAUTHORIZED',
+          message: 'Akses tidak sah.',
+        });
+      }
 
       // 3. Hitung total records pengguna via TranscriptModel
       const totalRecords = await transcriptModel.countHistory({ userId, status: filterStatus });
@@ -483,7 +521,7 @@ class AudioController {
         limit,
         totalPages: Math.ceil(totalRecords / limit) || 1,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AudioController] Gagal mengambil riwayat transkripsi:', error);
       return reply.status(500).send({
         status: 'error',
@@ -494,10 +532,5 @@ class AudioController {
   }
 }
 
-const audioController = new AudioController();
-
-module.exports = {
-  processAudio: audioController.processAudio.bind(audioController),
-  getTranscriptStatus: audioController.getTranscriptStatus.bind(audioController),
-  getHistory: audioController.getHistory.bind(audioController),
-};
+export const audioController = new AudioController();
+export default audioController;

@@ -1,7 +1,5 @@
-'use strict';
-
 /**
- * services/emailService.js - Layanan Pengiriman Email Transaksional via Resend
+ * services/emailService.ts - Layanan Pengiriman Email Transaksional via Resend
  *
  * Mengimplementasikan:
  * - SD-01 Langkah 15: kirimEmailOTP(Email, kodeOTP)
@@ -10,9 +8,30 @@
  * - Fallback dev logger jika kuota/sandbox Resend terbatas saat pengujian lokal
  */
 
-const { Resend } = require('resend');
+import { Resend } from 'resend';
 
-class EmailService {
+export interface SendOtpEmailParams {
+  to: string;
+  name?: string | null;
+  otpCode: string;
+  minutesValid?: number;
+}
+
+export interface EmailResult {
+  success: boolean;
+  delivered?: boolean;
+  mock?: boolean;
+  message?: string;
+  warning?: string;
+  id?: string;
+  otpCode?: string;
+}
+
+export class EmailService {
+  private apiKey: string;
+  private fromEmail: string;
+  private client: Resend | null;
+
   constructor() {
     this.apiKey = process.env.RESEND_API_KEY || '';
     this.fromEmail = process.env.EMAIL_FROM || 'SimpulKata <onboarding@resend.dev>';
@@ -21,12 +40,18 @@ class EmailService {
 
   /**
    * Menghasilkan template email HTML untuk kode verifikasi OTP
-   * @param {Object} param0
-   * @returns {string}
    */
-  generateOtpEmailTemplate({ name, otpCode, minutesValid = 5 }) {
+  generateOtpEmailTemplate({
+    name,
+    otpCode,
+    minutesValid = 5,
+  }: {
+    name?: string | null;
+    otpCode: string;
+    minutesValid?: number;
+  }): string {
     const safeName = name ? String(name).replace(/[<>&"]/g, '') : 'Pengguna';
-    
+
     return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -102,15 +127,17 @@ class EmailService {
 
   /**
    * Mengirim email kode verifikasi OTP ke pengguna
-   * @param {Object} param0
-   * @returns {Promise<Object>}
    */
-  async sendOtpEmail({ to, name, otpCode, minutesValid = 5 }) {
+  async sendOtpEmail({
+    to,
+    name,
+    otpCode,
+    minutesValid = 5,
+  }: SendOtpEmailParams): Promise<EmailResult> {
     const subject = `Kode Verifikasi Akun SimpulKata: ${otpCode}`;
     const htmlContent = this.generateOtpEmailTemplate({ name, otpCode, minutesValid });
     const textContent = `Halo ${name || 'Pengguna'},\n\nKode verifikasi OTP akun SimpulKata Anda adalah: ${otpCode}\nKode ini berlaku selama ${minutesValid} menit.\n\nJangan berikan kode ini kepada siapapun.\n\nSalam,\nTim SimpulKata`;
 
-    // Selalu cetak ke log server untuk kemudahan audit dan testing lokal
     console.log(`[EmailService] 📧 Menyiapkan pengiriman OTP [${otpCode}] ke ${to} (Berlaku: ${minutesValid}m)`);
 
     if (!this.client || !this.apiKey) {
@@ -134,8 +161,6 @@ class EmailService {
 
       if (response.error) {
         console.warn(`[EmailService] ⚠️ Resend API returned error:`, response.error);
-        // Jika sandbox Resend membatasi penerima (misal hanya boleh kirim ke email pemilik akun),
-        // tetap izinkan flow registrasi berlanjut dengan log kode OTP di konsol
         console.log(`[EmailService] 💡 [DEV FALLBACK] Kode OTP Anda adalah: [ ${otpCode} ]`);
         return {
           success: true,
@@ -151,7 +176,7 @@ class EmailService {
         delivered: true,
         id: response.data?.id,
       };
-    } catch (err) {
+    } catch (err: any) {
       console.error(`[EmailService] ❌ Gagal mengirim email via Resend:`, err.message);
       console.log(`[EmailService] 💡 [DEV FALLBACK] Kode OTP Anda adalah: [ ${otpCode} ]`);
       return {
@@ -165,10 +190,16 @@ class EmailService {
 
   /**
    * Menghasilkan template email HTML untuk pemulihan kata sandi (SD-03)
-   * @param {Object} param0
-   * @returns {string}
    */
-  generatePasswordResetEmailTemplate({ name, otpCode, minutesValid = 5 }) {
+  generatePasswordResetEmailTemplate({
+    name,
+    otpCode,
+    minutesValid = 5,
+  }: {
+    name?: string | null;
+    otpCode: string;
+    minutesValid?: number;
+  }): string {
     const safeName = name ? String(name).replace(/[<>&"]/g, '') : 'Pengguna';
 
     return `<!DOCTYPE html>
@@ -246,10 +277,13 @@ class EmailService {
 
   /**
    * Mengirim email kode pemulihan kata sandi (SD-03 Langkah 11)
-   * @param {Object} param0
-   * @returns {Promise<Object>}
    */
-  async sendPasswordResetEmail({ to, name, otpCode, minutesValid = 5 }) {
+  async sendPasswordResetEmail({
+    to,
+    name,
+    otpCode,
+    minutesValid = 5,
+  }: SendOtpEmailParams): Promise<EmailResult> {
     const subject = `Kode Pemulihan Kata Sandi SimpulKata: ${otpCode}`;
     const htmlContent = this.generatePasswordResetEmailTemplate({ name, otpCode, minutesValid });
     const textContent = `Halo ${name || 'Pengguna'},\n\nKami menerima permintaan untuk mereset kata sandi akun SimpulKata Anda.\nKode OTP pemulihan kata sandi Anda adalah: ${otpCode}\nKode ini berlaku selama ${minutesValid} menit.\n\nJangan berikan kode ini kepada siapapun.\nJika Anda tidak meminta reset kata sandi, abaikan email ini.\n\nSalam,\nTim SimpulKata`;
@@ -292,7 +326,7 @@ class EmailService {
         delivered: true,
         id: response.data?.id,
       };
-    } catch (err) {
+    } catch (err: any) {
       console.error(`[EmailService] ❌ Gagal mengirim email reset via Resend:`, err.message);
       console.log(`[EmailService] 💡 [DEV FALLBACK] Kode OTP Reset Password Anda adalah: [ ${otpCode} ]`);
       return {
@@ -305,5 +339,6 @@ class EmailService {
   }
 }
 
-module.exports = new EmailService();
+export const emailService = new EmailService();
+export default emailService;
 

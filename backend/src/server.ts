@@ -1,23 +1,31 @@
-'use strict';
-
 /**
- * server.js - Entry Point Fastify Server SimpulKata
+ * server.ts - Entry Point Fastify Server SimpulKata
  *
  * Struktur:
  * - Load environment variables (.env)
- * - Inisiasi Fastify dengan logger
- * - Register plugins: multipart (upload audio), cors
- * - Daftarkan routes dasar (health check)
- * - Test koneksi database
+ * - Inisiasi Fastify dengan logger pino-pretty
+ * - Register plugins: multipart (upload audio), cors, jwt
+ * - Daftarkan routes dasar & health check
+ * - Test koneksi database PostgreSQL
  * - Jalankan server di 0.0.0.0:PORT (siap untuk Docker & self-hosted)
  *
  * Referensi: SDD Bab 6 - Desain Arsitektur, SRS 2.5 - Batasan Implementasi
  */
 
-// Load .env sebelum require modul lain (harus di baris pertama)
-require('dotenv').config();
+import dotenv from 'dotenv';
+dotenv.config();
 
-const fastify = require('fastify')({
+import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
+import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
+import jwt from '@fastify/jwt';
+
+import db from './db';
+import { transcriptModel, sessionModel, otpModel } from './models';
+import authRoutes from './routes/auth';
+import audioRoutes from './routes/audio';
+
+const fastify = Fastify({
   logger: {
     transport: {
       target: 'pino-pretty',
@@ -30,32 +38,28 @@ const fastify = require('fastify')({
   },
 });
 
-const db = require('./db');
-const { transcriptModel, sessionModel, otpModel } = require('./models');
-
 // ----------------------------------------------------------
 // PLUGIN: @fastify/cors
-// Mengizinkan request dari frontend Vue.js (localhost:8080)
+// Mengizinkan request dari frontend Vue.js
 // ----------------------------------------------------------
-fastify.register(require('@fastify/cors'), {
-  // Di production, ganti dengan domain spesifik
-  origin: process.env.NODE_ENV === 'production'
-    ? process.env.FRONTEND_URL || 'http://localhost:8080'
-    : true, // Izinkan semua origin saat development
+fastify.register(cors, {
+  origin:
+    process.env.NODE_ENV === 'production'
+      ? process.env.FRONTEND_URL || 'http://localhost:8080'
+      : true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
 });
 
 // ----------------------------------------------------------
 // PLUGIN: @fastify/multipart
-// Diperlukan untuk endpoint upload audio (FR-CORE-01)
 // Limit: 50MB sesuai SRS UC-07
 // ----------------------------------------------------------
 const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_UPLOAD_SIZE_MB || '50', 10);
-fastify.register(require('@fastify/multipart'), {
+fastify.register(multipart, {
   limits: {
-    fileSize: MAX_FILE_SIZE_MB * 1024 * 1024, // Konversi MB ke bytes
-    files: 1, // Maksimal 1 file per request
+    fileSize: MAX_FILE_SIZE_MB * 1024 * 1024,
+    files: 1,
   },
 });
 
@@ -69,12 +73,12 @@ if (!jwtSecret || jwtSecret.trim() === '' || jwtSecret === 'simpulkata-jwt-defau
   throw new Error('JWT_SECRET wajib dikonfigurasi dan tidak boleh kosong atau menggunakan default insecure key.');
 }
 
-fastify.register(require('@fastify/jwt'), {
+fastify.register(jwt, {
   secret: jwtSecret,
 });
 
 // Decorator untuk memproteksi routes yang mewajibkan login
-fastify.decorate('authenticate', async function (request, reply) {
+fastify.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
   try {
     await request.jwtVerify();
   } catch (err) {
@@ -89,8 +93,7 @@ fastify.decorate('authenticate', async function (request, reply) {
 // ----------------------------------------------------------
 // ROUTES DASAR
 // ----------------------------------------------------------
-
-const healthHandler = async (request, reply) => {
+const healthHandler = async () => {
   return {
     status: 'ok',
     service: 'SimpulKata Backend',
@@ -106,9 +109,8 @@ fastify.get('/api/health', healthHandler);
 /**
  * GET /health/db
  * Health check khusus untuk koneksi database
- * Berguna untuk verifikasi koneksi PostgreSQL saat testing
  */
-fastify.get('/health/db', async (request, reply) => {
+fastify.get('/health/db', async (_request: FastifyRequest, reply: FastifyReply) => {
   try {
     const result = await db.query('SELECT NOW() AS db_time, version() AS db_version');
     return {
@@ -130,19 +132,15 @@ fastify.get('/health/db', async (request, reply) => {
 // ----------------------------------------------------------
 // ROUTES APLIKASI
 // ----------------------------------------------------------
-fastify.register(require('./routes/auth'), { prefix: '/api/auth' });
-fastify.register(require('./routes/audio'), { prefix: '/api' });
-
+fastify.register(authRoutes, { prefix: '/api/auth' });
+fastify.register(audioRoutes, { prefix: '/api' });
 
 // ----------------------------------------------------------
 // GLOBAL ERROR HANDLER
-// Menangkap semua unhandled error dan mengembalikan response
-// yang konsisten dan human-readable
 // ----------------------------------------------------------
-fastify.setErrorHandler((error, request, reply) => {
+fastify.setErrorHandler((error: any, _request: FastifyRequest, reply: FastifyReply) => {
   fastify.log.error(error);
 
-  // Validasi error dari Fastify (schema validation)
   if (error.validation) {
     return reply.status(400).send({
       status: 'error',
@@ -152,7 +150,6 @@ fastify.setErrorHandler((error, request, reply) => {
     });
   }
 
-  // Error dari multipart (file terlalu besar)
   if (error.code === 'FST_FILES_LIMIT' || error.code === 'FST_REQ_FILE_TOO_LARGE') {
     return reply.status(413).send({
       status: 'error',
@@ -161,7 +158,6 @@ fastify.setErrorHandler((error, request, reply) => {
     });
   }
 
-  // Error jika request ke multipart route bukan form-data
   if (error.code === 'FST_INVALID_MULTIPART_CONTENT_TYPE') {
     return reply.status(400).send({
       status: 'error',
@@ -170,7 +166,6 @@ fastify.setErrorHandler((error, request, reply) => {
     });
   }
 
-  // Generic server error
   const statusCode = error.statusCode || 500;
   return reply.status(statusCode).send({
     status: 'error',
@@ -182,7 +177,7 @@ fastify.setErrorHandler((error, request, reply) => {
 // ----------------------------------------------------------
 // NOT FOUND HANDLER
 // ----------------------------------------------------------
-fastify.setNotFoundHandler((request, reply) => {
+fastify.setNotFoundHandler((request: FastifyRequest, reply: FastifyReply) => {
   return reply.status(404).send({
     status: 'error',
     code: 'NOT_FOUND',
@@ -196,7 +191,6 @@ fastify.setNotFoundHandler((request, reply) => {
 const start = async () => {
   try {
     const PORT = parseInt(process.env.PORT || '3000', 10);
-    // Listen di 0.0.0.0 agar dapat diakses dari Docker & jaringan lokal
     const HOST = '0.0.0.0';
 
     // Test koneksi database sebelum server menerima request
@@ -209,7 +203,7 @@ const start = async () => {
       if (affectedRows > 0) {
         fastify.log.info(`[Startup] Membersihkan ${affectedRows} record transkrip menggantung ('processing' -> 'failed').`);
       }
-    } catch (cleanupErr) {
+    } catch (cleanupErr: any) {
       fastify.log.warn({ err: cleanupErr }, '[Startup] Gagal membersihkan record transkrip menggantung');
     }
 
@@ -219,7 +213,7 @@ const start = async () => {
       if (deletedSessions > 0) {
         fastify.log.info(`[Startup] Membersihkan ${deletedSessions} sesi login yang kedaluwarsa.`);
       }
-    } catch (sessionErr) {
+    } catch (sessionErr: any) {
       fastify.log.warn({ err: sessionErr }, '[Startup] Gagal membersihkan sesi login kedaluwarsa');
     }
 
@@ -229,7 +223,7 @@ const start = async () => {
       if (deletedOtps > 0) {
         fastify.log.info(`[Startup] Membersihkan ${deletedOtps} rekaman OTP yang kedaluwarsa.`);
       }
-    } catch (otpErr) {
+    } catch (otpErr: any) {
       fastify.log.warn({ err: otpErr }, '[Startup] Gagal membersihkan record OTP kedaluwarsa');
     }
 
@@ -246,3 +240,4 @@ const start = async () => {
 };
 
 start();
+

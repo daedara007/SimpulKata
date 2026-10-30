@@ -2,10 +2,12 @@
   "name": "simpulkata-backend",
   "version": "1.0.0",
   "description": "Backend API untuk platform transkripsi & rangkuman audio SimpulKata",
-  "main": "src/server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "type-check": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
@@ -28,9 +30,15 @@
     "resend": "^6.35.0"
   },
   "allowScripts": {
-    "bcrypt@6.0.0": true
+    "bcrypt@6.0.0": true,
+    "esbuild@*": true
   },
   "devDependencies": {
-    "pino-pretty": "^13.2.0"
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "pino-pretty": "^13.2.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   }
 }

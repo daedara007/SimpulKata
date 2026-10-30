@@ -1,7 +1,5 @@
-'use strict';
-
 /**
- * controllers/authController.js - Controller Autentikasi Pengguna (MVC Architecture)
+ * controllers/authController.ts - Controller Autentikasi Pengguna (MVC Architecture)
  *
  * Mengimplementasikan:
  * - UC-01: Registrasi Akun (SD-01)
@@ -11,21 +9,27 @@
  * Referensi: SRS Bab 4.2 (UC-01 s/d UC-03), SDD Bab 6, referensi/erd.puml
  */
 
-const bcrypt = require('bcrypt');
-const crypto = require('crypto');
-const { userModel, sessionModel, otpModel } = require('../models');
-const emailService = require('../services/emailService');
+import { FastifyRequest, FastifyReply } from 'fastify';
+import bcrypt from 'bcrypt';
+import crypto from 'crypto';
+import { userModel, sessionModel, otpModel } from '../models';
+import emailService from '../services/emailService';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BCRYPT_SALT_ROUNDS = 10;
 const INITIAL_FREE_BALANCE_SECONDS = 1800; // 30 menit pemrosesan awal
 
-class AuthController {
+export class AuthController {
   /**
    * POST /api/auth/register
    * Mendaftarkan akun pengguna baru dan mengirim kode OTP verifikasi (SRS UC-01 & SD-01)
    */
-  async register(request, reply) {
+  async register(
+    request: FastifyRequest<{
+      Body: { name?: string; email?: string; password?: string };
+    }>,
+    reply: FastifyReply
+  ) {
     try {
       const { name, email, password } = request.body || {};
 
@@ -70,9 +74,9 @@ class AuthController {
       // 3. Hash Kata Sandi (SD-01 langkah 9: hashKataSandi)
       const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
-      let targetUser = existingUser;
+      let targetUser: { id: string; name: string; email: string };
 
-      if (!targetUser) {
+      if (!existingUser) {
         // Buat user baru dengan status PENDING (SD-01 langkah 10: insertUserBaru)
         targetUser = await userModel.create({
           name: cleanName,
@@ -84,10 +88,14 @@ class AuthController {
         });
       } else {
         // User ada tapi masih PENDING: perbarui nama & sandi baru
-        targetUser = await userModel.updatePendingUser(targetUser.id, {
+        const updated = await userModel.updatePendingUser(existingUser.id, {
           name: cleanName,
           passwordHash,
         });
+        if (!updated) {
+          throw new Error('Gagal memperbarui data user pending.');
+        }
+        targetUser = updated;
       }
 
       // 4. Generate 6-Digit OTP acak numerik (SD-01 langkah 12: generateKodeOTP)
@@ -121,7 +129,7 @@ class AuthController {
           expiresInMinutes: 5,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AuthController] Error saat registrasi:', error);
       return reply.status(500).send({
         status: 'error',
@@ -135,7 +143,12 @@ class AuthController {
    * POST /api/auth/verify-otp
    * Memverifikasi kode OTP 6-digit dan mengaktifkan akun (SD-01 Langkah 21-27, Opsi B Instant Login)
    */
-  async verifyOtp(request, reply) {
+  async verifyOtp(
+    request: FastifyRequest<{
+      Body: { userId?: string; email?: string; otpCode?: string };
+    }>,
+    reply: FastifyReply
+  ) {
     try {
       const { userId, email, otpCode } = request.body || {};
 
@@ -201,13 +214,18 @@ class AuthController {
         role: activatedUser.role,
       };
 
-      const token = (request.server.jwt || this.jwt).sign(tokenPayload, {
+      const token = request.server.jwt.sign(tokenPayload, {
         expiresIn: '15m',
       });
 
       const refreshToken = crypto.randomBytes(40).toString('hex');
-      const ipAddress = request.ip || (request.headers['x-forwarded-for'] ? request.headers['x-forwarded-for'].split(',')[0].trim() : null) || null;
-      const userAgent = request.headers['user-agent'] || null;
+      const ipAddress =
+        request.ip ||
+        (request.headers['x-forwarded-for']
+          ? String(request.headers['x-forwarded-for']).split(',')[0].trim()
+          : null) ||
+        null;
+      const userAgent = (request.headers['user-agent'] as string) || null;
 
       await sessionModel.create({
         userId: activatedUser.id,
@@ -230,7 +248,7 @@ class AuthController {
           balance: activatedUser.balance,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AuthController] Error saat verifikasi OTP:', error);
       return reply.status(500).send({
         status: 'error',
@@ -244,11 +262,16 @@ class AuthController {
    * POST /api/auth/resend-otp
    * Mengirim ulang kode OTP baru dengan proteksi cooldown 60 detik
    */
-  async resendOtp(request, reply) {
+  async resendOtp(
+    request: FastifyRequest<{
+      Body: { userId?: string; email?: string };
+    }>,
+    reply: FastifyReply
+  ) {
     try {
       const { userId, email } = request.body || {};
 
-      let user = null;
+      let user: { id: string; name: string; email: string; status: string } | null = null;
       if (userId) {
         user = await userModel.findById(userId);
       } else if (email && typeof email === 'string') {
@@ -312,7 +335,7 @@ class AuthController {
           cooldownSeconds: 60,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AuthController] Error saat kirim ulang OTP:', error);
       return reply.status(500).send({
         status: 'error',
@@ -326,7 +349,12 @@ class AuthController {
    * POST /api/auth/login
    * Otentikasi pengguna, session creation, dan pembuatan token (SRS UC-02 & SD-02)
    */
-  async login(request, reply) {
+  async login(
+    request: FastifyRequest<{
+      Body: { email?: string; password?: string };
+    }>,
+    reply: FastifyReply
+  ) {
     try {
       const { email, password } = request.body || {};
 
@@ -382,14 +410,19 @@ class AuthController {
         role: user.role,
       };
 
-      const token = (request.server.jwt || this.jwt).sign(tokenPayload, {
+      const token = request.server.jwt.sign(tokenPayload, {
         expiresIn: '15m',
       });
 
       // 5. Generate Refresh Token aman dan simpan sesi ke user_sessions via SessionModel
       const refreshToken = crypto.randomBytes(40).toString('hex');
-      const ipAddress = request.ip || (request.headers['x-forwarded-for'] ? request.headers['x-forwarded-for'].split(',')[0].trim() : null) || null;
-      const userAgent = request.headers['user-agent'] || null;
+      const ipAddress =
+        request.ip ||
+        (request.headers['x-forwarded-for']
+          ? String(request.headers['x-forwarded-for']).split(',')[0].trim()
+          : null) ||
+        null;
+      const userAgent = (request.headers['user-agent'] as string) || null;
 
       await sessionModel.create({
         userId: user.id,
@@ -413,7 +446,7 @@ class AuthController {
           balance: user.balance,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AuthController] Error saat login:', error);
       return reply.status(500).send({
         status: 'error',
@@ -427,7 +460,12 @@ class AuthController {
    * POST /api/auth/refresh
    * Memperbarui access token menggunakan refresh token yang valid (RTR)
    */
-  async refreshSession(request, reply) {
+  async refreshSession(
+    request: FastifyRequest<{
+      Body: { refreshToken?: string };
+    }>,
+    reply: FastifyReply
+  ) {
     try {
       const { refreshToken } = request.body || {};
 
@@ -467,14 +505,19 @@ class AuthController {
         role: session.role,
       };
 
-      const newAccessToken = (request.server.jwt || this.jwt).sign(tokenPayload, {
+      const newAccessToken = request.server.jwt.sign(tokenPayload, {
         expiresIn: '15m',
       });
 
       // 4. Refresh Token Rotation (RTR): Terbitkan token baru dan perbarui record sesi
       const newRefreshToken = crypto.randomBytes(40).toString('hex');
-      const ipAddress = request.ip || (request.headers['x-forwarded-for'] ? request.headers['x-forwarded-for'].split(',')[0].trim() : null) || null;
-      const userAgent = request.headers['user-agent'] || null;
+      const ipAddress =
+        request.ip ||
+        (request.headers['x-forwarded-for']
+          ? String(request.headers['x-forwarded-for']).split(',')[0].trim()
+          : null) ||
+        null;
+      const userAgent = (request.headers['user-agent'] as string) || null;
 
       await sessionModel.rotate(session.id, newRefreshToken, ipAddress, userAgent, 7);
 
@@ -484,7 +527,7 @@ class AuthController {
         token: newAccessToken,
         refreshToken: newRefreshToken,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AuthController] Error saat refresh session:', error);
       return reply.status(500).send({
         status: 'error',
@@ -498,11 +541,16 @@ class AuthController {
    * POST /api/auth/logout
    * Menghapus sesi login dari tabel user_sessions (SD-02 Logout)
    */
-  async logout(request, reply) {
+  async logout(
+    request: FastifyRequest<{
+      Body: { refreshToken?: string };
+    }>,
+    reply: FastifyReply
+  ) {
     try {
       const { refreshToken } = request.body || {};
 
-      if (refreshToken && typeof refreshToken === 'string') {
+      if (refreshToken && typeof refreshToken !== 'string') {
         await sessionModel.deleteByRefreshToken(refreshToken);
       } else if (request.user?.id) {
         await sessionModel.deleteByUserId(request.user.id);
@@ -512,7 +560,7 @@ class AuthController {
         status: 'success',
         message: 'Logout berhasil. Sesi telah dicabut.',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AuthController] Error saat logout:', error);
       return reply.status(500).send({
         status: 'error',
@@ -526,7 +574,7 @@ class AuthController {
    * GET /api/auth/me
    * Mengambil informasi akun dan sisa kuota user yang sedang login (Protected)
    */
-  async getMe(request, reply) {
+  async getMe(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = request.user?.id;
       if (!userId) {
@@ -558,7 +606,7 @@ class AuthController {
           updated_at: user.updated_at,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AuthController] Error saat getMe:', error);
       return reply.status(500).send({
         status: 'error',
@@ -572,7 +620,12 @@ class AuthController {
    * POST /api/auth/forgot-password
    * Meminta kode OTP pemulihan kata sandi melalui email (SRS UC-03 & SD-03 Langkah 5-13)
    */
-  async forgotPassword(request, reply) {
+  async forgotPassword(
+    request: FastifyRequest<{
+      Body: { email?: string };
+    }>,
+    reply: FastifyReply
+  ) {
     try {
       const { email } = request.body || {};
 
@@ -640,7 +693,7 @@ class AuthController {
           expiresInMinutes: 5,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AuthController] Error saat forgotPassword:', error);
       return reply.status(500).send({
         status: 'error',
@@ -654,7 +707,12 @@ class AuthController {
    * POST /api/auth/reset-password
    * Memverifikasi OTP dan menyetel kata sandi baru pengguna (SRS UC-03 & SD-03 Langkah 17-26)
    */
-  async resetPassword(request, reply) {
+  async resetPassword(
+    request: FastifyRequest<{
+      Body: { email?: string; otpCode?: string; newPassword?: string };
+    }>,
+    reply: FastifyReply
+  ) {
     try {
       const { email, otpCode, newPassword } = request.body || {};
 
@@ -740,7 +798,7 @@ class AuthController {
         status: 'success',
         message: 'Kata sandi berhasil dipulihkan. Silakan masuk dengan kata sandi baru Anda.',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AuthController] Error saat resetPassword:', error);
       return reply.status(500).send({
         status: 'error',
@@ -751,16 +809,6 @@ class AuthController {
   }
 }
 
-const authController = new AuthController();
+export const authController = new AuthController();
+export default authController;
 
-module.exports = {
-  register: authController.register.bind(authController),
-  verifyOtp: authController.verifyOtp.bind(authController),
-  resendOtp: authController.resendOtp.bind(authController),
-  forgotPassword: authController.forgotPassword.bind(authController),
-  resetPassword: authController.resetPassword.bind(authController),
-  login: authController.login.bind(authController),
-  refreshSession: authController.refreshSession.bind(authController),
-  logout: authController.logout.bind(authController),
-  getMe: authController.getMe.bind(authController),
-};
