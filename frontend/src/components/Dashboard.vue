@@ -563,14 +563,19 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import axios from 'axios';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
-
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
+import { authModel } from '../models/authModel';
+import { useAudioController } from '../controllers/audioController';
+import { useHistoryController } from '../controllers/historyController';
+import {
+  formatFileSize,
+  formatDuration,
+  formatDate,
+  formatStatusLabel,
+  getStatusBadgeClass,
+  countWords,
+  copyToClipboard,
+  sanitizeAndRenderMarkdown,
+} from '../utils';
 
 // =========================================================
 // PROPS & EMITS (Tugas 5)
@@ -586,21 +591,25 @@ const emit = defineEmits(['logout', 'navigate']);
 
 const userData = ref(props.currentUser || {});
 
-watch(() => props.currentUser, (newVal) => {
-  if (newVal) {
-    userData.value = newVal;
-  }
-}, { deep: true });
+watch(
+  () => props.currentUser,
+  (newVal) => {
+    if (newVal) {
+      userData.value = newVal;
+    }
+  },
+  { deep: true }
+);
 
 async function fetchUserProfile() {
   try {
-    const res = await axios.get('/api/auth/me');
-    if (res.data?.status === 'success') {
-      userData.value = res.data.data;
-      localStorage.setItem('simpulkata_user', JSON.stringify(res.data.data));
+    const res = await authModel.getProfile();
+    if (res?.status === 'success') {
+      userData.value = res.data;
+      authModel.setSession({ user: res.data });
     }
   } catch (err) {
-    console.error('Gagal memuat profil pengguna:', err);
+    console.error('[Dashboard] Gagal memuat profil pengguna:', err);
   }
 }
 
@@ -609,452 +618,55 @@ function handleLogoutClick() {
 }
 
 // =========================================================
-// STATE
+// CONTROLLERS
 // =========================================================
-const fileInputRef = ref(null);
-const resultsSectionRef = ref(null);
-const selectedFile = ref(null);
-const isDragging = ref(false);
-const isLoading = ref(false);
-const loadingMessage = ref('Memproses audio...');
-const loadingTimer = ref(0);
-let timerInterval = null;
+const {
+  fileInputRef,
+  selectedFile,
+  isDragging,
+  isLoading,
+  loadingMessage,
+  loadingTimer,
+  transcriptId,
+  rawText,
+  summaryText,
+  meta,
+  errorMessage,
+  triggerFileInput,
+  handleFileChange,
+  handleDrop,
+  validateAndSetFile,
+  clearFile,
+  displayResults,
+  processAudio: executeProcessAudio,
+} = useAudioController();
 
-// State Hasil Aktif
-const transcriptId = ref('');
-const rawText = ref('');
-const summaryText = ref('');
-const meta = ref({
-  durationSeconds: 0,
-  tokensUsed: 0,
-});
-const errorMessage = ref('');
+const {
+  historyList,
+  totalRecords,
+  currentPage,
+  totalPages,
+  selectedHistoryId,
+  isLoadingHistory,
+  historyError,
+  statusFilter,
+  setStatusFilter,
+  fetchHistory,
+  selectHistoryItem: triggerSelectHistoryItem,
+} = useHistoryController();
 
-// Render Markdown Rangkuman secara bersih (menghilangkan bintang ** dan format rapi)
+// Markdown parser dengan sanitasi DOMPurify (Rule 4, CR-05)
 const renderedSummary = computed(() => {
-  if (!summaryText.value) return '';
-
-  // Bersihkan teks pembuka/pengantar percakapan yang biasa dikeluarkan LLM
-  let cleanText = summaryText.value
-    .replace(/^(Berikut (ini )?adalah (hasil )?rangkuman.*?:?\s*\n+)+/i, '')
-    .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
-    .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
-    .replace(/^(Ringkasan (dari )?transkripsi.*?:?\s*\n+)+/i, '')
-    .trim();
-
-  try {
-    const rawHtml = marked.parse(cleanText);
-    return DOMPurify.sanitize(rawHtml);
-  } catch (e) {
-    console.warn('Gagal mem-parse markdown rangkuman:', e);
-    return DOMPurify.sanitize(cleanText);
-  }
+  return sanitizeAndRenderMarkdown(summaryText.value);
 });
 
-// State Riwayat (UC-11 & SD-11)
-const historyList = ref([]);
-const totalRecords = ref(0);
-const currentPage = ref(1);
-const totalPages = ref(1);
-const selectedHistoryId = ref('');
-const isLoadingHistory = ref(false);
-const historyError = ref('');
-const statusFilter = ref('all');
-
+// Feedback status salin teks
 const copiedRaw = ref(false);
 const copiedSummary = ref(false);
 
-const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a'];
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-
-// =========================================================
-// LIFECYCLE HOOK
-// =========================================================
-onMounted(() => {
-  fetchUserProfile();
-  fetchHistory(1);
-});
-
-// =========================================================
-// METHODS: Riwayat Transkripsi (UC-11 & SD-11)
-// =========================================================
-
-/**
- * Mengubah filter status dan memuat ulang data dari halaman 1 (SD-11 langkah 1: klikMenuRiwayatTranskripsi)
- */
-function setStatusFilter(filter) {
-  statusFilter.value = filter;
-  currentPage.value = 1;
-  fetchHistory(1);
-}
-
-/**
- * Mengambil riwayat transkripsi dari backend GET /api/history (SD-11 langkah 2 & SRS UC-11)
- * @param {number} page
- */
-async function fetchHistory(page = 1) {
-  isLoadingHistory.value = true;
-  historyError.value = '';
-  currentPage.value = page;
-
-  try {
-    const params = {
-      page: page,
-      limit: 20,
-    };
-    if (statusFilter.value !== 'all') {
-      params.status = statusFilter.value;
-    }
-
-    const response = await axios.get('/api/history', { params });
-    if (response.data?.status === 'success') {
-      historyList.value = response.data.data || [];
-      totalRecords.value = response.data.totalRecords ?? historyList.value.length;
-      currentPage.value = response.data.page ?? page;
-      totalPages.value = response.data.totalPages ?? 1;
-
-      // Jika belum ada hasil yang aktif dan ada riwayat selesai, pilih otomatis yang paling atas
-      if (!transcriptId.value && historyList.value.length > 0) {
-        const firstCompleted = historyList.value.find((item) => item.status === 'completed') || historyList.value[0];
-        if (firstCompleted && firstCompleted.status === 'completed') {
-          selectHistoryItem(firstCompleted, false);
-        }
-      }
-    } else {
-      throw new Error(response.data?.message || 'Gagal memuat riwayat');
-    }
-  } catch (err) {
-    console.error('Gagal mengambil riwayat transkripsi:', err);
-    historyError.value = 'Gagal memuat riwayat. Coba refresh halaman.';
-  } finally {
-    isLoadingHistory.value = false;
-  }
-}
-
-/**
- * Memilih item dari daftar riwayat dan menampilkannya ke panel hasil utama
- */
-function selectHistoryItem(item, shouldScroll = true) {
-  if (!item) return;
-
-  selectedHistoryId.value = item.id;
-  transcriptId.value = item.id;
-  rawText.value = item.raw_text || '';
-  summaryText.value = item.summary_text || '';
-  meta.value = {
-    durationSeconds: item.duration_seconds || 0,
-    tokensUsed: item.tokens_used || 0,
-  };
-
-  // Scroll halus ke area hasil jika di-trigger oleh klik pengguna
-  if (shouldScroll) {
-    setTimeout(() => {
-      const el = document.getElementById('results-area');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
-  }
-}
-
-// =========================================================
-// METHODS: Upload & Pemrosesan Audio
-// =========================================================
-function triggerFileInput() {
-  if (fileInputRef.value) {
-    fileInputRef.value.click();
-  }
-}
-
-function handleFileChange(event) {
-  const file = event.target.files?.[0];
-  if (file) {
-    validateAndSetFile(file);
-  }
-}
-
-function handleDrop(event) {
-  isDragging.value = false;
-  const file = event.dataTransfer.files?.[0];
-  if (file) {
-    validateAndSetFile(file);
-  }
-}
-
-function validateAndSetFile(file) {
-  errorMessage.value = '';
-  const ext = getFileExtension(file.name).toLowerCase();
-
-  if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    alert(`Format file '${ext}' tidak didukung. Harap pilih file dengan format .mp3, .wav, atau .m4a.`);
-    return;
-  }
-
-  if (file.size > MAX_FILE_SIZE) {
-    alert('Ukuran file melebihi batas maksimal 50MB.');
-    return;
-  }
-
-  if (file.size === 0) {
-    alert('File yang dipilih kosong (0 bytes). Silakan pilih file audio yang valid.');
-    return;
-  }
-
-  selectedFile.value = file;
-}
-
-function clearFile() {
-  selectedFile.value = null;
-  if (fileInputRef.value) {
-    fileInputRef.value.value = '';
-  }
-}
-
-function displayResults(data) {
-  transcriptId.value = data.transcript_id || data.id || '';
-  rawText.value = data.raw_text || '';
-  summaryText.value = data.summary_text || '';
-  meta.value = {
-    durationSeconds: data.duration_seconds || 0,
-    tokensUsed: data.tokens_used || 0,
-  };
-  selectedHistoryId.value = transcriptId.value;
-
-  // Auto-update riwayat dan sisa saldo setelah pemrosesan selesai!
-  fetchHistory(1);
-  fetchUserProfile();
-
-  // Scroll halus ke area hasil
-  setTimeout(() => {
-    const el = document.getElementById('results-area');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, 150);
-}
-
-async function pollTranscript(activeId) {
-  const pollIntervalMs = 2500;
-  const maxAttempts = 240; // 240 * 2.5s = 600 detik (10 menit)
-  let attempts = 0;
-
-  return new Promise((resolve, reject) => {
-    const poller = setInterval(async () => {
-      attempts++;
-      try {
-        const res = await axios.get(`/api/transcripts/${activeId}`);
-        const item = res.data?.data;
-
-        if (item?.status === 'completed') {
-          clearInterval(poller);
-          displayResults({
-            transcript_id: item.id,
-            raw_text: item.raw_text,
-            summary_text: item.summary_text,
-            duration_seconds: item.duration_seconds,
-            tokens_used: item.tokens_used,
-          });
-          resolve();
-        } else if (item?.status === 'failed') {
-          clearInterval(poller);
-          await fetchHistory(1);
-          await fetchUserProfile();
-          const failMsg = item.summary_text || item.raw_text || 'Pemrosesan audio gagal.';
-          errorMessage.value = failMsg;
-          alert(`Pemrosesan Gagal: ${failMsg}`);
-          resolve();
-        } else if (attempts >= maxAttempts) {
-          clearInterval(poller);
-          await fetchHistory(1);
-          alert('Pemrosesan audio membutuhkan waktu lebih lama di latar belakang. Silakan pantau statusnya pada menu Riwayat.');
-          resolve();
-        }
-      } catch (pollErr) {
-        console.warn('[Polling] Kendala jaringan saat memantau status transkrip:', pollErr);
-        if (attempts >= maxAttempts) {
-          clearInterval(poller);
-          reject(pollErr);
-        }
-      }
-    }, pollIntervalMs);
-  });
-}
-
-async function processAudio() {
-  if (!selectedFile.value) {
-    alert('Silakan pilih file audio terlebih dahulu.');
-    return;
-  }
-
-  isLoading.value = true;
-  loadingMessage.value = 'Mengunggah file audio ke server...';
-  errorMessage.value = '';
-  loadingTimer.value = 0;
-
-  timerInterval = setInterval(() => {
-    loadingTimer.value++;
-    if (loadingTimer.value === 3) {
-      loadingMessage.value = 'Sistem sedang mentranskripsikan audio...';
-    } else if (loadingTimer.value === 12) {
-      loadingMessage.value = 'Sistem sedang menyusun rangkuman intisari...';
-    }
-  }, 1000);
-
-  try {
-    const formData = new FormData();
-    formData.append('audio', selectedFile.value);
-
-    const response = await axios.post('/api/process-audio', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-
-    if (response.status === 202 || response.data?.status === 'processing') {
-      const activeTranscriptId = response.data?.data?.transcript_id;
-      transcriptId.value = activeTranscriptId;
-      selectedHistoryId.value = activeTranscriptId;
-
-      // Segera perbarui daftar riwayat dan kuota agar pengguna melihat status 'Memproses'
-      await fetchHistory(1);
-      await fetchUserProfile();
-
-      // Lakukan polling status transkrip secara asinkron (CR-06, TC-TRS-011)
-      await pollTranscript(activeTranscriptId);
-    } else if (response.data?.status === 'success') {
-      const data = response.data.data;
-      displayResults(data);
-    } else {
-      throw new Error(response.data?.message || 'Gagal memproses audio');
-    }
-  } catch (err) {
-    console.error('Error saat memproses audio:', err);
-
-    let errorMsg = 'Terjadi kesalahan saat memproses audio.';
-    if (err.response?.data?.message) {
-      errorMsg = err.response.data.message;
-      if (err.response.data.detail) {
-        errorMsg += ` (${err.response.data.detail})`;
-      }
-    } else if (err.message) {
-      errorMsg = err.message;
-    }
-
-    errorMessage.value = errorMsg;
-    alert(`Error: ${errorMsg}`);
-  } finally {
-    isLoading.value = false;
-    clearInterval(timerInterval);
-  }
-}
-
-// =========================================================
-// HELPER FORMATTING
-// =========================================================
-function getFileExtension(filename) {
-  if (!filename) return '';
-  const lastDot = filename.lastIndexOf('.');
-  return lastDot !== -1 ? filename.slice(lastDot) : '';
-}
-
-function formatFileSize(bytes) {
-  if (!bytes) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-}
-
-function formatDuration(seconds) {
-  if (!seconds || seconds <= 0) return '0 dtk';
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins === 0) return `${secs} dtk`;
-  if (secs === 0) return `${mins} mnt`;
-  return `${mins}m ${secs}s`;
-}
-
-function formatDate(isoString) {
-  if (!isoString) return '-';
-  try {
-    const d = new Date(isoString);
-    return new Intl.DateTimeFormat('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(d);
-  } catch (_) {
-    return isoString;
-  }
-}
-
-function formatStatusLabel(status) {
-  switch (status) {
-    case 'completed': return 'Selesai';
-    case 'failed': return 'Gagal';
-    case 'processing': return 'Memproses';
-    default: return status || 'Pending';
-  }
-}
-
-function getStatusBadgeClass(status) {
-  switch (status) {
-    case 'completed':
-      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-    case 'failed':
-      return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-    case 'processing':
-      return 'bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse';
-    default:
-      return 'bg-slate-800 text-slate-400 border-slate-700';
-  }
-}
-
-function countWords(str) {
-  if (!str) return 0;
-  return str.trim().split(/\s+/).filter(Boolean).length;
-}
-
 async function copyText(text, type) {
-  if (!text) return;
-  let textToCopy = text;
-  if (type === 'summary') {
-    textToCopy = text
-      .replace(/^(Berikut (ini )?adalah (hasil )?rangkuman.*?:?\s*\n+)+/i, '')
-      .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
-      .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
-      .replace(/^(Ringkasan (dari )?transkripsi.*?:?\s*\n+)+/i, '')
-      .trim();
-  }
-
-  let success = false;
-
-  // 1. Coba Modern Clipboard API (tersedia di HTTPS / localhost)
-  if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      success = true;
-    } catch (_) {}
-  }
-
-  // 2. Fallback untuk HTTP IP-LAN atau non-secure context (CR-14, TC-COPY-003)
-  if (!success) {
-    try {
-      const textArea = document.createElement('textarea');
-      textArea.value = textToCopy;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      textArea.style.top = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      success = document.execCommand('copy');
-      document.body.removeChild(textArea);
-    } catch (err) {
-      console.warn('Fallback execCommand gagal:', err);
-    }
-  }
+  const isSummary = type === 'summary';
+  const success = await copyToClipboard(text, isSummary);
 
   if (success) {
     if (type === 'raw') {
@@ -1068,6 +680,51 @@ async function copyText(text, type) {
     alert('Gagal menyalin teks ke papan klip secara otomatis. Silakan salin teks secara manual.');
   }
 }
+
+// Handler pemilihan item dari riwayat ke panel utama
+function selectHistoryItem(item, shouldScroll = true) {
+  triggerSelectHistoryItem(item, shouldScroll, (selected) => {
+    transcriptId.value = selected.id;
+    rawText.value = selected.raw_text || '';
+    summaryText.value = selected.summary_text || '';
+    meta.value = {
+      durationSeconds: selected.duration_seconds || 0,
+      tokensUsed: selected.tokens_used || 0,
+    };
+  });
+}
+
+// Wrapper pemrosesan audio yang mengorkestrasi polling, riwayat, dan profil
+async function processAudio() {
+  await executeProcessAudio({
+    onProgressUpdate: async (activeTranscriptId) => {
+      selectedHistoryId.value = activeTranscriptId;
+      await fetchHistory(1);
+      await fetchUserProfile();
+    },
+    onCompleted: async () => {
+      selectedHistoryId.value = transcriptId.value;
+      await fetchHistory(1);
+      await fetchUserProfile();
+    },
+  });
+}
+
+// =========================================================
+// LIFECYCLE HOOK
+// =========================================================
+onMounted(async () => {
+  await fetchUserProfile();
+  await fetchHistory(1, (list) => {
+    // Jika belum ada hasil aktif dan ada riwayat selesai, pilih otomatis yang paling atas
+    if (!transcriptId.value && list.length > 0) {
+      const firstCompleted = list.find((item) => item.status === 'completed') || list[0];
+      if (firstCompleted && firstCompleted.status === 'completed') {
+        selectHistoryItem(firstCompleted, false);
+      }
+    }
+  });
+});
 </script>
 
 <style scoped>

@@ -10,6 +10,13 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [Unreleased] - 2026-10-30
 
 ### Refactored
+- **Adopsi Arsitektur MVC pada Frontend SimpulKata**:
+  - Memisahkan logika klien menjadi lapisan modular yang rapi:
+    - **Models (`frontend/src/models/`)**: `authModel.js` (komunikasi endpoint autentikasi & pengelolaan sesi `localStorage`) dan `audioModel.js` (unggah audio, polling status transkrip, riwayat).
+    - **Controllers (`frontend/src/controllers/`)**: `useAuthController.js` (state form login/register & alur auth), `useAudioController.js` (state upload, drag-and-drop, timer, polling asinkron, dan display hasil), dan `useHistoryController.js` (state pagination riwayat, filter status, seleksi item).
+    - **Services (`frontend/src/services/`)**: `apiClient.js` (konfigurasi Axios terpusat dengan interceptor Bearer token dan Refresh Token Rotation otomatis).
+    - **Utils (`frontend/src/utils/`)**: Ekstraksi fungsi bantuan independen: `formatters.js` (durasi, ukuran file, tanggal, badge), `clipboard.js` (salin teks dengan fallback textarea), dan `markdown.js` (parser Markdown dengan sanitasi DOMPurify).
+    - **Views (`frontend/src/components/`)**: Menyederhanakan berkas komponen UI (`Auth.vue`, `Dashboard.vue`, `App.vue`) sehingga hanya berfokus pada render antarmuka dan *event binding* deklaratif.
 - **Adopsi Arsitektur MVC pada Backend SimpulKata**:
   - Mengekstraksi seluruh query SQL langsung (*raw database queries*) dari controllers ke lapisan Data Access Object (DAO) / Model terdedikasi di `backend/src/models/`:
     - `userModel.js`: Enkapsulasi seluruh operasi tabel `users` (`findByEmail`, `findById`, `create`, `getBalance`, `reserveBalance`, `refundBalance`).

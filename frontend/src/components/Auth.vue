@@ -304,8 +304,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
-import axios from 'axios';
+import { useAuthController } from '../controllers/authController';
 
 const props = defineProps({
   initialTab: {
@@ -316,135 +315,19 @@ const props = defineProps({
 
 const emit = defineEmits(['login-success', 'back-to-home']);
 
-const activeTab = ref(props.initialTab || 'login');
-const showPassword = ref(false);
-const isLoading = ref(false);
-const errorMessage = ref('');
-const successMessage = ref('');
-
-const loginForm = reactive({
-  email: '',
-  password: '',
-});
-
-const registerForm = reactive({
-  name: '',
-  email: '',
-  password: '',
-  confirmPassword: '',
-});
-
-function switchTab(tab) {
-  activeTab.value = tab;
-  errorMessage.value = '';
-  successMessage.value = '';
-}
-
-function fillDemoAccount() {
-  loginForm.email = 'admin@simpulkata.id';
-  loginForm.password = 'admin123';
-  errorMessage.value = '';
-}
-
-async function handleLogin() {
-  errorMessage.value = '';
-  successMessage.value = '';
-  isLoading.value = true;
-
-  try {
-    const response = await axios.post('/api/auth/login', {
-      email: loginForm.email,
-      password: loginForm.password,
-    });
-
-    if (response.data?.status === 'success') {
-      const { token, refreshToken, user } = response.data;
-      
-      // Simpan ke localStorage sesuai spesifikasi tugas & referensi/erd.puml
-      localStorage.setItem('simpulkata_token', token);
-      if (refreshToken) {
-        localStorage.setItem('simpulkata_refresh_token', refreshToken);
-      }
-      localStorage.setItem('simpulkata_user', JSON.stringify(user));
-
-      emit('login-success', { token, refreshToken, user });
-    } else {
-      throw new Error(response.data?.message || 'Login gagal.');
-    }
-  } catch (err) {
-    console.error('[Auth] Login error:', err);
-    if (err.response?.data?.message) {
-      errorMessage.value = err.response.data.message;
-    } else if (err.code === 'ERR_NETWORK' || !err.response) {
-      errorMessage.value = 'Terjadi kesalahan saat masuk. Pastikan server backend aktif.';
-    } else if (err.response?.status >= 500) {
-      errorMessage.value = 'Terjadi kesalahan pada server. Silakan coba beberapa saat lagi.';
-    } else {
-      errorMessage.value = 'Terjadi kesalahan saat masuk. Pastikan server backend aktif.';
-    }
-  } finally {
-    isLoading.value = false;
-  }
-}
-
-async function handleRegister() {
-  errorMessage.value = '';
-  successMessage.value = '';
-
-  // Validasi lokal SD-01
-  if (registerForm.password.length < 8) {
-    errorMessage.value = 'Kata sandi minimal 8 karakter.';
-    return;
-  }
-
-  if (registerForm.password !== registerForm.confirmPassword) {
-    errorMessage.value = 'Konfirmasi kata sandi tidak cocok.';
-    return;
-  }
-
-  isLoading.value = true;
-
-  try {
-    const response = await axios.post('/api/auth/register', {
-      name: registerForm.name,
-      email: registerForm.email,
-      password: registerForm.password,
-    });
-
-    if (response.data?.status === 'success') {
-      successMessage.value = 'Registrasi berhasil! Silakan masuk dengan email dan kata sandi baru Anda.';
-      
-      // Salin email ke form login dan alihkan ke tab login
-      loginForm.email = registerForm.email;
-      loginForm.password = '';
-      
-      // Reset form register
-      registerForm.name = '';
-      registerForm.email = '';
-      registerForm.password = '';
-      registerForm.confirmPassword = '';
-
-      setTimeout(() => {
-        activeTab.value = 'login';
-      }, 1200);
-    } else {
-      throw new Error(response.data?.message || 'Registrasi gagal.');
-    }
-  } catch (err) {
-    console.error('[Auth] Register error:', err);
-    if (err.response?.data?.message) {
-      errorMessage.value = err.response.data.message;
-    } else if (err.code === 'ERR_NETWORK' || !err.response) {
-      errorMessage.value = 'Gagal mendaftarkan akun. Silakan coba lagi.';
-    } else if (err.response?.status >= 500) {
-      errorMessage.value = 'Terjadi gangguan internal pada server. Silakan coba beberapa saat lagi.';
-    } else {
-      errorMessage.value = 'Gagal mendaftarkan akun. Silakan coba lagi.';
-    }
-  } finally {
-    isLoading.value = false;
-  }
-}
+const {
+  activeTab,
+  showPassword,
+  isLoading,
+  errorMessage,
+  successMessage,
+  loginForm,
+  registerForm,
+  switchTab,
+  fillDemoAccount,
+  handleLogin,
+  handleRegister,
+} = useAuthController(props.initialTab, emit);
 </script>
 
 <style scoped>

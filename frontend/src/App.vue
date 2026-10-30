@@ -32,24 +32,15 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-import axios from 'axios';
+import { authModel } from './models/authModel';
 import Home from './components/Home.vue';
 import Dashboard from './components/Dashboard.vue';
 import Auth from './components/Auth.vue';
 
-const token = ref(localStorage.getItem('simpulkata_token') || '');
-const currentUser = ref(null);
+const token = ref(authModel.getStoredToken());
+const currentUser = ref(authModel.getStoredUser());
 const currentView = ref('home'); // 'home' | 'auth' | 'dashboard'
 const authInitialTab = ref('login'); // 'login' | 'register'
-
-try {
-  const savedUser = localStorage.getItem('simpulkata_user');
-  if (savedUser) {
-    currentUser.value = JSON.parse(savedUser);
-  }
-} catch (e) {
-  console.warn('Gagal mem-parse data user dari localStorage:', e);
-}
 
 // Inisialisasi tampilan awal berdasarkan URL hash atau status login
 const homeAnchors = ['#faq', '#fitur', '#cara-kerja', '#paket-kuota', '#pratinjau', '#home'];
@@ -122,19 +113,17 @@ function handleLoginSuccess({ token: newToken, user: newUser }) {
 }
 
 function handleLogout() {
-  const refreshToken = localStorage.getItem('simpulkata_refresh_token');
+  const refreshToken = authModel.getStoredRefreshToken();
   if (refreshToken) {
     try {
-      axios.post('/api/auth/logout', { refreshToken }).catch(() => {});
+      authModel.logout(refreshToken).catch(() => {});
     } catch (e) {
       console.warn('[Logout] Gagal memanggil endpoint logout:', e);
     }
   }
   token.value = '';
   currentUser.value = null;
-  localStorage.removeItem('simpulkata_token');
-  localStorage.removeItem('simpulkata_refresh_token');
-  localStorage.removeItem('simpulkata_user');
+  authModel.clearSession();
   currentView.value = 'home';
   window.location.hash = '';
 }
