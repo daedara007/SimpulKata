@@ -112,12 +112,12 @@ async function login(request, reply) {
   try {
     const { email, password } = request.body || {};
 
-    // 1. Validasi input
-    if (!email || !password) {
+    // 1. Validasi input (CR-17, TC-LOGIN-007)
+    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
       return reply.status(400).send({
         status: 'error',
         code: 'VALIDATION_ERROR',
-        message: 'Email dan kata sandi wajib diisi.',
+        message: 'Email dan kata sandi wajib diisi dengan format string yang valid.',
       });
     }
 

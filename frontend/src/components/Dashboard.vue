@@ -29,7 +29,17 @@
             <span>Beranda</span>
           </button>
 
-          <!-- Info User & Sisa Saldo (Tugas 5) -->
+          <!-- Info Sisa Kuota Ringkas untuk Layar Ponsel (< 640px) (CR-16, TC-PROF-003) -->
+          <div v-if="userData?.name" class="flex sm:hidden items-center">
+            <span
+              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700"
+              :title="'Sisa kuota: ' + (userData.balance || 0) + ' detik'"
+            >
+              ⏱️ {{ formatDuration(userData.balance || 0) }}
+            </span>
+          </div>
+
+          <!-- Info User & Sisa Saldo untuk Layar Desktop (>= 640px) -->
           <div v-if="userData?.name" class="hidden sm:flex items-center gap-2">
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -152,9 +162,25 @@
               </div>
             </div>
 
+            <!-- Empty State Flow 2: Filter aktif tapi tidak cocok (CR-12, TC-HIST-008) -->
+            <div
+              v-else-if="statusFilter !== 'all' && (historyList.length === 0 || totalRecords === 0)"
+              class="text-center py-8 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 space-y-2"
+            >
+              <p class="text-xs font-semibold text-slate-300">Tidak ada data sesuai filter</p>
+              <p class="text-[11px] text-slate-500">Coba ganti filter status di atas ke "Semua".</p>
+              <button
+                type="button"
+                class="mt-2 text-xs text-indigo-400 hover:text-indigo-300 font-medium underline cursor-pointer"
+                @click="setStatusFilter('all')"
+              >
+                Reset Filter
+              </button>
+            </div>
+
             <!-- Empty State Flow 1: Belum ada data di database (SD-11 Flow 7b / SRS UC-11 Alternative Flow A1) -->
             <div
-              v-else-if="totalRecords === 0"
+              v-else-if="totalRecords === 0 || historyList.length === 0"
               class="text-center py-10 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 space-y-3"
             >
               <div class="w-12 h-12 mx-auto rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500">
@@ -166,22 +192,6 @@
                 <p class="text-xs sm:text-sm font-semibold text-slate-200">Belum ada transkripsi</p>
                 <p class="text-[11px] text-slate-400 mt-1">Silakan unggah atau rekam audio untuk memulai.</p>
               </div>
-            </div>
-
-            <!-- Empty State Flow 2: Filter tidak cocok (SRS UC-11 Alternative Flow A3) -->
-            <div
-              v-else-if="historyList.length === 0"
-              class="text-center py-8 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 space-y-2"
-            >
-              <p class="text-xs font-semibold text-slate-300">Tidak ada data sesuai filter</p>
-              <p class="text-[11px] text-slate-500">Coba ganti filter status di atas ke "Semua".</p>
-              <button
-                type="button"
-                class="mt-2 text-xs text-indigo-400 hover:text-indigo-300 font-medium underline"
-                @click="setStatusFilter('all')"
-              >
-                Reset Filter
-              </button>
             </div>
 
             <!-- Daftar Riwayat Transkripsi (SD-11 Normal Flow 7a & SRS UC-11 Post Conditions) -->
@@ -946,17 +956,45 @@ function countWords(str) {
 
 async function copyText(text, type) {
   if (!text) return;
-  try {
-    let textToCopy = text;
-    if (type === 'summary') {
-      textToCopy = text
-        .replace(/^(Berikut (ini )?adalah (hasil )?rangkuman.*?:?\s*\n+)+/i, '')
-        .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
-        .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
-        .replace(/^(Ringkasan (dari )?transkripsi.*?:?\s*\n+)+/i, '')
-        .trim();
+  let textToCopy = text;
+  if (type === 'summary') {
+    textToCopy = text
+      .replace(/^(Berikut (ini )?adalah (hasil )?rangkuman.*?:?\s*\n+)+/i, '')
+      .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
+      .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
+      .replace(/^(Ringkasan (dari )?transkripsi.*?:?\s*\n+)+/i, '')
+      .trim();
+  }
+
+  let success = false;
+
+  // 1. Coba Modern Clipboard API (tersedia di HTTPS / localhost)
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      success = true;
+    } catch (_) {}
+  }
+
+  // 2. Fallback untuk HTTP IP-LAN atau non-secure context (CR-14, TC-COPY-003)
+  if (!success) {
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = textToCopy;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      success = document.execCommand('copy');
+      document.body.removeChild(textArea);
+    } catch (err) {
+      console.warn('Fallback execCommand gagal:', err);
     }
-    await navigator.clipboard.writeText(textToCopy);
+  }
+
+  if (success) {
     if (type === 'raw') {
       copiedRaw.value = true;
       setTimeout(() => (copiedRaw.value = false), 2000);
@@ -964,8 +1002,8 @@ async function copyText(text, type) {
       copiedSummary.value = true;
       setTimeout(() => (copiedSummary.value = false), 2000);
     }
-  } catch (err) {
-    console.warn('Gagal menyalin teks ke clipboard:', err);
+  } else {
+    alert('Gagal menyalin teks ke papan klip secara otomatis. Silakan salin teks secara manual.');
   }
 }
 </script>

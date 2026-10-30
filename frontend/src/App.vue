@@ -51,19 +51,45 @@ try {
 }
 
 // Inisialisasi tampilan awal berdasarkan URL hash atau status login
-function initViewFromHash() {
+const homeAnchors = ['#faq', '#fitur', '#cara-kerja', '#paket-kuota', '#pratinjau', '#home'];
+
+function initViewFromHash(event) {
   const hash = window.location.hash.toLowerCase();
-  if (hash === '#dashboard' && token.value) {
-    currentView.value = 'dashboard';
+  const isInitial = !event; // dipanggil saat onMounted jika event tidak ada
+
+  if (hash === '#dashboard') {
+    if (token.value) {
+      currentView.value = 'dashboard';
+    } else {
+      authInitialTab.value = 'login';
+      currentView.value = 'auth';
+      window.location.hash = '#login';
+    }
   } else if (hash === '#register') {
     authInitialTab.value = 'register';
     currentView.value = 'auth';
   } else if (hash === '#login' || hash === '#auth') {
     authInitialTab.value = 'login';
     currentView.value = 'auth';
+  } else if (homeAnchors.some((anchor) => hash.startsWith(anchor))) {
+    // Anchor links di halaman beranda (CR-11, TC-HOME-006): tetap di home
+    currentView.value = 'home';
+  } else if (!hash || hash === '#') {
+    // Akses root tanpa hash:
+    // Jika inisialisasi awal dan sudah login -> arahkan ke dashboard (TC-HOME-005)
+    // Jika tidak, tetap di landing page (home)
+    if (isInitial && token.value) {
+      currentView.value = 'dashboard';
+    } else if (!token.value) {
+      currentView.value = 'home';
+    }
   } else {
-    // Default pengunjung melihat Landing Page / Homepage
-    currentView.value = token.value ? 'dashboard' : 'home';
+    // Hash tidak dikenal: jika bukan dari dashboard, pertahankan posisi saat ini
+    if (currentView.value !== 'home' && token.value) {
+      currentView.value = 'dashboard';
+    } else {
+      currentView.value = 'home';
+    }
   }
 }
 
@@ -103,9 +129,17 @@ function handleLogout() {
   window.location.hash = '';
 }
 
+// Debounce flag untuk mencegah alert ganda sesi berakhir (CR-13, TC-SES-004)
+let isSessionExpiredAlertShowing = false;
+
 function handleSessionExpired() {
+  if (isSessionExpiredAlertShowing) return;
+  isSessionExpiredAlertShowing = true;
   handleLogout();
   alert('Sesi Anda telah berakhir atau tidak valid. Silakan masuk kembali.');
+  setTimeout(() => {
+    isSessionExpiredAlertShowing = false;
+  }, 2000);
 }
 
 onMounted(() => {

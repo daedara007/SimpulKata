@@ -372,8 +372,10 @@ async function handleLogin() {
     console.error('[Auth] Login error:', err);
     if (err.response?.data?.message) {
       errorMessage.value = err.response.data.message;
-    } else if (err.message) {
-      errorMessage.value = err.message;
+    } else if (err.code === 'ERR_NETWORK' || !err.response) {
+      errorMessage.value = 'Terjadi kesalahan saat masuk. Pastikan server backend aktif.';
+    } else if (err.response?.status >= 500) {
+      errorMessage.value = 'Terjadi kesalahan pada server. Silakan coba beberapa saat lagi.';
     } else {
       errorMessage.value = 'Terjadi kesalahan saat masuk. Pastikan server backend aktif.';
     }
@@ -429,8 +431,10 @@ async function handleRegister() {
     console.error('[Auth] Register error:', err);
     if (err.response?.data?.message) {
       errorMessage.value = err.response.data.message;
-    } else if (err.message) {
-      errorMessage.value = err.message;
+    } else if (err.code === 'ERR_NETWORK' || !err.response) {
+      errorMessage.value = 'Gagal mendaftarkan akun. Silakan coba lagi.';
+    } else if (err.response?.status >= 500) {
+      errorMessage.value = 'Terjadi gangguan internal pada server. Silakan coba beberapa saat lagi.';
     } else {
       errorMessage.value = 'Gagal mendaftarkan akun. Silakan coba lagi.';
     }
