@@ -122,3 +122,4 @@ class OtpModel {
 }
 
 module.exports = new OtpModel();
+
