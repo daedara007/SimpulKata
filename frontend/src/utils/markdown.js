@@ -29,3 +29,4 @@ export function sanitizeAndRenderMarkdown(markdownText) {
     return DOMPurify.sanitize(cleanText);
   }
 }
+

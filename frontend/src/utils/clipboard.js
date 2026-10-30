@@ -43,3 +43,4 @@ export async function copyToClipboard(text, isSummary = false) {
     return false;
   }
 }
+
