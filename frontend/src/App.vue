@@ -121,9 +121,14 @@ function handleLoginSuccess({ token: newToken, user: newUser }) {
 }
 
 function handleLogout() {
+  const refreshToken = localStorage.getItem('simpulkata_refresh_token');
+  if (refreshToken) {
+    axios.post('/api/auth/logout', { refreshToken }).catch(() => {});
+  }
   token.value = '';
   currentUser.value = null;
   localStorage.removeItem('simpulkata_token');
+  localStorage.removeItem('simpulkata_refresh_token');
   localStorage.removeItem('simpulkata_user');
   currentView.value = 'home';
   window.location.hash = '';

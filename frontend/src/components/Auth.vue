@@ -358,13 +358,16 @@ async function handleLogin() {
     });
 
     if (response.data?.status === 'success') {
-      const { token, user } = response.data;
+      const { token, refreshToken, user } = response.data;
       
-      // Simpan ke localStorage sesuai spesifikasi tugas
+      // Simpan ke localStorage sesuai spesifikasi tugas & referensi/erd.puml
       localStorage.setItem('simpulkata_token', token);
+      if (refreshToken) {
+        localStorage.setItem('simpulkata_refresh_token', refreshToken);
+      }
       localStorage.setItem('simpulkata_user', JSON.stringify(user));
 
-      emit('login-success', { token, user });
+      emit('login-success', { token, refreshToken, user });
     } else {
       throw new Error(response.data?.message || 'Login gagal.');
     }

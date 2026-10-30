@@ -31,6 +31,27 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 
 -- ----------------------------------------------------------
+-- TABEL: user_sessions
+-- Menyimpan sesi login pengguna, refresh token, IP, dan user agent
+-- Berdasarkan referensi/erd.puml (Relasi: 1 user → N user_sessions)
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID            NOT NULL
+                            REFERENCES users(id) ON DELETE CASCADE,
+    refresh_token   VARCHAR(255)    NOT NULL UNIQUE,
+    ip_address      VARCHAR(45),
+    user_agent      TEXT,
+    expires_at      TIMESTAMP       NOT NULL,
+    created_at      TIMESTAMP       NOT NULL DEFAULT NOW()
+);
+
+-- Index untuk mempercepat query refresh token dan user session
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh_token ON user_sessions (refresh_token);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions (expires_at);
+
+-- ----------------------------------------------------------
 -- TABEL: transcripts
 -- Menyimpan metadata audio, hasil transkripsi Whisper (STT),
 -- dan hasil rangkuman GPT (LLM) dalam satu record

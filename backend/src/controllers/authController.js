@@ -11,6 +11,7 @@
  */
 
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const db = require('../db');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -151,7 +152,7 @@ async function login(request, reply) {
       });
     }
 
-    // 4. Generate JWT Session Token (SD-02 langkah 9 & 36: generateSessionToken)
+    // 4. Generate JWT Access Token berdurasi 15 menit (SD-02 langkah 9 & 36)
     const tokenPayload = {
       id: user.id,
       email: user.email,
@@ -160,14 +161,26 @@ async function login(request, reply) {
     };
 
     const token = this.jwt.sign(tokenPayload, {
-      expiresIn: '7d', // Berlaku selama 7 hari untuk kenyamanan MVP
+      expiresIn: '15m', // Access token aman berdurasi pendek (15 menit)
     });
 
-    // 5. Kembalikan data dan token (SD-02 langkah 12 & 45: return(loginSuccess, sessionToken, userData))
+    // 5. Generate Refresh Token aman dan simpan sesi ke tabel user_sessions (referensi/erd.puml)
+    const refreshToken = crypto.randomBytes(40).toString('hex');
+    const ipAddress = request.ip || (request.headers['x-forwarded-for'] ? request.headers['x-forwarded-for'].split(',')[0].trim() : null) || null;
+    const userAgent = request.headers['user-agent'] || null;
+
+    await db.query(
+      `INSERT INTO user_sessions (user_id, refresh_token, ip_address, user_agent, expires_at)
+       VALUES ($1, $2, $3, $4, NOW() + INTERVAL '7 days')`,
+      [user.id, refreshToken, ipAddress, userAgent]
+    );
+
+    // 6. Kembalikan data, access token, dan refresh token (SD-02 langkah 12 & 45)
     return reply.status(200).send({
       status: 'success',
       message: 'Login berhasil.',
       token,
+      refreshToken,
       user: {
         id: user.id,
         name: user.name,
@@ -182,6 +195,123 @@ async function login(request, reply) {
       status: 'error',
       code: 'LOGIN_ERROR',
       message: 'Terjadi kesalahan pada server saat login.',
+    });
+  }
+}
+
+/**
+ * POST /api/auth/refresh
+ * Memperbarui access token menggunakan refresh token yang valid (user_sessions & RTR)
+ */
+async function refreshSession(request, reply) {
+  try {
+    const { refreshToken } = request.body || {};
+
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      return reply.status(400).send({
+        status: 'error',
+        code: 'VALIDATION_ERROR',
+        message: 'Refresh token wajib disertakan.',
+      });
+    }
+
+    // 1. Cari sesi yang cocok di tabel user_sessions
+    const sessionRes = await db.query(
+      `SELECT s.id, s.user_id, s.expires_at, u.id AS user_pk, u.name, u.email, u.role, u.balance
+       FROM user_sessions s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.refresh_token = $1
+       LIMIT 1`,
+      [refreshToken]
+    );
+
+    if (sessionRes.rows.length === 0) {
+      return reply.status(401).send({
+        status: 'error',
+        code: 'INVALID_REFRESH_TOKEN',
+        message: 'Sesi tidak valid atau telah dicabut. Silakan login kembali.',
+      });
+    }
+
+    const session = sessionRes.rows[0];
+
+    // 2. Periksa apakah masa aktif sesi sudah kedaluwarsa
+    if (new Date(session.expires_at) <= new Date()) {
+      await db.query(`DELETE FROM user_sessions WHERE id = $1`, [session.id]);
+      return reply.status(401).send({
+        status: 'error',
+        code: 'SESSION_EXPIRED',
+        message: 'Sesi login telah kedaluwarsa. Silakan masuk kembali.',
+      });
+    }
+
+    // 3. Terbitkan Access Token baru (15 menit)
+    const tokenPayload = {
+      id: session.user_pk,
+      email: session.email,
+      name: session.name,
+      role: session.role,
+    };
+
+    const newAccessToken = this.jwt.sign(tokenPayload, {
+      expiresIn: '15m',
+    });
+
+    // 4. Refresh Token Rotation (RTR): Terbitkan refresh token baru dan perbarui record sesi
+    const newRefreshToken = crypto.randomBytes(40).toString('hex');
+    const ipAddress = request.ip || (request.headers['x-forwarded-for'] ? request.headers['x-forwarded-for'].split(',')[0].trim() : null) || null;
+    const userAgent = request.headers['user-agent'] || null;
+
+    await db.query(
+      `UPDATE user_sessions
+       SET refresh_token = $1,
+           ip_address = COALESCE($2, ip_address),
+           user_agent = COALESCE($3, user_agent),
+           expires_at = NOW() + INTERVAL '7 days'
+       WHERE id = $4`,
+      [newRefreshToken, ipAddress, userAgent, session.id]
+    );
+
+    return reply.status(200).send({
+      status: 'success',
+      message: 'Sesi berhasil diperbarui.',
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (error) {
+    console.error('[AuthController] Error saat refresh session:', error);
+    return reply.status(500).send({
+      status: 'error',
+      code: 'REFRESH_ERROR',
+      message: 'Terjadi kesalahan saat memperbarui sesi login.',
+    });
+  }
+}
+
+/**
+ * POST /api/auth/logout
+ * Menghapus sesi login dari tabel user_sessions
+ */
+async function logout(request, reply) {
+  try {
+    const { refreshToken } = request.body || {};
+
+    if (refreshToken && typeof refreshToken === 'string') {
+      await db.query(`DELETE FROM user_sessions WHERE refresh_token = $1`, [refreshToken]);
+    } else if (request.user?.id) {
+      await db.query(`DELETE FROM user_sessions WHERE user_id = $1`, [request.user.id]);
+    }
+
+    return reply.status(200).send({
+      status: 'success',
+      message: 'Logout berhasil. Sesi telah dicabut.',
+    });
+  } catch (error) {
+    console.error('[AuthController] Error saat logout:', error);
+    return reply.status(500).send({
+      status: 'error',
+      code: 'LOGOUT_ERROR',
+      message: 'Terjadi kesalahan pada server saat logout.',
     });
   }
 }
@@ -232,4 +362,6 @@ module.exports = {
   register,
   login,
   getMe,
+  refreshSession,
+  logout,
 };

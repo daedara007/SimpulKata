@@ -14,6 +14,12 @@ async function authRoutes(fastify, options) {
   // POST /api/auth/login (Publik)
   fastify.post('/login', authController.login);
 
+  // POST /api/auth/refresh (Publik - Refresh Token Rotation)
+  fastify.post('/refresh', authController.refreshSession);
+
+  // POST /api/auth/logout (Publik / Revoke Refresh Token)
+  fastify.post('/logout', authController.logout);
+
   // GET /api/auth/me (Membutuhkan JWT Token)
   fastify.get('/me', { preHandler: [fastify.authenticate] }, authController.getMe);
 }

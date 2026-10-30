@@ -216,6 +216,18 @@ const start = async () => {
       fastify.log.warn({ err: cleanupErr }, '[Startup] Gagal membersihkan record transkrip menggantung');
     }
 
+    // Pembersihan sesi login yang sudah kedaluwarsa di tabel user_sessions (referensi/erd.puml)
+    try {
+      const sessionCleanup = await db.query(
+        `DELETE FROM user_sessions WHERE expires_at < NOW()`
+      );
+      if (sessionCleanup.rowCount > 0) {
+        fastify.log.info(`[Startup] Membersihkan ${sessionCleanup.rowCount} sesi login yang kedaluwarsa.`);
+      }
+    } catch (sessionErr) {
+      fastify.log.warn({ err: sessionErr }, '[Startup] Gagal membersihkan sesi login kedaluwarsa');
+    }
+
     // Jalankan server
     await fastify.listen({ port: PORT, host: HOST });
     fastify.log.info(`[Startup] SimpulKata Backend berjalan di http://${HOST}:${PORT}`);
