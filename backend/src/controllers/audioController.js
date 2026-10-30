@@ -51,6 +51,9 @@ async function safeUnlink(filePath) {
 async function processAudio(request, reply) {
   let savedFilePath = null;
   let transcriptId = null;
+  let durationSeconds = 0;
+  let userId = null;
+  let isQuotaReserved = false;
 
   try {
     // 1. Ambil file dari request multipart
@@ -98,12 +101,12 @@ async function processAudio(request, reply) {
       return reply.status(400).send({
         status: 'error',
         code: 'EMPTY_FILE',
-        message: 'File audio yang diunggah kosong (0 bytes). Jika di Postman terdapat tanda peringatan ⚠️ pada nama file, silakan hapus dan pilih ulang (re-select) file tersebut.',
+        message: 'File audio yang diunggah kosong (0 bytes). Silakan periksa dan unggah kembali file audio yang valid.',
       });
     }
 
     // 4. Ambil user pengunggah dari token JWT yang sudah terautentikasi
-    const userId = request.user?.id;
+    userId = request.user?.id;
     if (!userId) {
       await safeUnlink(savedFilePath);
       return reply.status(401).send({
@@ -140,18 +143,41 @@ async function processAudio(request, reply) {
     }
 
     // 5. Ekstrak durasi audio secara lokal sebelum memanggil AI Whisper (Hemat biaya & waktu!)
-    const durationSeconds = await aiService.getAudioDuration(savedFilePath);
+    durationSeconds = await aiService.getAudioDuration(savedFilePath);
     console.log(`[AudioController] Durasi audio terdeteksi: ${durationSeconds} detik (Saldo user: ${user.balance} detik)`);
 
-    // Validasi apakah sisa saldo kuota pengguna mencukupi untuk durasi audio ini
-    if (durationSeconds > 0 && user.balance < durationSeconds) {
+    // Validasi file audio dan durasi (CR-02, TC-UPL-008, TC-QTA-006)
+    if (!durationSeconds || durationSeconds <= 0) {
       await safeUnlink(savedFilePath);
+      return reply.status(400).send({
+        status: 'error',
+        code: 'INVALID_AUDIO_FILE',
+        message: 'File audio tidak valid, rusak, atau durasinya tidak dapat ditentukan (0 detik). Pastikan file merupakan berkas audio yang benar.',
+      });
+    }
+
+    // 5b. Reservasi kuota secara atomik di awal untuk mencegah race condition (CR-03, TC-QTA-007)
+    const reserveRes = await db.query(
+      `UPDATE users
+       SET balance = balance - $1
+       WHERE id = $2 AND balance >= $1
+       RETURNING balance`,
+      [durationSeconds, user.id]
+    );
+
+    if (reserveRes.rowCount === 0) {
+      await safeUnlink(savedFilePath);
+      const currentBalanceRes = await db.query('SELECT balance FROM users WHERE id = $1', [user.id]);
+      const currentBalance = currentBalanceRes.rows[0]?.balance ?? 0;
       return reply.status(402).send({
         status: 'error',
         code: 'INSUFFICIENT_QUOTA',
-        message: `Durasi audio (${durationSeconds} detik) melebihi sisa saldo kuota Anda (${user.balance} detik). Silakan hubungi admin atau top up kuota.`,
+        message: `Durasi audio (${durationSeconds} detik) melebihi sisa saldo kuota Anda (${currentBalance} detik). Silakan hubungi admin atau top up kuota.`,
       });
     }
+
+    isQuotaReserved = true;
+    console.log(`[AudioController] Kuota berhasil direservasi di awal: -${durationSeconds}s (Sisa saldo: ${reserveRes.rows[0].balance}s)`);
 
     // 6. Buat record awal di tabel transcripts (status: 'processing', durasi sudah dicatat)
     const insertRes = await db.query(
@@ -172,7 +198,7 @@ async function processAudio(request, reply) {
     console.log(`[AudioController] Memulai pembuatan rangkuman teks untuk transcript: ${transcriptId}...`);
     const { summary: summaryText, tokens_used: tokensUsed } = await aiService.summarizeText(rawText);
 
-    // 8. Update tabel transcripts menjadi 'completed' beserta hasil AI
+    // 9. Update tabel transcripts menjadi 'completed' beserta hasil AI
     await db.query(
       `UPDATE transcripts
        SET raw_text = $1,
@@ -182,14 +208,6 @@ async function processAudio(request, reply) {
            status = 'completed'
        WHERE id = $5`,
       [rawText, summaryText, durationSeconds, tokensUsed, transcriptId]
-    );
-
-    // 9. Potong kuota pengguna di tabel users
-    await db.query(
-      `UPDATE users
-       SET balance = GREATEST(0, balance - $1)
-       WHERE id = $2`,
-      [durationSeconds, user.id]
     );
 
     // 10. Hapus file audio fisik dari server (sesuai sequence SD-09 step 16)
@@ -215,6 +233,21 @@ async function processAudio(request, reply) {
     // Bersihkan file fisik jika masih ada
     await safeUnlink(savedFilePath);
 
+    // Kembalikan reservasi kuota jika pemrosesan gagal (CR-03 Refund)
+    if (isQuotaReserved && userId && durationSeconds > 0) {
+      try {
+        await db.query(
+          `UPDATE users
+           SET balance = balance + $1
+           WHERE id = $2`,
+          [durationSeconds, userId]
+        );
+        console.log(`[AudioController] Mengembalikan kuota ${durationSeconds}s ke user ${userId} karena pemrosesan gagal`);
+      } catch (refundErr) {
+        console.error('[AudioController] Gagal mengembalikan kuota:', refundErr.message);
+      }
+    }
+
     // Tandai status transcript sebagai 'failed' jika record sudah dibuat di DB
     if (transcriptId) {
       try {
@@ -237,10 +270,11 @@ async function processAudio(request, reply) {
     }
 
     if (error.code === 'FST_REQ_FILE_TOO_LARGE' || error.code === 'FST_FILES_LIMIT') {
+      const maxMb = process.env.MAX_UPLOAD_SIZE_MB || '50';
       return reply.status(413).send({
         status: 'error',
         code: 'FILE_TOO_LARGE',
-        message: 'Ukuran file melebihi batas maksimal 50MB.',
+        message: `Ukuran file melebihi batas maksimal ${maxMb}MB.`,
       });
     }
 

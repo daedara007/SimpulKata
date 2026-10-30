@@ -555,6 +555,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 marked.setOptions({
   breaks: true,
@@ -632,10 +633,11 @@ const renderedSummary = computed(() => {
     .trim();
 
   try {
-    return marked.parse(cleanText);
+    const rawHtml = marked.parse(cleanText);
+    return DOMPurify.sanitize(rawHtml);
   } catch (e) {
     console.warn('Gagal mem-parse markdown rangkuman:', e);
-    return cleanText;
+    return DOMPurify.sanitize(cleanText);
   }
 });
 

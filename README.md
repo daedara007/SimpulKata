@@ -267,6 +267,6 @@ Dokumentasi lengkap pengembangan sistem ini tersedia di dalam direktori [`refere
 Proyek ini dikembangkan oleh:
 - **Nama**: Kevin Jonathan Wijaya
 - **NIM**: 11241040
-- **Mata Kuliah**: Implementasi Proyek Perangkat Lunak (IPPL)
+- **Mata Kuliah**: Implementasi dan Pengujian Perangkat Lunak (IPPL)
 
 Didistribusikan di bawah lisensi [MIT](LICENSE). Silakan gunakan dan kembangkan sesuai kebutuhan.

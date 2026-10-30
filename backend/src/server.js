@@ -62,8 +62,14 @@ fastify.register(require('@fastify/multipart'), {
 // PLUGIN: @fastify/jwt
 // Autentikasi berbasis token JWT (SRS UC-01 & UC-02)
 // ----------------------------------------------------------
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret || jwtSecret.trim() === '' || jwtSecret === 'simpulkata-jwt-default-secret-key-change-me') {
+  fastify.log.fatal('[Security] JWT_SECRET wajib dikonfigurasi dan tidak boleh kosong atau menggunakan default insecure key.');
+  throw new Error('JWT_SECRET wajib dikonfigurasi dan tidak boleh kosong atau menggunakan default insecure key.');
+}
+
 fastify.register(require('@fastify/jwt'), {
-  secret: process.env.JWT_SECRET || 'simpulkata-jwt-default-secret-key-change-me',
+  secret: jwtSecret,
 });
 
 // Decorator untuk memproteksi routes yang mewajibkan login

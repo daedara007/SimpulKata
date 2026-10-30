@@ -53,9 +53,14 @@ async function convertAudioToMp3(inputPath) {
     ]);
     return outputPath;
   } catch (err) {
+    if (fs.existsSync(outputPath)) {
+      try {
+        await fs.promises.unlink(outputPath);
+      } catch (_) {}
+    }
     console.error('[aiService] Gagal mengonversi audio ke .mp3 menggunakan ffmpeg:', err.message);
     const detailMsg = err.message && err.message.includes('moov atom not found')
-      ? 'File audio .m4a tidak lengkap atau kosong (moov atom not found). Di Postman, silakan pilih ulang (re-select) file audio.'
+      ? 'File audio .m4a tidak lengkap atau kosong (moov atom not found). Silakan pilih atau unggah ulang file audio.'
       : `Gagal memproses file audio: ${err.message}`;
     const customErr = new Error(detailMsg);
     customErr.code = 'AI_SERVICE_ERROR';
@@ -65,7 +70,8 @@ async function convertAudioToMp3(inputPath) {
 
 /**
  * Mengekstrak durasi file audio secara lokal menggunakan music-metadata.
- * Sangat cepat (beberapa milidetik) tanpa memanggil API AI eksternal.
+ * Dilengkapi fallback ffprobe jika header rusak atau format VBR tanpa header Xing.
+ * Sangat cepat tanpa memanggil API AI eksternal.
  *
  * @param {string} filePath - Path ke file audio fisik di server
  * @returns {Promise<number>} - Durasi audio dalam detik (pembulatan ke atas)
@@ -79,11 +85,31 @@ async function getAudioDuration(filePath) {
 
   try {
     const metadata = await mm.parseFile(filePath);
-    return Math.ceil(metadata.format.duration || 0);
+    if (metadata.format && metadata.format.duration && metadata.format.duration > 0) {
+      return Math.ceil(metadata.format.duration);
+    }
   } catch (metaErr) {
     console.warn('[aiService] Gagal membaca metadata durasi audio via music-metadata:', metaErr.message);
-    return 0;
   }
+
+  // Fallback: gunakan ffprobe untuk format/header rusak atau VBR tanpa Xing header (CR-02)
+  try {
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      filePath,
+    ]);
+    const parsed = parseFloat(stdout.trim());
+    if (!isNaN(parsed) && parsed > 0) {
+      console.log(`[aiService] Durasi audio berhasil dideteksi via ffprobe: ${parsed}s (dibulatkan: ${Math.ceil(parsed)}s)`);
+      return Math.ceil(parsed);
+    }
+  } catch (probeErr) {
+    console.warn('[aiService] ffprobe juga gagal membaca durasi audio:', probeErr.message);
+  }
+
+  return 0;
 }
 
 /**
