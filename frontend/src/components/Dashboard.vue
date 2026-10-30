@@ -810,6 +810,76 @@ function clearFile() {
   }
 }
 
+function displayResults(data) {
+  transcriptId.value = data.transcript_id || data.id || '';
+  rawText.value = data.raw_text || '';
+  summaryText.value = data.summary_text || '';
+  meta.value = {
+    durationSeconds: data.duration_seconds || 0,
+    tokensUsed: data.tokens_used || 0,
+  };
+  selectedHistoryId.value = transcriptId.value;
+
+  // Auto-update riwayat dan sisa saldo setelah pemrosesan selesai!
+  fetchHistory(1);
+  fetchUserProfile();
+
+  // Scroll halus ke area hasil
+  setTimeout(() => {
+    const el = document.getElementById('results-area');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 150);
+}
+
+async function pollTranscript(activeId) {
+  const pollIntervalMs = 2500;
+  const maxAttempts = 240; // 240 * 2.5s = 600 detik (10 menit)
+  let attempts = 0;
+
+  return new Promise((resolve, reject) => {
+    const poller = setInterval(async () => {
+      attempts++;
+      try {
+        const res = await axios.get(`/api/transcripts/${activeId}`);
+        const item = res.data?.data;
+
+        if (item?.status === 'completed') {
+          clearInterval(poller);
+          displayResults({
+            transcript_id: item.id,
+            raw_text: item.raw_text,
+            summary_text: item.summary_text,
+            duration_seconds: item.duration_seconds,
+            tokens_used: item.tokens_used,
+          });
+          resolve();
+        } else if (item?.status === 'failed') {
+          clearInterval(poller);
+          await fetchHistory(1);
+          await fetchUserProfile();
+          const failMsg = item.summary_text || item.raw_text || 'Pemrosesan audio gagal.';
+          errorMessage.value = failMsg;
+          alert(`Pemrosesan Gagal: ${failMsg}`);
+          resolve();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(poller);
+          await fetchHistory(1);
+          alert('Pemrosesan audio membutuhkan waktu lebih lama di latar belakang. Silakan pantau statusnya pada menu Riwayat.');
+          resolve();
+        }
+      } catch (pollErr) {
+        console.warn('[Polling] Kendala jaringan saat memantau status transkrip:', pollErr);
+        if (attempts >= maxAttempts) {
+          clearInterval(poller);
+          reject(pollErr);
+        }
+      }
+    }, pollIntervalMs);
+  });
+}
+
 async function processAudio() {
   if (!selectedFile.value) {
     alert('Silakan pilih file audio terlebih dahulu.');
@@ -840,28 +910,20 @@ async function processAudio() {
       },
     });
 
-    if (response.data?.status === 'success') {
-      const data = response.data.data;
-      transcriptId.value = data.transcript_id || '';
-      rawText.value = data.raw_text || '';
-      summaryText.value = data.summary_text || '';
-      meta.value = {
-        durationSeconds: data.duration_seconds || 0,
-        tokensUsed: data.tokens_used || 0,
-      };
-      selectedHistoryId.value = data.transcript_id;
+    if (response.status === 202 || response.data?.status === 'processing') {
+      const activeTranscriptId = response.data?.data?.transcript_id;
+      transcriptId.value = activeTranscriptId;
+      selectedHistoryId.value = activeTranscriptId;
 
-      // Auto-update riwayat dan sisa saldo setelah pemrosesan selesai!
+      // Segera perbarui daftar riwayat dan kuota agar pengguna melihat status 'Memproses'
       await fetchHistory(1);
       await fetchUserProfile();
 
-      // Scroll halus ke area hasil
-      setTimeout(() => {
-        const el = document.getElementById('results-area');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 150);
+      // Lakukan polling status transkrip secara asinkron (CR-06, TC-TRS-011)
+      await pollTranscript(activeTranscriptId);
+    } else if (response.data?.status === 'success') {
+      const data = response.data.data;
+      displayResults(data);
     } else {
       throw new Error(response.data?.message || 'Gagal memproses audio');
     }

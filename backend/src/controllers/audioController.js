@@ -190,90 +190,46 @@ async function processAudio(request, reply) {
     transcriptId = insertRes.rows[0].id;
     console.log(`[AudioController] Record transcript dibuat: ${transcriptId} (status: processing, durasi: ${durationSeconds}s)`);
 
-    // 7. Transkripsi audio menggunakan Hugging Face Whisper
-    console.log(`[AudioController] Memulai transkripsi untuk transcript: ${transcriptId}...`);
-    const { text: rawText } = await aiService.transcribeAudio(savedFilePath, durationSeconds);
+    const isSync = request.query?.sync === 'true';
 
-    // 7b. Validasi hasil transkripsi (CR-08, TC-TRS-005: Audio hening / tanpa ucapan)
-    if (!rawText || !rawText.trim()) {
-      await safeUnlink(savedFilePath);
-      // Kembalikan kuota karena tidak ada ucapan terdeteksi
-      if (isQuotaReserved && userId && durationSeconds > 0) {
-        await db.query(
-          `UPDATE users SET balance = balance + $1 WHERE id = $2`,
-          [durationSeconds, userId]
-        );
-        isQuotaReserved = false;
-        console.log(`[AudioController] Kuota dikembalikan karena audio hening (tidak ada ucapan)`);
-      }
+    if (isSync) {
+      // Mode Sinkron (Kompatibilitas): Menunggu AI pipeline selesai dalam satu request HTTP
+      const pipelineResult = await runTranscriptionPipeline({
+        transcriptId,
+        savedFilePath,
+        durationSeconds,
+        userId,
+      });
 
-      await db.query(
-        `UPDATE transcripts
-         SET raw_text = '(Tidak ada ucapan yang terdeteksi)',
-             status = 'failed'
-         WHERE id = $1`,
-        [transcriptId]
-      );
-
-      return reply.status(422).send({
-        status: 'error',
-        code: 'NO_SPEECH_DETECTED',
-        message: 'Tidak ada ucapan atau percakapan yang terdeteksi dalam rekaman audio ini. Kuota Anda tidak terpotong.',
+      return reply.status(200).send({
+        status: 'success',
+        data: pipelineResult,
       });
     }
 
-    // 7c. Simpan raw_text segera setelah Whisper selesai agar transkrip tidak hilang jika LLM gagal (CR-08, TC-SUM-004, TC-SUM-006)
-    await db.query(
-      `UPDATE transcripts
-       SET raw_text = $1
-       WHERE id = $2`,
-      [rawText, transcriptId]
-    );
+    // Mode Asinkron Default (CR-06, TC-TRS-011):
+    // Kembalikan respons 202 Accepted dalam 1-2 detik ke client untuk mencegah 524 HTTP Timeout di Cloudflare Tunnel
+    // Tanggung jawab refund & cleanup audio dialihkan ke runTranscriptionPipeline
+    isQuotaReserved = false;
 
-    // 8. Buat rangkuman teks menggunakan Hugging Face LLM (dengan penanganan error gracefully)
-    console.log(`[AudioController] Memulai pembuatan rangkuman teks untuk transcript: ${transcriptId}...`);
-    let summaryText = '';
-    let tokensUsed = 0;
-    let summaryWarning = null;
-
-    try {
-      const summaryResult = await aiService.summarizeText(rawText);
-      summaryText = summaryResult.summary;
-      tokensUsed = summaryResult.tokens_used;
-    } catch (sumErr) {
-      console.warn(`[AudioController] Gagal membuat rangkuman teks untuk transcript ${transcriptId}:`, sumErr.message);
-      summaryWarning = sumErr.message || 'Layanan rangkuman AI sedang tidak tersedia.';
-      summaryText = `*(Rangkuman otomatis belum tersedia: ${summaryWarning}. Transkripsi lengkap telah berhasil disimpan.)*`;
-    }
-
-    // 9. Update tabel transcripts menjadi 'completed' beserta hasil transkripsi & rangkuman
-    await db.query(
-      `UPDATE transcripts
-       SET raw_text = $1,
-           summary_text = $2,
-           duration_seconds = $3,
-           tokens_used = $4,
-           status = 'completed'
-       WHERE id = $5`,
-      [rawText, summaryText, durationSeconds, tokensUsed, transcriptId]
-    );
-
-    // 10. Hapus file audio fisik dari server (sesuai sequence SD-09 step 16)
-    await safeUnlink(savedFilePath);
-
-    console.log(`[AudioController] Pemrosesan selesai untuk transcript: ${transcriptId}`);
-
-    // 11. Kembalikan response sukses 200
-    return reply.status(200).send({
-      status: 'success',
+    reply.status(202).send({
+      status: 'processing',
+      message: 'Audio berhasil diunggah dan sedang diproses di antrean latar belakang.',
       data: {
         transcript_id: transcriptId,
-        raw_text: rawText,
-        summary_text: summaryText,
+        status: 'processing',
         duration_seconds: durationSeconds,
-        tokens_used: tokensUsed,
-        ...(summaryWarning ? { warning: summaryWarning } : {}),
       },
+    });
+
+    // Jalankan pipeline AI di latar belakang secara asinkron
+    runTranscriptionPipeline({
+      transcriptId,
+      savedFilePath,
+      durationSeconds,
+      userId,
+    }).catch((bgErr) => {
+      console.error(`[AudioController] Background pipeline gagal untuk ${transcriptId}:`, bgErr.message);
     });
 
   } catch (error) {
@@ -350,6 +306,134 @@ async function processAudio(request, reply) {
       code: error.code || 'INTERNAL_SERVER_ERROR',
       message: error.message || 'Terjadi kesalahan pada server saat memproses audio.',
     });
+  }
+}
+
+/**
+ * Menjalankan pipeline transkripsi Whisper dan perangkum LLM (CR-06, CR-08)
+ * Dapat dipanggil secara asinkron di latar belakang atau secara sinkron
+ */
+async function runTranscriptionPipeline({ transcriptId, savedFilePath, durationSeconds, userId }) {
+  let isQuotaReserved = true;
+
+  try {
+    console.log(`[AudioPipeline] Memulai transkripsi Whisper untuk transcript: ${transcriptId}...`);
+    const { text: rawText } = await aiService.transcribeAudio(savedFilePath, durationSeconds);
+
+    // 1. Validasi hasil transkripsi (CR-08, TC-TRS-005: Audio hening / tanpa ucapan)
+    if (!rawText || !rawText.trim()) {
+      await safeUnlink(savedFilePath);
+
+      // Kembalikan kuota karena tidak ada ucapan terdeteksi
+      if (userId && durationSeconds > 0) {
+        await db.query(
+          `UPDATE users SET balance = balance + $1 WHERE id = $2`,
+          [durationSeconds, userId]
+        );
+        isQuotaReserved = false;
+        console.log(`[AudioPipeline] Kuota dikembalikan karena audio hening (tidak ada ucapan)`);
+      }
+
+      await db.query(
+        `UPDATE transcripts
+         SET raw_text = '(Tidak ada ucapan yang terdeteksi)',
+             summary_text = 'Tidak ada ucapan atau percakapan yang terdeteksi dalam rekaman audio ini. Kuota telah dikembalikan.',
+             status = 'failed'
+         WHERE id = $1`,
+        [transcriptId]
+      );
+
+      const error = new Error('Tidak ada ucapan atau percakapan yang terdeteksi dalam rekaman audio ini.');
+      error.code = 'NO_SPEECH_DETECTED';
+      error.statusCode = 422;
+      throw error;
+    }
+
+    // 2. Simpan raw_text segera setelah Whisper selesai agar transkrip tidak hilang jika LLM gagal (CR-08, TC-SUM-004, TC-SUM-006)
+    await db.query(
+      `UPDATE transcripts
+       SET raw_text = $1
+       WHERE id = $2`,
+      [rawText, transcriptId]
+    );
+
+    // 3. Buat rangkuman teks menggunakan Hugging Face LLM (dengan penanganan error gracefully)
+    console.log(`[AudioPipeline] Memulai pembuatan rangkuman teks untuk transcript: ${transcriptId}...`);
+    let summaryText = '';
+    let tokensUsed = 0;
+    let summaryWarning = null;
+
+    try {
+      const summaryResult = await aiService.summarizeText(rawText);
+      summaryText = summaryResult.summary;
+      tokensUsed = summaryResult.tokens_used;
+    } catch (sumErr) {
+      console.warn(`[AudioPipeline] Gagal membuat rangkuman teks untuk transcript ${transcriptId}:`, sumErr.message);
+      summaryWarning = sumErr.message || 'Layanan rangkuman AI sedang tidak tersedia.';
+      summaryText = `*(Rangkuman otomatis belum tersedia: ${summaryWarning}. Transkripsi lengkap telah berhasil disimpan.)*`;
+    }
+
+    // 4. Update tabel transcripts menjadi 'completed' beserta hasil transkripsi & rangkuman
+    await db.query(
+      `UPDATE transcripts
+       SET raw_text = $1,
+           summary_text = $2,
+           duration_seconds = $3,
+           tokens_used = $4,
+           status = 'completed'
+       WHERE id = $5`,
+      [rawText, summaryText, durationSeconds, tokensUsed, transcriptId]
+    );
+
+    // 5. Hapus file audio fisik dari server (sesuai sequence SD-09 step 16 & Rule 3)
+    await safeUnlink(savedFilePath);
+    console.log(`[AudioPipeline] Pemrosesan selesai sukses untuk transcript: ${transcriptId}`);
+
+    return {
+      transcript_id: transcriptId,
+      raw_text: rawText,
+      summary_text: summaryText,
+      duration_seconds: durationSeconds,
+      tokens_used: tokensUsed,
+      ...(summaryWarning ? { warning: summaryWarning } : {}),
+    };
+  } catch (error) {
+    console.error(`[AudioPipeline] Error saat memproses pipeline transcript ${transcriptId}:`, error);
+
+    // Bersihkan file fisik jika masih ada
+    await safeUnlink(savedFilePath);
+
+    // Kembalikan reservasi kuota jika pemrosesan gagal (CR-03 Refund)
+    if (isQuotaReserved && error.code !== 'NO_SPEECH_DETECTED' && userId && durationSeconds > 0) {
+      try {
+        await db.query(
+          `UPDATE users
+           SET balance = balance + $1
+           WHERE id = $2`,
+          [durationSeconds, userId]
+        );
+        console.log(`[AudioPipeline] Mengembalikan kuota ${durationSeconds}s ke user ${userId} karena pemrosesan gagal`);
+      } catch (refundErr) {
+        console.error('[AudioPipeline] Gagal mengembalikan kuota:', refundErr.message);
+      }
+    }
+
+    // Tandai status transcript sebagai 'failed' jika record sudah dibuat di DB
+    if (error.code !== 'NO_SPEECH_DETECTED' && transcriptId) {
+      try {
+        await db.query(
+          `UPDATE transcripts
+           SET status = 'failed',
+               summary_text = $1
+           WHERE id = $2`,
+          [`Gagal memproses audio: ${error.message || 'Terjadi kesalahan sistem saat pemrosesan AI'}`, transcriptId]
+        );
+      } catch (dbErr) {
+        console.error('[AudioPipeline] Gagal update status transcript ke failed:', dbErr.message);
+      }
+    }
+
+    throw error;
   }
 }
 
@@ -437,8 +521,66 @@ async function getHistory(request, reply) {
   }
 }
 
+/**
+ * GET /api/transcripts/:id
+ * Mengambil status dan hasil transkrip tertentu (CR-06, TC-TRS-011)
+ * Digunakan oleh frontend untuk polling status pemrosesan asinkron
+ */
+async function getTranscriptStatus(request, reply) {
+  try {
+    const { id } = request.params;
+    const userId = request.user?.id;
+
+    if (!id || typeof id !== 'string') {
+      return reply.status(400).send({
+        status: 'error',
+        code: 'INVALID_ID',
+        message: 'ID transkrip tidak valid.',
+      });
+    }
+
+    const res = await db.query(
+      `SELECT id, original_file_name, status, raw_text, summary_text,
+              duration_seconds, tokens_used, created_at, updated_at
+       FROM transcripts
+       WHERE id = $1 AND user_id = $2
+       LIMIT 1`,
+      [id, userId]
+    );
+
+    if (res.rows.length === 0) {
+      return reply.status(404).send({
+        status: 'error',
+        code: 'NOT_FOUND',
+        message: 'Data transkrip tidak ditemukan.',
+      });
+    }
+
+    const row = res.rows[0];
+    const wordCount = row.raw_text
+      ? row.raw_text.trim().split(/\s+/).filter(Boolean).length
+      : 0;
+
+    return reply.status(200).send({
+      status: 'success',
+      data: {
+        ...row,
+        word_count: wordCount,
+      },
+    });
+  } catch (error) {
+    console.error('[AudioController] Gagal mengambil status transkrip:', error);
+    return reply.status(500).send({
+      status: 'error',
+      code: 'TRANSCRIPT_FETCH_ERROR',
+      message: 'Gagal memuat status transkrip dari database.',
+    });
+  }
+}
+
 module.exports = {
   processAudio,
+  getTranscriptStatus,
   getHistory,
 };
 
