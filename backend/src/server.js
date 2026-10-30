@@ -117,7 +117,7 @@ fastify.get('/health/db', async (request, reply) => {
       db_version: result.rows[0].db_version,
     };
   } catch (err) {
-    fastify.log.error('[Health/DB] Koneksi database gagal:', err.message);
+    fastify.log.error({ err }, '[Health/DB] Koneksi database gagal');
     return reply.status(503).send({
       status: 'error',
       database: 'disconnected',
@@ -202,6 +202,20 @@ const start = async () => {
     fastify.log.info('[Startup] Menguji koneksi ke database...');
     await db.testConnection();
 
+    // Pembersihan transkrip berstatus 'processing' yang menggantung akibat restart/crash (CR-19, TC-TRS-010)
+    try {
+      const cleanupRes = await db.query(
+        `UPDATE transcripts
+         SET status = 'failed'
+         WHERE status = 'processing'`
+      );
+      if (cleanupRes.rowCount > 0) {
+        fastify.log.info(`[Startup] Membersihkan ${cleanupRes.rowCount} record transkrip menggantung ('processing' -> 'failed').`);
+      }
+    } catch (cleanupErr) {
+      fastify.log.warn({ err: cleanupErr }, '[Startup] Gagal membersihkan record transkrip menggantung');
+    }
+
     // Jalankan server
     await fastify.listen({ port: PORT, host: HOST });
     fastify.log.info(`[Startup] SimpulKata Backend berjalan di http://${HOST}:${PORT}`);
@@ -209,7 +223,7 @@ const start = async () => {
     fastify.log.info(`[Startup] DB health  : http://localhost:${PORT}/health/db`);
 
   } catch (err) {
-    fastify.log.error('[Startup] Gagal menjalankan server:', err.message);
+    fastify.log.error({ err }, '[Startup] Gagal menjalankan server');
     process.exit(1);
   }
 };

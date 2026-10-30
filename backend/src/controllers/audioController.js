@@ -194,11 +194,59 @@ async function processAudio(request, reply) {
     console.log(`[AudioController] Memulai transkripsi untuk transcript: ${transcriptId}...`);
     const { text: rawText } = await aiService.transcribeAudio(savedFilePath, durationSeconds);
 
-    // 8. Buat rangkuman teks menggunakan Hugging Face Llama
-    console.log(`[AudioController] Memulai pembuatan rangkuman teks untuk transcript: ${transcriptId}...`);
-    const { summary: summaryText, tokens_used: tokensUsed } = await aiService.summarizeText(rawText);
+    // 7b. Validasi hasil transkripsi (CR-08, TC-TRS-005: Audio hening / tanpa ucapan)
+    if (!rawText || !rawText.trim()) {
+      await safeUnlink(savedFilePath);
+      // Kembalikan kuota karena tidak ada ucapan terdeteksi
+      if (isQuotaReserved && userId && durationSeconds > 0) {
+        await db.query(
+          `UPDATE users SET balance = balance + $1 WHERE id = $2`,
+          [durationSeconds, userId]
+        );
+        isQuotaReserved = false;
+        console.log(`[AudioController] Kuota dikembalikan karena audio hening (tidak ada ucapan)`);
+      }
 
-    // 9. Update tabel transcripts menjadi 'completed' beserta hasil AI
+      await db.query(
+        `UPDATE transcripts
+         SET raw_text = '(Tidak ada ucapan yang terdeteksi)',
+             status = 'failed'
+         WHERE id = $1`,
+        [transcriptId]
+      );
+
+      return reply.status(422).send({
+        status: 'error',
+        code: 'NO_SPEECH_DETECTED',
+        message: 'Tidak ada ucapan atau percakapan yang terdeteksi dalam rekaman audio ini. Kuota Anda tidak terpotong.',
+      });
+    }
+
+    // 7c. Simpan raw_text segera setelah Whisper selesai agar transkrip tidak hilang jika LLM gagal (CR-08, TC-SUM-004, TC-SUM-006)
+    await db.query(
+      `UPDATE transcripts
+       SET raw_text = $1
+       WHERE id = $2`,
+      [rawText, transcriptId]
+    );
+
+    // 8. Buat rangkuman teks menggunakan Hugging Face LLM (dengan penanganan error gracefully)
+    console.log(`[AudioController] Memulai pembuatan rangkuman teks untuk transcript: ${transcriptId}...`);
+    let summaryText = '';
+    let tokensUsed = 0;
+    let summaryWarning = null;
+
+    try {
+      const summaryResult = await aiService.summarizeText(rawText);
+      summaryText = summaryResult.summary;
+      tokensUsed = summaryResult.tokens_used;
+    } catch (sumErr) {
+      console.warn(`[AudioController] Gagal membuat rangkuman teks untuk transcript ${transcriptId}:`, sumErr.message);
+      summaryWarning = sumErr.message || 'Layanan rangkuman AI sedang tidak tersedia.';
+      summaryText = `*(Rangkuman otomatis belum tersedia: ${summaryWarning}. Transkripsi lengkap telah berhasil disimpan.)*`;
+    }
+
+    // 9. Update tabel transcripts menjadi 'completed' beserta hasil transkripsi & rangkuman
     await db.query(
       `UPDATE transcripts
        SET raw_text = $1,
@@ -224,6 +272,7 @@ async function processAudio(request, reply) {
         summary_text: summaryText,
         duration_seconds: durationSeconds,
         tokens_used: tokensUsed,
+        ...(summaryWarning ? { warning: summaryWarning } : {}),
       },
     });
 
@@ -314,10 +363,22 @@ async function processAudio(request, reply) {
  */
 async function getHistory(request, reply) {
   try {
-    const page = Math.max(1, parseInt(request.query?.page || '1', 10));
-    const limit = Math.max(1, Math.min(100, parseInt(request.query?.limit || '20', 10)));
+    // 1. Sanitasi page & limit dengan aman (CR-07, TC-HIST-011)
+    const rawPage = parseInt(request.query?.page, 10);
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+
+    const rawLimit = parseInt(request.query?.limit, 10);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 20;
+
     const offset = (page - 1) * limit;
-    const filterStatus = request.query?.status?.toLowerCase();
+
+    // 2. Sanitasi filter status (tangani array query ?status=a&status=b atau string non-valid)
+    let filterStatus = null;
+    if (typeof request.query?.status === 'string') {
+      filterStatus = request.query.status.toLowerCase().trim();
+    } else if (Array.isArray(request.query?.status) && typeof request.query.status[0] === 'string') {
+      filterStatus = request.query.status[0].toLowerCase().trim();
+    }
 
     const userId = request.user?.id;
     let whereClause = ' WHERE user_id = $1';
