@@ -105,6 +105,7 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `balance` | INTEGER | Saldo kuota dalam hitungan **detik** (Default: 1.800 detik / 30 menit) |
 | `role` | VARCHAR(50) | Peran pengguna (`'user'` atau `'admin'`) |
 | `status` | VARCHAR(20) | Status akun (`'PENDING'`, `'ACTIVE'`, `'SUSPENDED'`) |
+| `avatar_url` | VARCHAR(500) | URL foto avatar profil atau preset avatar pengguna |
 | `created_at` / `updated_at` | TIMESTAMP | Waktu pembuatan & pembaruan record |
 
 ### Tabel `otp_requests`
@@ -147,6 +148,9 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `POST` | `/api/auth/refresh` | Publik | Memperbarui access token dengan refresh token (RTR) |
 | `POST` | `/api/auth/logout` | Protected (JWT) | Menghapus sesi refresh token dari database |
 | `GET` | `/api/auth/me` | Protected (JWT) | Mengambil data profil dan saldo kuota terkini |
+| `GET` | `/api/users/profile` | Protected (JWT) | Mengambil data profil lengkap pengguna (SRS UC-04 & SD-04) |
+| `PUT` | `/api/users/profile` | Protected (JWT) | Memperbarui nama, avatar, & trigger OTP email baru dengan konfirmasi password saat ini (SRS UC-04 & SD-04) |
+| `POST` | `/api/users/verify-email-change` | Protected (JWT) | Memverifikasi OTP 6-digit untuk meresmikan alamat email baru (SRS UC-04 & SD-04) |
 | `POST` | `/api/process-audio` | Protected (JWT) | Mengunggah audio, validasi kuota, transkripsi & rangkuman |
 | `GET` | `/api/history` | Protected (JWT) | Mengambil arsip riwayat pengguna (pagination & filter) |
 | `GET` | `/health` / `/api/health` | Publik | Healthcheck server Fastify |

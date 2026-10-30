@@ -36,7 +36,7 @@ export class SessionModel {
   async findByRefreshToken(refreshToken: string): Promise<SessionWithUser | null> {
     const res = await db.query<SessionWithUser>(
       `SELECT s.id, s.user_id, s.expires_at, s.created_at,
-              u.id AS user_pk, u.name, u.email, u.role, u.balance
+              u.id AS user_pk, u.name, u.email, u.role, u.balance, u.avatar_url
        FROM user_sessions s
        JOIN users u ON s.user_id = u.id
        WHERE s.refresh_token = $1

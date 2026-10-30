@@ -246,6 +246,7 @@ export class AuthController {
           email: activatedUser.email,
           role: activatedUser.role,
           balance: activatedUser.balance,
+          avatar_url: activatedUser.avatar_url || null,
         },
       });
     } catch (error: any) {
@@ -444,6 +445,7 @@ export class AuthController {
           email: user.email,
           role: user.role,
           balance: user.balance,
+          avatar_url: user.avatar_url || null,
         },
       });
     } catch (error: any) {
@@ -602,6 +604,7 @@ export class AuthController {
           email: user.email,
           balance: user.balance,
           role: user.role,
+          avatar_url: user.avatar_url || null,
           created_at: user.created_at,
           updated_at: user.updated_at,
         },

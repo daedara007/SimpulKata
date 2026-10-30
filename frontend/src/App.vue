@@ -16,6 +16,7 @@
         :current-user="currentUser"
         @logout="handleLogout"
         @navigate="handleNavigate"
+        @user-updated="(u: User) => currentUser = u"
       />
 
       <!-- Halaman Autentikasi (Login & Register) -->

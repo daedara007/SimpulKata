@@ -10,6 +10,22 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [Unreleased] - 2026-10-30
 
 ### Added
+- **Fitur Mengubah Profil Pengguna (Nama, Avatar, dan Email dengan Verifikasi OTP & Password) (`UC-04`, `SD-04`)**:
+  - **Skema Database**: Menambahkan kolom `avatar_url VARCHAR(500)` pada tabel `users` (`simpulkata_db`), serta memperbarui skrip `backend/init.sql` dan diagram `referensi/erd.puml`.
+  - **Endpoint Backend API (`/api/users`)**:
+    - `GET /api/users/profile`: Mengambil data profil pengguna terautentikasi (`id`, `name`, `email`, `role`, `status`, `balance`, `avatar_url`).
+    - `PUT /api/users/profile`: Memperbarui profil (`name`, `avatar_url`) dengan validasi keamanan wajib konfirmasi kata sandi saat ini (`currentPassword` via bcrypt). Jika pengguna mengajukan perubahan email baru:
+      - Memvalidasi keunikan email baru di database (`409 Conflict`).
+      - Menerapkan jeda *cooldown* 60 detik dan menerbitkan kode OTP 6-digit (`context = 'email_change'`) ke alamat email baru.
+      - Memperbarui nama dan avatar terlebih dahulu, lalu mengembalikan status `requiresEmailOtpVerification: true`.
+    - `POST /api/users/verify-email-change`: Memverifikasi kode OTP 6-digit untuk finalisasi perubahan alamat email, mengubah email pengguna di database, menandai OTP digunakan (`is_used = TRUE`), dan mencabut seluruh sesi login lama selain sesi aktif untuk menjaga keamanan akun.
+  - **Email Service**: Menambahkan template email HTML responsif `generateEmailChangeOtpTemplate` khusus verifikasi perubahan alamat email dengan aksen indigo/keamanan akun.
+  - **Antarmuka Pengguna Frontend (Vue 3 + TypeScript)**:
+    - Menambahkan modal pengaturan profil (*Profile Settings Modal*) bertema glassmorphism di `frontend/src/components/Dashboard.vue` dengan pemilih avatar 6 preset bot/AI (DiceBear Bottts neutral) dan fallback inisial nama dinamis.
+    - Menghubungkan klik avatar profil di navbar desktop dan menu mobile untuk membuka modal pengaturan profil.
+    - Menyediakan form input nama lengkap, email, dan kata sandi konfirmasi dengan fitur toggle visibilitas kata sandi.
+    - Menampilkan dialog verifikasi kode OTP 6-digit terformat apabila ada perubahan alamat email dengan timer hitung mundur dan penanganan status responsif.
+    - Membangun controller composable `frontend/src/controllers/useProfileController.ts` dan DAO `frontend/src/models/userModel.ts` dengan pengetikan TypeScript penuh (`UpdateProfilePayload`, `VerifyEmailChangePayload`).
 - **Fitur Pemulihan Kata Sandi Melalui Email dengan Kode OTP (`UC-03`, `SD-03`)**:
   - Mengimplementasikan alur pemulihan kata sandi 2-tahap menggunakan kode OTP 6-digit acak aman via Resend API:
     - Endpoint `POST /api/auth/forgot-password`: Menerima email terdaftar, validasi keberadaan pengguna di database (SRS UC-03 A1 / SD-03 8b), proteksi cooldown 60 detik (`COOLDOWN_ACTIVE`), dan pengiriman email OTP dengan masa aktif 5 menit.

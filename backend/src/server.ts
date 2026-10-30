@@ -24,6 +24,7 @@ import db from './db';
 import { transcriptModel, sessionModel, otpModel } from './models';
 import authRoutes from './routes/auth';
 import audioRoutes from './routes/audio';
+import userRoutes from './routes/user';
 
 const fastify = Fastify({
   logger: {
@@ -134,6 +135,7 @@ fastify.get('/health/db', async (_request: FastifyRequest, reply: FastifyReply) 
 // ----------------------------------------------------------
 fastify.register(authRoutes, { prefix: '/api/auth' });
 fastify.register(audioRoutes, { prefix: '/api' });
+fastify.register(userRoutes, { prefix: '/api/users' });
 
 // ----------------------------------------------------------
 // GLOBAL ERROR HANDLER

@@ -5,6 +5,7 @@ export interface User {
   balance: number;
   role: 'user' | 'admin' | string;
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | string;
+  avatar_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -41,6 +42,18 @@ export interface ResetPasswordPayload {
   email: string;
   otpCode: string;
   newPassword: string;
+}
+
+export interface UpdateProfilePayload {
+  name: string;
+  avatarUrl?: string | null;
+  email?: string;
+  currentPassword: string;
+}
+
+export interface VerifyEmailChangePayload {
+  otpCode: string;
+  newEmail: string;
 }
 
 export interface ApiResponse<T = any> {

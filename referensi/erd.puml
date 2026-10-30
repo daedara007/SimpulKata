@@ -16,6 +16,7 @@ entity "users" {
   * name : VARCHAR(100)
   * balance : INTEGER 
   * role : VARCHAR(20) 
+  avatar_url : VARCHAR(500)
   * created_at : TIMESTAMP
   * updated_at : TIMESTAMP
 }

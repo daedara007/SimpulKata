@@ -1,4 +1,4 @@
-export type OtpContext = 'registration' | 'forgot_password' | string;
+export type OtpContext = 'registration' | 'forgot_password' | 'email_change' | string;
 
 export interface OtpRequestRow {
   id: string;

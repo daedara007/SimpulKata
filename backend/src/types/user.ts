@@ -9,6 +9,7 @@ export interface UserRow {
   balance: number;
   role: UserRole;
   status: UserStatus;
+  avatar_url?: string | null;
   created_at: Date | string;
   updated_at?: Date | string;
 }
@@ -22,6 +23,19 @@ export interface CreateUserDTO {
   balance?: number;
   role?: UserRole;
   status?: UserStatus;
+  avatarUrl?: string | null;
+}
+
+export interface UpdateProfileDTO {
+  name: string;
+  avatarUrl?: string | null;
+  email?: string;
+  currentPassword: string;
+}
+
+export interface VerifyEmailChangeDTO {
+  otpCode: string;
+  newEmail: string;
 }
 
 export interface UpdatePendingUserDTO {
@@ -49,6 +63,7 @@ export interface SessionWithUser {
   email: string;
   role: UserRole;
   balance: number;
+  avatar_url?: string | null;
 }
 
 export interface CreateSessionDTO {

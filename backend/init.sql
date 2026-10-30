@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
     -- Role: 'user' untuk pengguna reguler, 'admin' untuk administrator
     role            VARCHAR(20)     NOT NULL DEFAULT 'user'
                         CHECK (role IN ('user', 'admin')),
+    avatar_url      VARCHAR(500),
     created_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMP       NOT NULL DEFAULT NOW()
 );
