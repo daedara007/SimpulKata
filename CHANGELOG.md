@@ -29,6 +29,16 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
   - **Email Service & Template Responsif**: Membangun `backend/src/services/emailService.js` dengan template email HTML modern bermerek SimpulKata dan mekanisme fallback logger konsol untuk lingkungan pengujian/development.
 
 ### Refactored
+- **Migrasi Menyeluruh Frontend ke TypeScript (Vue 3 + Vite)**:
+  - Mengonversi seluruh kode sumber frontend dari JavaScript (ES Modules) menjadi TypeScript murni (`.ts` & `<script setup lang="ts">`).
+  - Menyediakan konfigurasi `tsconfig.json`, `tsconfig.node.json`, dan `env.d.ts` dengan pengetikan ketat (*strict mode*).
+  - Membangun sistem interface terpusat pada `frontend/src/types/`: `auth.ts` (entitas `User`, `SessionData`, payload auth & OTP), `audio.ts` (`TranscriptItem`, pagination, `HistoryResponse`, `ProcessAudioResponse`), dan `index.ts`.
+  - Mengonversi seluruh lapisan MVC:
+    - **Models (`models/*.ts`)**: `authModel.ts`, `audioModel.ts`, `index.ts` dengan pengetikan promise respons API yang eksplisit.
+    - **Controllers (`controllers/*.ts`)**: `authController.ts`, `audioController.ts`, `historyController.ts` dengan reactive states dan callback yang sepenuhnya ter-type.
+    - **Services & Utils (`services/*.ts`, `utils/*.ts`)**: `apiClient.ts` dengan typed Axios request/response interceptor & queue, `formatters.ts`, `clipboard.ts`, dan `markdown.ts`.
+    - **Views (`components/*.vue`, `App.vue`)**: Mengadopsi `<script setup lang="ts">` dengan deklarasi `defineProps` dan `defineEmits` berbasis interface generic.
+  - Memverifikasi keberhasilan integrasi dengan `vue-tsc --noEmit` (0 error) dan `vite build`.
 - **Adopsi Arsitektur MVC pada Frontend SimpulKata**:
   - Memisahkan logika klien menjadi lapisan modular yang rapi:
     - **Models (`frontend/src/models/`)**: `authModel.js` (komunikasi endpoint autentikasi & pengelolaan sesi `localStorage`) dan `audioModel.js` (unggah audio, polling status transkrip, riwayat).

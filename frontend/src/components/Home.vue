@@ -609,21 +609,30 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive } from 'vue';
 
-const props = defineProps({
-  isAuthenticated: {
-    type: Boolean,
-    default: false,
-  },
+interface Props {
+  isAuthenticated?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  isAuthenticated: false,
 });
 
-const emit = defineEmits(['navigate']);
+const emit = defineEmits<{
+  (e: 'navigate', view: string, tab?: string): void;
+}>();
 
-const previewTab = ref('summary');
+const previewTab = ref<'summary' | 'transcript'>('summary');
 
-const faqs = reactive([
+interface FaqItem {
+  q: string;
+  a: string;
+  open: boolean;
+}
+
+const faqs = reactive<FaqItem[]>([
   {
     q: 'Format berkas audio apa saja yang didukung?',
     a: 'SimpulKata mendukung format .mp3, .wav, dan .m4a dengan ukuran berkas hingga 50MB per berkas rekaman.',

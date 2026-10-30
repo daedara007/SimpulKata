@@ -30,22 +30,26 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { authModel } from './models/authModel';
+import type { User, SessionData } from './types';
+import type { AuthTab } from './controllers/authController';
 import Home from './components/Home.vue';
 import Dashboard from './components/Dashboard.vue';
 import Auth from './components/Auth.vue';
 
-const token = ref(authModel.getStoredToken());
-const currentUser = ref(authModel.getStoredUser());
-const currentView = ref('home'); // 'home' | 'auth' | 'dashboard'
-const authInitialTab = ref('login'); // 'login' | 'register'
+type ViewMode = 'home' | 'auth' | 'dashboard';
+
+const token = ref<string>(authModel.getStoredToken());
+const currentUser = ref<User | null>(authModel.getStoredUser());
+const currentView = ref<ViewMode>('home');
+const authInitialTab = ref<AuthTab>('login');
 
 // Inisialisasi tampilan awal berdasarkan URL hash atau status login
 const homeAnchors = ['#faq', '#fitur', '#cara-kerja', '#paket-kuota', '#pratinjau', '#home'];
 
-function initViewFromHash(event) {
+function initViewFromHash(event?: HashChangeEvent) {
   const hash = window.location.hash.toLowerCase();
   const isInitial = !event; // dipanggil saat onMounted jika event tidak ada
 
@@ -85,9 +89,9 @@ function initViewFromHash(event) {
   }
 }
 
-function handleNavigate(targetView, tab = 'login') {
+function handleNavigate(targetView: string, tab: string = 'login') {
   if (targetView === 'auth') {
-    authInitialTab.value = tab;
+    authInitialTab.value = (tab as AuthTab) || 'login';
     currentView.value = 'auth';
     window.location.hash = `#${tab}`;
   } else if (targetView === 'dashboard') {
@@ -105,7 +109,7 @@ function handleNavigate(targetView, tab = 'login') {
   }
 }
 
-function handleLoginSuccess({ token: newToken, user: newUser }) {
+function handleLoginSuccess({ token: newToken, user: newUser }: SessionData) {
   token.value = newToken;
   currentUser.value = newUser;
   currentView.value = 'dashboard';

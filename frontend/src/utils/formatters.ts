@@ -1,22 +1,22 @@
 /**
- * utils/formatters.js - Helper Format Teks, Ukuran, dan Waktu
+ * utils/formatters.ts - Helper Format Teks, Ukuran, dan Waktu
  */
 
-export function getFileExtension(filename) {
+export function getFileExtension(filename?: string): string {
   if (!filename) return '';
   const lastDot = filename.lastIndexOf('.');
   return lastDot !== -1 ? filename.slice(lastDot) : '';
 }
 
-export function formatFileSize(bytes) {
-  if (!bytes) return '0 B';
+export function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
 }
 
-export function formatDuration(seconds) {
+export function formatDuration(seconds?: number): string {
   if (!seconds || seconds <= 0) return '0 dtk';
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -25,7 +25,7 @@ export function formatDuration(seconds) {
   return `${mins}m ${secs}s`;
 }
 
-export function formatDate(isoString) {
+export function formatDate(isoString?: string): string {
   if (!isoString) return '-';
   try {
     const d = new Date(isoString);
@@ -40,7 +40,7 @@ export function formatDate(isoString) {
   }
 }
 
-export function formatStatusLabel(status) {
+export function formatStatusLabel(status?: string): string {
   switch (status) {
     case 'completed': return 'Selesai';
     case 'failed': return 'Gagal';
@@ -49,7 +49,7 @@ export function formatStatusLabel(status) {
   }
 }
 
-export function getStatusBadgeClass(status) {
+export function getStatusBadgeClass(status?: string): string {
   switch (status) {
     case 'completed':
       return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
@@ -62,7 +62,7 @@ export function getStatusBadgeClass(status) {
   }
 }
 
-export function countWords(str) {
+export function countWords(str?: string | null): number {
   if (!str) return 0;
   return str.trim().split(/\s+/).filter(Boolean).length;
 }

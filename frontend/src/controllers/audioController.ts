@@ -1,12 +1,23 @@
 import { ref } from 'vue';
 import { audioModel } from '../models/audioModel';
 import { getFileExtension } from '../utils/formatters';
+import type { TranscriptItem } from '../types';
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
+export interface AudioMeta {
+  durationSeconds: number;
+  tokensUsed: number;
+}
+
+export interface AudioProcessCallbacks {
+  onProgressUpdate?: (transcriptId?: string) => Promise<void> | void;
+  onCompleted?: (data: any) => Promise<void> | void;
+}
+
 /**
- * controllers/audioController.js - Controller Pemrosesan Audio (MVC)
+ * controllers/audioController.ts - Controller Pemrosesan Audio (MVC)
  *
  * Mengelola:
  * - Validasi dan upload berkas audio
@@ -15,23 +26,23 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
  * - Error handling & loading timers
  */
 export function useAudioController() {
-  const fileInputRef = ref(null);
-  const selectedFile = ref(null);
-  const isDragging = ref(false);
-  const isLoading = ref(false);
-  const loadingMessage = ref('Memproses audio...');
-  const loadingTimer = ref(0);
-  let timerInterval = null;
+  const fileInputRef = ref<HTMLInputElement | null>(null);
+  const selectedFile = ref<File | null>(null);
+  const isDragging = ref<boolean>(false);
+  const isLoading = ref<boolean>(false);
+  const loadingMessage = ref<string>('Memproses audio...');
+  const loadingTimer = ref<number>(0);
+  let timerInterval: ReturnType<typeof setInterval> | null = null;
 
   // State Hasil Aktif
-  const transcriptId = ref('');
-  const rawText = ref('');
-  const summaryText = ref('');
-  const meta = ref({
+  const transcriptId = ref<string>('');
+  const rawText = ref<string>('');
+  const summaryText = ref<string>('');
+  const meta = ref<AudioMeta>({
     durationSeconds: 0,
     tokensUsed: 0,
   });
-  const errorMessage = ref('');
+  const errorMessage = ref<string>('');
 
   function triggerFileInput() {
     if (fileInputRef.value) {
@@ -39,22 +50,23 @@ export function useAudioController() {
     }
   }
 
-  function handleFileChange(event) {
-    const file = event.target.files?.[0];
+  function handleFileChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
     if (file) {
       validateAndSetFile(file);
     }
   }
 
-  function handleDrop(event) {
+  function handleDrop(event: DragEvent) {
     isDragging.value = false;
-    const file = event.dataTransfer.files?.[0];
+    const file = event.dataTransfer?.files?.[0];
     if (file) {
       validateAndSetFile(file);
     }
   }
 
-  function validateAndSetFile(file) {
+  function validateAndSetFile(file: File): boolean {
     errorMessage.value = '';
     const ext = getFileExtension(file.name).toLowerCase();
 
@@ -84,7 +96,7 @@ export function useAudioController() {
     }
   }
 
-  function displayResults(data, callback = null) {
+  function displayResults(data: any, callback?: ((data: any) => void) | null) {
     transcriptId.value = data.transcript_id || data.id || '';
     rawText.value = data.raw_text || '';
     summaryText.value = data.summary_text || '';
@@ -106,7 +118,7 @@ export function useAudioController() {
     }, 150);
   }
 
-  async function pollTranscript(activeId, { onProgressUpdate = null, onCompleted = null } = {}) {
+  async function pollTranscript(activeId: string, { onProgressUpdate, onCompleted }: AudioProcessCallbacks = {}): Promise<void> {
     const pollIntervalMs = 2500;
     const maxAttempts = 240; // 240 * 2.5s = 600 detik (10 menit)
     let attempts = 0;
@@ -155,7 +167,7 @@ export function useAudioController() {
     });
   }
 
-  async function processAudio({ onProgressUpdate = null, onCompleted = null } = {}) {
+  async function processAudio({ onProgressUpdate, onCompleted }: AudioProcessCallbacks = {}) {
     if (!selectedFile.value) {
       alert('Silakan pilih file audio terlebih dahulu.');
       return;
@@ -179,7 +191,7 @@ export function useAudioController() {
       const response = await audioModel.uploadAudio(selectedFile.value);
 
       if (response.status === 202 || response.data?.status === 'processing') {
-        const activeTranscriptId = response.data?.data?.transcript_id;
+        const activeTranscriptId = (response.data as any)?.data?.transcript_id || (response.data as any)?.transcript_id;
         transcriptId.value = activeTranscriptId;
 
         // Segera beri tahu UI untuk memperbarui daftar riwayat & profil
@@ -194,7 +206,7 @@ export function useAudioController() {
       } else {
         throw new Error(response.data?.message || 'Gagal memproses audio');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[AudioController] Error saat memproses audio:', err);
 
       let errorMsg = 'Terjadi kesalahan saat memproses audio.';
@@ -211,7 +223,7 @@ export function useAudioController() {
       alert(`Error: ${errorMsg}`);
     } finally {
       isLoading.value = false;
-      clearInterval(timerInterval);
+      if (timerInterval) clearInterval(timerInterval);
     }
   }
 

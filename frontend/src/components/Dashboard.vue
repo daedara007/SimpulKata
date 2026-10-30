@@ -239,7 +239,7 @@
                   <span>{{ formatDate(item.created_at) }}</span>
                   <div class="flex items-center gap-2 text-[10px]">
                     <span v-if="item.duration_seconds > 0" class="text-slate-300 font-mono">⏱️ {{ formatDuration(item.duration_seconds) }}</span>
-                    <span v-if="item.word_count > 0" class="text-indigo-400 font-medium">📝 {{ item.word_count }} kata</span>
+                    <span v-if="Boolean(item.word_count && item.word_count > 0)" class="text-indigo-400 font-medium">📝 {{ item.word_count }} kata</span>
                   </div>
                 </div>
               </button>
@@ -561,12 +561,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { authModel } from '../models/authModel';
 import { useAudioController } from '../controllers/audioController';
 import { useHistoryController } from '../controllers/historyController';
+import type { User, TranscriptItem } from '../types';
 import {
+  getFileExtension,
   formatFileSize,
   formatDuration,
   formatDate,
@@ -580,16 +582,20 @@ import {
 // =========================================================
 // PROPS & EMITS (Tugas 5)
 // =========================================================
-const props = defineProps({
-  currentUser: {
-    type: Object,
-    default: () => null,
-  },
+interface Props {
+  currentUser?: User | null;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  currentUser: null,
 });
 
-const emit = defineEmits(['logout', 'navigate']);
+const emit = defineEmits<{
+  (e: 'logout'): void;
+  (e: 'navigate', view: string, tab?: string): void;
+}>();
 
-const userData = ref(props.currentUser || {});
+const userData = ref<User | null>(props.currentUser || null);
 
 watch(
   () => props.currentUser,
@@ -604,9 +610,9 @@ watch(
 async function fetchUserProfile() {
   try {
     const res = await authModel.getProfile();
-    if (res?.status === 'success') {
+    if (res?.status === 'success' && res.data) {
       userData.value = res.data;
-      authModel.setSession({ user: res.data });
+      authModel.setSession({ token: authModel.getStoredToken(), user: res.data });
     }
   } catch (err) {
     console.error('[Dashboard] Gagal memuat profil pengguna:', err);
@@ -664,7 +670,7 @@ const renderedSummary = computed(() => {
 const copiedRaw = ref(false);
 const copiedSummary = ref(false);
 
-async function copyText(text, type) {
+async function copyText(text: string | null | undefined, type: 'raw' | 'summary') {
   const isSummary = type === 'summary';
   const success = await copyToClipboard(text, isSummary);
 
@@ -682,7 +688,7 @@ async function copyText(text, type) {
 }
 
 // Handler pemilihan item dari riwayat ke panel utama
-function selectHistoryItem(item, shouldScroll = true) {
+function selectHistoryItem(item: TranscriptItem, shouldScroll = true) {
   triggerSelectHistoryItem(item, shouldScroll, (selected) => {
     transcriptId.value = selected.id;
     rawText.value = selected.raw_text || '';
@@ -697,8 +703,8 @@ function selectHistoryItem(item, shouldScroll = true) {
 // Wrapper pemrosesan audio yang mengorkestrasi polling, riwayat, dan profil
 async function processAudio() {
   await executeProcessAudio({
-    onProgressUpdate: async (activeTranscriptId) => {
-      selectedHistoryId.value = activeTranscriptId;
+    onProgressUpdate: async (activeTranscriptId?: string) => {
+      if (activeTranscriptId) selectedHistoryId.value = activeTranscriptId;
       await fetchHistory(1);
       await fetchUserProfile();
     },

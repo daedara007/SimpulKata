@@ -1,8 +1,8 @@
 /**
- * utils/clipboard.js - Helper Salin Teks ke Clipboard dengan Fallback (CR-14, TC-COPY-003)
+ * utils/clipboard.ts - Helper Salin Teks ke Clipboard dengan Fallback (CR-14, TC-COPY-003)
  */
 
-export async function copyToClipboard(text, isSummary = false) {
+export async function copyToClipboard(text?: string | null, isSummary = false): Promise<boolean> {
   if (!text) return false;
 
   let textToCopy = text;

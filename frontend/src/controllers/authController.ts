@@ -1,8 +1,9 @@
 import { ref, reactive, onUnmounted } from 'vue';
 import { authModel } from '../models/authModel';
+import type { LoginCredentials, RegisterPayload } from '../types';
 
 /**
- * controllers/authController.js - Controller untuk Form & Alur Autentikasi (MVC)
+ * controllers/authController.ts - Controller untuk Form & Alur Autentikasi (MVC)
  *
  * Mengelola:
  * - State login, registrasi, dan verifikasi OTP 6-digit (SRS UC-01 & SD-01)
@@ -13,44 +14,46 @@ import { authModel } from '../models/authModel';
  * - Penyimpanan sesi ke localStorage
  */
 
-export function useAuthController(initialTab = 'login', emit = null) {
-  const activeTab = ref(initialTab); // 'login' | 'register' | 'otp' | 'forgot-password'
-  const showPassword = ref(false);
-  const isLoading = ref(false);
-  const errorMessage = ref('');
-  const successMessage = ref('');
+export type AuthTab = 'login' | 'register' | 'otp' | 'forgot-password';
+
+export function useAuthController(initialTab: AuthTab = 'login', emit?: (...args: any[]) => any) {
+  const activeTab = ref<AuthTab>(initialTab);
+  const showPassword = ref<boolean>(false);
+  const isLoading = ref<boolean>(false);
+  const errorMessage = ref<string>('');
+  const successMessage = ref<string>('');
 
   // State Verifikasi OTP Registrasi
-  const pendingUserId = ref('');
-  const pendingEmail = ref('');
-  const otpCode = ref('');
-  const isVerifyingOtp = ref(false);
-  const isResendingOtp = ref(false);
-  const otpCountdown = ref(300); // 5 menit dalam detik
-  const resendCooldown = ref(0); // Cooldown kirim ulang (60 detik)
+  const pendingUserId = ref<string>('');
+  const pendingEmail = ref<string>('');
+  const otpCode = ref<string>('');
+  const isVerifyingOtp = ref<boolean>(false);
+  const isResendingOtp = ref<boolean>(false);
+  const otpCountdown = ref<number>(300); // 5 menit dalam detik
+  const resendCooldown = ref<number>(0); // Cooldown kirim ulang (60 detik)
 
   // State Pemulihan Kata Sandi (SRS UC-03 & SD-03)
-  const forgotEmail = ref('');
-  const resetOtpCode = ref('');
-  const newPassword = ref('');
-  const confirmNewPassword = ref('');
-  const showNewPassword = ref(false);
-  const showConfirmPassword = ref(false);
-  const resetStage = ref('email'); // 'email' | 'reset'
-  const isSendingResetOtp = ref(false);
-  const isResettingPassword = ref(false);
-  const resetCooldown = ref(0);
+  const forgotEmail = ref<string>('');
+  const resetOtpCode = ref<string>('');
+  const newPassword = ref<string>('');
+  const confirmNewPassword = ref<string>('');
+  const showNewPassword = ref<boolean>(false);
+  const showConfirmPassword = ref<boolean>(false);
+  const resetStage = ref<'email' | 'reset'>('email');
+  const isSendingResetOtp = ref<boolean>(false);
+  const isResettingPassword = ref<boolean>(false);
+  const resetCooldown = ref<number>(0);
 
-  let otpTimerInterval = null;
-  let cooldownTimerInterval = null;
-  let resetCooldownTimerInterval = null;
+  let otpTimerInterval: ReturnType<typeof setInterval> | null = null;
+  let cooldownTimerInterval: ReturnType<typeof setInterval> | null = null;
+  let resetCooldownTimerInterval: ReturnType<typeof setInterval> | null = null;
 
-  const loginForm = reactive({
+  const loginForm = reactive<LoginCredentials>({
     email: '',
     password: '',
   });
 
-  const registerForm = reactive({
+  const registerForm = reactive<RegisterPayload & { confirmPassword?: string }>({
     name: '',
     email: '',
     password: '',
@@ -80,7 +83,7 @@ export function useAuthController(initialTab = 'login', emit = null) {
       if (resetCooldown.value > 0) {
         resetCooldown.value--;
       } else {
-        clearInterval(resetCooldownTimerInterval);
+        clearInterval(resetCooldownTimerInterval!);
         resetCooldownTimerInterval = null;
       }
     }, 1000);
@@ -94,7 +97,7 @@ export function useAuthController(initialTab = 'login', emit = null) {
       if (otpCountdown.value > 0) {
         otpCountdown.value--;
       } else {
-        clearInterval(otpTimerInterval);
+        clearInterval(otpTimerInterval!);
         otpTimerInterval = null;
       }
     }, 1000);
@@ -108,13 +111,13 @@ export function useAuthController(initialTab = 'login', emit = null) {
       if (resendCooldown.value > 0) {
         resendCooldown.value--;
       } else {
-        clearInterval(cooldownTimerInterval);
+        clearInterval(cooldownTimerInterval!);
         cooldownTimerInterval = null;
       }
     }, 1000);
   }
 
-  function switchTab(tab) {
+  function switchTab(tab: AuthTab) {
     activeTab.value = tab;
     errorMessage.value = '';
     successMessage.value = '';
@@ -137,46 +140,52 @@ export function useAuthController(initialTab = 'login', emit = null) {
 
     try {
       const data = await authModel.login({
-        email: loginForm.email,
+        email: loginForm.email.trim(),
         password: loginForm.password,
       });
 
-      if (data?.status === 'success') {
-        const { token, refreshToken, user } = data;
-
-        // Simpan sesi ke storage via Model
-        authModel.setSession({ token, refreshToken, user });
+      if (data?.status === 'success' && data?.token && data?.user) {
+        authModel.setSession({
+          token: data.token,
+          refreshToken: data.refreshToken,
+          user: data.user,
+        });
 
         if (emit) {
-          emit('login-success', { token, refreshToken, user });
+          emit('login-success', {
+            token: data.token,
+            refreshToken: data.refreshToken,
+            user: data.user,
+          });
         }
-        return { success: true, token, refreshToken, user };
+        return { success: true, token: data.token, user: data.user };
       } else {
         throw new Error(data?.message || 'Login gagal.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[AuthController] Login error:', err);
 
-      // Jika akun belum diverifikasi OTP (SD-01 & SD-02), arahkan langsung ke layar OTP
-      if (err.response?.data?.code === 'ACCOUNT_NOT_VERIFIED') {
-        pendingUserId.value = err.response.data.data?.userId || '';
-        pendingEmail.value = err.response.data.data?.email || loginForm.email;
+      // Cek apakah akun belum diverifikasi OTP (SRS UC-01 & SD-01)
+      if (err.response?.status === 403 && err.response?.data?.code === 'ACCOUNT_NOT_VERIFIED') {
+        const payload = err.response.data;
+        pendingUserId.value = payload.userId || '';
+        pendingEmail.value = payload.email || loginForm.email;
         activeTab.value = 'otp';
         otpCode.value = '';
-        errorMessage.value = err.response.data.message || 'Akun Anda belum diverifikasi. Silakan masukkan kode OTP yang telah dikirim ke email.';
         startOtpCountdown(300);
         startResendCooldown(60);
-        return { success: false, unverified: true };
+        errorMessage.value = payload.message || 'Akun Anda belum aktif. Masukkan kode OTP verifikasi.';
+        return { success: false, requiresOtp: true };
       }
 
-      if (err.response?.data?.message) {
-        errorMessage.value = err.response.data.message;
+      if (err.response?.status === 401) {
+        errorMessage.value = 'Email atau kata sandi tidak cocok. Silakan coba lagi.';
       } else if (err.code === 'ERR_NETWORK' || !err.response) {
-        errorMessage.value = 'Terjadi kesalahan saat masuk. Pastikan server backend aktif.';
+        errorMessage.value = 'Gagal menghubungi server. Pastikan koneksi internet aktif.';
       } else if (err.response?.status >= 500) {
-        errorMessage.value = 'Terjadi kesalahan pada server. Silakan coba beberapa saat lagi.';
+        errorMessage.value = 'Terjadi gangguan internal pada server. Silakan coba beberapa saat lagi.';
       } else {
-        errorMessage.value = 'Terjadi kesalahan saat masuk. Pastikan server backend aktif.';
+        errorMessage.value = err.response?.data?.message || 'Gagal masuk. Periksa kembali email dan kata sandi Anda.';
       }
       return { success: false, error: errorMessage.value };
     } finally {
@@ -188,50 +197,65 @@ export function useAuthController(initialTab = 'login', emit = null) {
     errorMessage.value = '';
     successMessage.value = '';
 
-    // Validasi lokal SD-01
-    if (registerForm.password.length < 8) {
-      errorMessage.value = 'Kata sandi minimal 8 karakter.';
-      return { success: false, error: errorMessage.value };
+    const name = registerForm.name.trim();
+    const email = registerForm.email.trim();
+    const password = registerForm.password;
+    const confirmPassword = registerForm.confirmPassword;
+
+    if (!name || name.length < 2) {
+      errorMessage.value = 'Nama lengkap wajib diisi (minimal 2 karakter).';
+      return { success: false };
     }
 
-    if (registerForm.password !== registerForm.confirmPassword) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errorMessage.value = 'Format email tidak valid.';
+      return { success: false };
+    }
+
+    if (!password || password.length < 8) {
+      errorMessage.value = 'Kata sandi minimal 8 karakter.';
+      return { success: false };
+    }
+
+    if (password !== confirmPassword) {
       errorMessage.value = 'Konfirmasi kata sandi tidak cocok.';
-      return { success: false, error: errorMessage.value };
+      return { success: false };
     }
 
     isLoading.value = true;
 
     try {
       const data = await authModel.register({
-        name: registerForm.name,
-        email: registerForm.email,
-        password: registerForm.password,
+        name,
+        email,
+        password,
       });
 
       if (data?.status === 'success') {
-        // Alihkan ke layar verifikasi OTP (SD-01 Langkah 18)
-        pendingUserId.value = data.data?.userId || '';
-        pendingEmail.value = data.data?.email || registerForm.email;
-        otpCode.value = '';
-        activeTab.value = 'otp';
-        successMessage.value = data.message || 'Kode verifikasi telah dikirimkan ke email Anda.';
-
-        startOtpCountdown(300);
-        startResendCooldown(60);
-
-        // Reset form register
-        registerForm.name = '';
-        registerForm.email = '';
-        registerForm.password = '';
-        registerForm.confirmPassword = '';
-
-        return { success: true, requiresOtp: true };
+        if (data.requiresOtp) {
+          pendingUserId.value = data.userId || '';
+          pendingEmail.value = data.email || email;
+          activeTab.value = 'otp';
+          otpCode.value = '';
+          startOtpCountdown(300);
+          startResendCooldown(60);
+          successMessage.value = data.message || 'Kode verifikasi telah dikirimkan ke email Anda.';
+          return { success: true, requiresOtp: true };
+        } else {
+          loginForm.email = email;
+          loginForm.password = '';
+          activeTab.value = 'login';
+          successMessage.value = 'Akun berhasil didaftarkan! Silakan masuk dengan kata sandi baru Anda.';
+          return { success: true };
+        }
       } else {
         throw new Error(data?.message || 'Registrasi gagal.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[AuthController] Register error:', err);
-      if (err.response?.data?.message) {
+      if (err.response?.status === 409) {
+        errorMessage.value = 'Email sudah terdaftar. Silakan gunakan email lain atau masuk.';
+      } else if (err.response?.data?.message) {
         errorMessage.value = err.response.data.message;
       } else if (err.code === 'ERR_NETWORK' || !err.response) {
         errorMessage.value = 'Gagal mendaftarkan akun. Silakan coba lagi.';
@@ -265,7 +289,7 @@ export function useAuthController(initialTab = 'login', emit = null) {
         otpCode: cleanOtp,
       });
 
-      if (data?.status === 'success') {
+      if (data?.status === 'success' && data.token && data.user) {
         clearTimers();
         const { token, refreshToken, user } = data;
 
@@ -279,7 +303,7 @@ export function useAuthController(initialTab = 'login', emit = null) {
       } else {
         throw new Error(data?.message || 'Verifikasi OTP gagal.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[AuthController] Verify OTP error:', err);
       if (err.response?.data?.message) {
         errorMessage.value = err.response.data.message;
@@ -315,7 +339,7 @@ export function useAuthController(initialTab = 'login', emit = null) {
       } else {
         throw new Error(data?.message || 'Gagal mengirim ulang OTP.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[AuthController] Resend OTP error:', err);
       if (err.response?.data?.message) {
         errorMessage.value = err.response.data.message;
@@ -350,7 +374,7 @@ export function useAuthController(initialTab = 'login', emit = null) {
       } else {
         throw new Error(data?.message || 'Gagal meminta kode OTP.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[AuthController] Forgot password error:', err);
       if (err.response?.data?.message) {
         errorMessage.value = err.response.data.message;
@@ -411,7 +435,7 @@ export function useAuthController(initialTab = 'login', emit = null) {
       } else {
         throw new Error(data?.message || 'Gagal mereset kata sandi.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[AuthController] Reset password error:', err);
       if (err.response?.data?.message) {
         errorMessage.value = err.response.data.message;
@@ -442,7 +466,7 @@ export function useAuthController(initialTab = 'login', emit = null) {
       } else {
         throw new Error(data?.message || 'Gagal mengirim ulang OTP.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[AuthController] Resend Reset OTP error:', err);
       if (err.response?.data?.message) {
         errorMessage.value = err.response.data.message;

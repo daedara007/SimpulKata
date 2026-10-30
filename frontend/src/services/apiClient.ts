@@ -1,13 +1,23 @@
-import axios from 'axios';
+import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 
 /**
- * services/apiClient.js - Klien HTTP Terpusat Axios
+ * services/apiClient.ts - Klien HTTP Terpusat Axios
  *
  * Mengonfigurasi:
  * - baseURL: Menggunakan relative path / proxy Vite (Rule 1)
  * - Request Interceptor: Otomatis menyertakan Bearer Token JWT dari localStorage
  * - Response Interceptor: Otomatis memicu Refresh Token Rotation (RTR) saat menerima 401
  */
+
+// Interface untuk request yang memiliki flag _retry
+interface RetryableAxiosRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+interface QueuedPromise {
+  resolve: (token: string | null) => void;
+  reject: (error: any) => void;
+}
 
 // Konfigurasi baseURL Axios (mendukung relative path / proxy atau custom domain via ENV)
 const apiClient = axios.create({
@@ -21,7 +31,7 @@ const apiClient = axios.create({
 // REQUEST INTERCEPTOR: Sematkan Bearer Token jika ada
 // =========================================================
 apiClient.interceptors.request.use(
-  (config) => {
+  (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('simpulkata_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -35,9 +45,9 @@ apiClient.interceptors.request.use(
 // RESPONSE INTERCEPTOR: Refresh Token Rotation (RTR) saat 401
 // =========================================================
 let isRefreshing = false;
-let failedQueue = [];
+let failedQueue: QueuedPromise[] = [];
 
-const processQueue = (error, token = null) => {
+const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
@@ -51,7 +61,7 @@ const processQueue = (error, token = null) => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as RetryableAxiosRequestConfig;
 
     // Abaikan jika error berasal dari login, register, atau refresh endpoint itu sendiri
     const isAuthRoute =
@@ -82,11 +92,13 @@ apiClient.interceptors.response.use(
 
       // Jika proses refresh token sedang berlangsung oleh request lain, antrekan request ini
       if (isRefreshing) {
-        return new Promise((resolve, reject) => {
+        return new Promise<string | null>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+            if (token) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
             return apiClient(originalRequest);
           })
           .catch((err) => Promise.reject(err));

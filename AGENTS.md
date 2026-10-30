@@ -40,7 +40,7 @@
 ```
 
 ### 2.1. Frontend
-- **Framework**: Vue 3 (Composition API, `<script setup>`).
+- **Framework & Bahasa**: Vue 3 (Composition API, `<script setup lang="ts">`), TypeScript 5+.
 - **Styling**: Tailwind CSS 3 (Dark Mode glassmorphism, responsif).
 - **Routing**: Single Page Application (SPA) berbasis reactive state di `frontend/src/App.vue` (`currentView`: `'home'`, `'auth'`, `'dashboard'`) disinkronkan dengan URL hash.
 - **HTTP Client**: Axios dengan global request interceptor (otomatis memasang header `Authorization: Bearer <token>` dari `localStorage['simpulkata_token']`) dan response interceptor (menangani 401 Unauthorized secara terpusat).

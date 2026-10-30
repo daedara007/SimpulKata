@@ -316,7 +316,7 @@
           <!-- Tombol Daftar -->
           <button
             type="submit"
-            :disabled="isLoading || (registerForm.confirmPassword && registerForm.password !== registerForm.confirmPassword)"
+            :disabled="isLoading || Boolean(registerForm.confirmPassword && registerForm.password !== registerForm.confirmPassword)"
             class="w-full mt-2 py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <svg
@@ -627,17 +627,22 @@
   </div>
 </template>
 
-<script setup>
-import { useAuthController } from '../controllers/authController';
+<script setup lang="ts">
+import { useAuthController, type AuthTab } from '../controllers/authController';
+import type { SessionData } from '../types';
 
-const props = defineProps({
-  initialTab: {
-    type: String,
-    default: 'login',
-  },
+interface Props {
+  initialTab?: AuthTab;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  initialTab: 'login',
 });
 
-const emit = defineEmits(['login-success', 'back-to-home']);
+const emit = defineEmits<{
+  (e: 'login-success', data: SessionData): void;
+  (e: 'back-to-home'): void;
+}>();
 
 const {
   activeTab,

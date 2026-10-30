@@ -1,8 +1,9 @@
 import { ref } from 'vue';
 import { audioModel } from '../models/audioModel';
+import type { TranscriptItem } from '../types';
 
 /**
- * controllers/historyController.js - Controller Riwayat Transkripsi (MVC)
+ * controllers/historyController.ts - Controller Riwayat Transkripsi (MVC)
  *
  * Mengelola:
  * - Pagination riwayat
@@ -10,22 +11,22 @@ import { audioModel } from '../models/audioModel';
  * - Pemilihan item riwayat untuk ditampilkan di panel utama
  */
 export function useHistoryController() {
-  const historyList = ref([]);
-  const totalRecords = ref(0);
-  const currentPage = ref(1);
-  const totalPages = ref(1);
-  const selectedHistoryId = ref('');
-  const isLoadingHistory = ref(false);
-  const historyError = ref('');
-  const statusFilter = ref('all');
+  const historyList = ref<TranscriptItem[]>([]);
+  const totalRecords = ref<number>(0);
+  const currentPage = ref<number>(1);
+  const totalPages = ref<number>(1);
+  const selectedHistoryId = ref<string>('');
+  const isLoadingHistory = ref<boolean>(false);
+  const historyError = ref<string>('');
+  const statusFilter = ref<string>('all');
 
-  function setStatusFilter(filter) {
+  function setStatusFilter(filter: string) {
     statusFilter.value = filter;
     currentPage.value = 1;
     return fetchHistory(1);
   }
 
-  async function fetchHistory(page = 1, onAutoSelect = null) {
+  async function fetchHistory(page = 1, onAutoSelect: ((items: TranscriptItem[]) => void) | null = null) {
     isLoadingHistory.value = true;
     historyError.value = '';
     currentPage.value = page;
@@ -38,16 +39,24 @@ export function useHistoryController() {
       });
 
       if (response?.status === 'success') {
-        historyList.value = response.data || [];
-        totalRecords.value = response.totalRecords ?? historyList.value.length;
-        currentPage.value = response.page ?? page;
-        totalPages.value = response.totalPages ?? 1;
+        const rawData: any = response.data;
+        if (Array.isArray(rawData)) {
+          historyList.value = rawData;
+        } else if (rawData?.items && Array.isArray(rawData.items)) {
+          historyList.value = rawData.items;
+        } else {
+          historyList.value = [];
+        }
+
+        totalRecords.value = (response as any).totalRecords ?? rawData?.pagination?.total ?? historyList.value.length;
+        currentPage.value = (response as any).page ?? rawData?.pagination?.page ?? page;
+        totalPages.value = (response as any).totalPages ?? rawData?.pagination?.totalPages ?? 1;
 
         if (onAutoSelect && historyList.value.length > 0) {
           onAutoSelect(historyList.value);
         }
       } else {
-        throw new Error(response?.message || 'Gagal memuat riwayat');
+        throw new Error((response as any)?.message || 'Gagal memuat riwayat');
       }
     } catch (err) {
       console.error('[HistoryController] Gagal mengambil riwayat transkripsi:', err);
@@ -57,7 +66,11 @@ export function useHistoryController() {
     }
   }
 
-  function selectHistoryItem(item, shouldScroll = true, onSelectCallback = null) {
+  function selectHistoryItem(
+    item: TranscriptItem | null,
+    shouldScroll = true,
+    onSelectCallback: ((item: TranscriptItem) => void) | null = null
+  ) {
     if (!item) return;
     selectedHistoryId.value = item.id;
 
