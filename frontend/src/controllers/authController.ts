@@ -6,8 +6,8 @@ import type { LoginCredentials, RegisterPayload } from '../types';
  * controllers/authController.ts - Controller untuk Form & Alur Autentikasi (MVC)
  *
  * Mengelola:
- * - State login, registrasi, dan verifikasi OTP 6-digit (SRS UC-01 & SD-01)
- * - State lupa kata sandi & pemulihan via OTP (SRS UC-03 & SD-03)
+ * - State login, registrasi, dan verifikasi OTP 6-digit
+ * - State lupa kata sandi & pemulihan via OTP
  * - Timer kedaluwarsa OTP (5 menit) dan cooldown kirim ulang (60 detik)
  * - Validasi input lokal
  * - Orkestrasi pemanggilan authModel
@@ -32,7 +32,7 @@ export function useAuthController(initialTab: AuthTab = 'login', emit?: (...args
   const otpCountdown = ref<number>(300); // 5 menit dalam detik
   const resendCooldown = ref<number>(0); // Cooldown kirim ulang (60 detik)
 
-  // State Pemulihan Kata Sandi (SRS UC-03 & SD-03)
+  // State Pemulihan Kata Sandi
   const forgotEmail = ref<string>('');
   const resetOtpCode = ref<string>('');
   const newPassword = ref<string>('');
@@ -165,7 +165,7 @@ export function useAuthController(initialTab: AuthTab = 'login', emit?: (...args
     } catch (err: any) {
       console.error('[AuthController] Login error:', err);
 
-      // Cek apakah akun belum diverifikasi OTP (SRS UC-01 & SD-01)
+      // Cek apakah akun belum diverifikasi OTP
       if (err.response?.status === 403 && err.response?.data?.code === 'ACCOUNT_NOT_VERIFIED') {
         const payload = err.response.data;
         pendingUserId.value = payload.userId || '';
@@ -214,6 +214,16 @@ export function useAuthController(initialTab: AuthTab = 'login', emit?: (...args
 
     if (!password || password.length < 8) {
       errorMessage.value = 'Kata sandi minimal 8 karakter.';
+      return { success: false };
+    }
+
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      errorMessage.value = 'Kata sandi harus mengandung kombinasi huruf dan angka.';
+      return { success: false };
+    }
+
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      errorMessage.value = 'Kata sandi harus mengandung kombinasi huruf dan angka.';
       return { success: false };
     }
 
@@ -405,6 +415,16 @@ export function useAuthController(initialTab: AuthTab = 'login', emit?: (...args
 
     if (!pass || pass.length < 8) {
       errorMessage.value = 'Kata sandi baru minimal 8 karakter.';
+      return { success: false };
+    }
+
+    if (!/[A-Za-z]/.test(pass) || !/\d/.test(pass)) {
+      errorMessage.value = 'Kata sandi baru harus mengandung kombinasi huruf dan angka.';
+      return { success: false };
+    }
+
+    if (!/[A-Za-z]/.test(pass) || !/\d/.test(pass)) {
+      errorMessage.value = 'Kata sandi baru harus mengandung kombinasi huruf dan angka.';
       return { success: false };
     }
 

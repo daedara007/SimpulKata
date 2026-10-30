@@ -1,6 +1,5 @@
 /**
  * models/userModel.ts - Data Access Object (DAO) untuk data profil pengguna
- * Berdasarkan SRS UC-04 & SD-04
  */
 
 import apiClient from '../services/apiClient';
@@ -63,7 +62,7 @@ export class UserModel {
 
   /**
    * Mengubah kata sandi pengguna saat login
-   * PUT /api/users/change-password (SRS UC-05, SD-05)
+   * PUT /api/users/change-password
    */
   async changePassword(payload: ChangePasswordPayload): Promise<ApiResponse> {
     const res = await apiClient.put<ApiResponse>(

@@ -1,5 +1,5 @@
 /**
- * controllers/useProfileController.ts - Composable Controller untuk Pengaturan Profil & Kata Sandi (UC-04 & UC-05)
+ * controllers/useProfileController.ts - Composable Controller untuk Pengaturan Profil & Kata Sandi
  */
 
 import { ref, computed } from 'vue';
@@ -20,7 +20,7 @@ export function useProfileController(emit?: (...args: any[]) => any) {
   const isModalOpen = ref<boolean>(false);
   const activeTab = ref<'profile' | 'password'>('profile');
 
-  // State Form Profil (UC-04)
+  // State Form Profil
   const name = ref<string>('');
   const email = ref<string>('');
   const originalEmail = ref<string>('');
@@ -32,7 +32,7 @@ export function useProfileController(emit?: (...args: any[]) => any) {
   const errorMessage = ref<string>('');
   const successMessage = ref<string>('');
 
-  // State Verifikasi Pergantian Email (UC-04)
+  // State Verifikasi Pergantian Email
   const emailChangePending = ref<boolean>(false);
   const newPendingEmail = ref<string>('');
   const otpCode = ref<string>('');
@@ -40,7 +40,7 @@ export function useProfileController(emit?: (...args: any[]) => any) {
   const otpErrorMessage = ref<string>('');
   const otpSuccessMessage = ref<string>('');
 
-  // State Form Ubah Kata Sandi (UC-05 & SD-05)
+  // State Form Ubah Kata Sandi
   const pwdCurrent = ref<string>('');
   const pwdNew = ref<string>('');
   const pwdConfirm = ref<string>('');
@@ -51,7 +51,7 @@ export function useProfileController(emit?: (...args: any[]) => any) {
   const pwdErrorMessage = ref<string>('');
   const pwdSuccessMessage = ref<string>('');
 
-  // Checklist Validasi Sandi Baru (SRS UC-05)
+  // Checklist Validasi Sandi Baru
   const pwdHasMinLength = computed(() => pwdNew.value.length >= 8);
   const pwdHasLetter = computed(() => /[A-Za-z]/.test(pwdNew.value));
   const pwdHasDigit = computed(() => /\d/.test(pwdNew.value));
@@ -79,7 +79,7 @@ export function useProfileController(emit?: (...args: any[]) => any) {
   }
 
   /**
-   * Membuka modal profil dan mengisi form dengan data pengguna saat ini (SD-04 Langkah 1-6)
+   * Membuka modal profil dan mengisi form dengan data pengguna saat ini
    */
   function openModal(user: User | null, defaultTab: 'profile' | 'password' = 'profile') {
     if (!user) return;
@@ -120,7 +120,7 @@ export function useProfileController(emit?: (...args: any[]) => any) {
   }
 
   /**
-   * Menyimpan perubahan profil (SD-04 Langkah 8-21)
+   * Menyimpan perubahan profil
    */
   async function handleSaveProfile(onUserUpdated?: (updatedUser: User) => void) {
     errorMessage.value = '';
@@ -195,7 +195,7 @@ export function useProfileController(emit?: (...args: any[]) => any) {
   }
 
   /**
-   * Mengubah Kata Sandi Pengguna (SRS UC-05, SD-05 Langkah 3-16)
+   * Mengubah Kata Sandi Pengguna
    */
   async function handleChangePassword(onSuccessLogout?: () => void) {
     pwdErrorMessage.value = '';
@@ -239,7 +239,7 @@ export function useProfileController(emit?: (...args: any[]) => any) {
       pwdSuccessMessage.value = response.message || 'Kata sandi berhasil diubah! Mengalihkan ke halaman login...';
       resetPasswordForm();
 
-      // Sesuai SD-05 Langkah 13-16: Sesi aktif di server telah dicabut, hapus sesi lokal & logout
+      // Sesi aktif di server telah dicabut, hapus sesi lokal & logout
       authModel.clearSession();
 
       setTimeout(() => {
@@ -344,7 +344,7 @@ export function useProfileController(emit?: (...args: any[]) => any) {
     isVerifyingOtp,
     otpErrorMessage,
     otpSuccessMessage,
-    // Password state & methods (UC-05)
+    // Password state & methods
     pwdCurrent,
     pwdNew,
     pwdConfirm,

@@ -58,6 +58,16 @@ export class AuthController {
         });
       }
 
+      const hasLetter = /[A-Za-z]/.test(password);
+      const hasDigit = /\d/.test(password);
+      if (!hasLetter || !hasDigit) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Kata sandi harus mengandung kombinasi huruf dan angka.',
+        });
+      }
+
       const normalizedEmail = email.trim().toLowerCase();
       const cleanName = name.trim();
 
@@ -741,6 +751,16 @@ export class AuthController {
           status: 'error',
           code: 'VALIDATION_ERROR',
           message: 'Kata sandi baru minimal 8 karakter.',
+        });
+      }
+
+      const hasLetter = /[A-Za-z]/.test(newPassword);
+      const hasDigit = /\d/.test(newPassword);
+      if (!hasLetter || !hasDigit) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Kata sandi baru harus mengandung kombinasi huruf dan angka.',
         });
       }
 

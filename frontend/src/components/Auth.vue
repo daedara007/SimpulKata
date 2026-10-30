@@ -71,7 +71,7 @@
           </button>
         </div>
 
-        <!-- Banner Mode Pemulihan Kata Sandi (SRS UC-03 & SD-03) -->
+        <!-- Banner Mode Pemulihan Kata Sandi -->
         <div v-else-if="activeTab === 'forgot-password'" class="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs">
           <span class="text-rose-300 font-medium flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-rose-400"></span>
@@ -109,7 +109,7 @@
         </div>
 
         <!-- ========================================================= -->
-        <!-- FORM LOGIN (SRS UC-02 & SD-02)                           -->
+        <!-- FORM LOGIN                                                -->
         <!-- ========================================================= -->
         <form v-if="activeTab === 'login'" class="space-y-4" @submit.prevent="handleLogin">
           <!-- Input Email -->
@@ -204,7 +204,7 @@
         </form>
 
         <!-- ========================================================= -->
-        <!-- FORM REGISTRASI (SRS UC-01 & SD-01)                       -->
+        <!-- FORM REGISTRASI                                           -->
         <!-- ========================================================= -->
         <form v-else-if="activeTab === 'register'" class="space-y-4" @submit.prevent="handleRegister">
           <!-- Banner Bonus Kuota Akun Baru -->
@@ -251,7 +251,7 @@
             </div>
           </div>
 
-          <!-- Input Kata Sandi (Minimal 8 Karakter sesuai SD-01 langkah 6) -->
+          <!-- Input Kata Sandi -->
           <div class="space-y-1.5 text-left">
             <div class="flex items-center justify-between">
               <label class="block text-xs font-medium text-slate-300">Kata Sandi</label>
@@ -268,7 +268,7 @@
                 :type="showPassword ? 'text' : 'password'"
                 required
                 minlength="8"
-                placeholder="Minimal 8 karakter"
+                placeholder="Minimal 8 karakter kombinasi huruf & angka"
                 class="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-slate-100 placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
               />
               <button
@@ -287,7 +287,7 @@
             </div>
           </div>
 
-          <!-- Input Konfirmasi Sandi (Kecocokan Sandi sesuai SD-01) -->
+          <!-- Input Konfirmasi Sandi -->
           <div class="space-y-1.5 text-left">
             <label class="block text-xs font-medium text-slate-300">Konfirmasi Kata Sandi</label>
             <div class="relative">
@@ -313,10 +313,26 @@
             </p>
           </div>
 
+          <!-- Indikator Ketentuan Kata Sandi -->
+          <div class="p-2.5 bg-slate-950/60 rounded-xl border border-slate-800/80 space-y-1 text-[11px] text-left">
+            <p class="font-medium text-slate-400">Ketentuan kata sandi:</p>
+            <div class="grid grid-cols-2 gap-1 text-[10px]">
+              <div class="flex items-center gap-1.5" :class="registerForm.password.length >= 8 ? 'text-emerald-400' : 'text-slate-500'">
+                <span>{{ registerForm.password.length >= 8 ? '✓' : '•' }}</span> Minimal 8 karakter
+              </div>
+              <div class="flex items-center gap-1.5" :class="(registerForm.password && /[A-Za-z]/.test(registerForm.password) && /\d/.test(registerForm.password)) ? 'text-emerald-400' : 'text-slate-500'">
+                <span>{{ (registerForm.password && /[A-Za-z]/.test(registerForm.password) && /\d/.test(registerForm.password)) ? '✓' : '•' }}</span> Huruf & angka
+              </div>
+              <div class="flex items-center gap-1.5 col-span-2" :class="(registerForm.confirmPassword && registerForm.password === registerForm.confirmPassword) ? 'text-emerald-400' : 'text-slate-500'">
+                <span>{{ (registerForm.confirmPassword && registerForm.password === registerForm.confirmPassword) ? '✓' : '•' }}</span> Konfirmasi cocok
+              </div>
+            </div>
+          </div>
+
           <!-- Tombol Daftar -->
           <button
             type="submit"
-            :disabled="isLoading || Boolean(registerForm.confirmPassword && registerForm.password !== registerForm.confirmPassword)"
+            :disabled="isLoading || registerForm.password.length < 8 || !(/[A-Za-z]/.test(registerForm.password) && /\d/.test(registerForm.password)) || registerForm.password !== registerForm.confirmPassword"
             class="w-full mt-2 py-3 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <svg
@@ -334,7 +350,7 @@
         </form>
 
         <!-- ========================================================= -->
-        <!-- FORM VERIFIKASI OTP (SRS UC-01 & SD-01)                  -->
+        <!-- FORM VERIFIKASI OTP                                       -->
         <!-- ========================================================= -->
         <form v-else-if="activeTab === 'otp'" class="space-y-5" @submit.prevent="handleVerifyOtp">
           <div class="text-center space-y-2">
@@ -409,10 +425,10 @@
         </form>
 
         <!-- ========================================================= -->
-        <!-- FORM PEMULIHAN KATA SANDI (SRS UC-03 & SD-03)             -->
+        <!-- FORM PEMULIHAN KATA SANDI                                 -->
         <!-- ========================================================= -->
         <div v-else-if="activeTab === 'forgot-password'" class="space-y-5">
-          <!-- Tahap 1: Input Email untuk Request OTP (SD-03 Langkah 1-4) -->
+          <!-- Tahap 1: Input Email untuk Request OTP -->
           <form v-if="resetStage === 'email'" class="space-y-4" @submit.prevent="handleForgotPassword">
             <div class="text-center space-y-1.5">
               <div class="w-12 h-12 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
@@ -476,7 +492,7 @@
             </div>
           </form>
 
-          <!-- Tahap 2: Input OTP & Kata Sandi Baru (SD-03 Langkah 14-16) -->
+          <!-- Tahap 2: Input OTP & Kata Sandi Baru -->
           <form v-else-if="resetStage === 'reset'" class="space-y-4" @submit.prevent="handleResetPassword">
             <div class="text-center space-y-1.5">
               <div class="w-12 h-12 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">

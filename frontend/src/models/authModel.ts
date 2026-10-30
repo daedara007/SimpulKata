@@ -44,7 +44,7 @@ export const authModel = {
   },
 
   /**
-   * Memverifikasi kode OTP 6-digit (SRS UC-01 & SD-01)
+   * Memverifikasi kode OTP 6-digit
    */
   async verifyOtp(payload: VerifyOtpPayload): Promise<ApiResponse> {
     const response = await apiClient.post<ApiResponse>('/api/auth/verify-otp', payload);
@@ -60,7 +60,7 @@ export const authModel = {
   },
 
   /**
-   * Meminta kode OTP pemulihan kata sandi (SRS UC-03 & SD-03)
+   * Meminta kode OTP pemulihan kata sandi
    */
   async forgotPassword(email: string): Promise<ApiResponse> {
     const response = await apiClient.post<ApiResponse>('/api/auth/forgot-password', { email });
@@ -68,7 +68,7 @@ export const authModel = {
   },
 
   /**
-   * Mengirim OTP dan kata sandi baru untuk pemulihan kata sandi (SRS UC-03 & SD-03)
+   * Mengirim OTP dan kata sandi baru untuk pemulihan kata sandi
    */
   async resetPassword(payload: ResetPasswordPayload): Promise<ApiResponse> {
     const response = await apiClient.post<ApiResponse>('/api/auth/reset-password', payload);

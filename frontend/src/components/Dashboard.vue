@@ -110,7 +110,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         <!-- ========================================================= -->
-        <!-- KOLOM KIRI: Panel Riwayat Transkripsi (UC-11 & SD-11)    -->
+        <!-- KOLOM KIRI: Panel Riwayat Transkripsi                     -->
         <!-- ========================================================= -->
         <aside class="lg:col-span-4 space-y-4">
           <div class="rounded-2xl bg-slate-900/60 border border-slate-800 p-4 sm:p-5 shadow-xl space-y-4 backdrop-blur-sm sticky top-24">
@@ -130,7 +130,7 @@
                 </span>
               </div>
 
-              <!-- Tombol Refresh Riwayat (SRS UC-11 E1) -->
+              <!-- Tombol Refresh Riwayat -->
               <button
                 type="button"
                 class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
@@ -150,7 +150,7 @@
               </button>
             </div>
 
-            <!-- Filter Status (Semua, Selesai, Gagal) Sesuai SRS UC-11 Typical Course step 4 -->
+            <!-- Filter Status (Semua, Selesai, Gagal) -->
             <div class="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs">
               <button
                 type="button"
@@ -178,7 +178,7 @@
               </button>
             </div>
 
-            <!-- Error State: Database Query Timeout / Error (SRS UC-11 Exceptional Flow E1) -->
+            <!-- Error State: Database Query Timeout / Error -->
             <div
               v-if="historyError"
               class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs space-y-2"
@@ -217,7 +217,7 @@
               </button>
             </div>
 
-            <!-- Empty State Flow 1: Belum ada data di database (SD-11 Flow 7b / SRS UC-11 Alternative Flow A1) -->
+            <!-- Empty State: Belum ada data di database -->
             <div
               v-else-if="totalRecords === 0 || historyList.length === 0"
               class="text-center py-10 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 space-y-3"
@@ -233,7 +233,7 @@
               </div>
             </div>
 
-            <!-- Daftar Riwayat Transkripsi (SD-11 Normal Flow 7a & SRS UC-11 Post Conditions) -->
+            <!-- Daftar Riwayat Transkripsi -->
             <div v-else class="space-y-2 max-h-[520px] overflow-y-auto pr-1">
               <button
                 v-for="item in historyList"
@@ -284,7 +284,7 @@
               </button>
             </div>
 
-            <!-- Pagination Bar (SRS UC-11 Post Conditions & Alternative Flow A2) -->
+            <!-- Pagination Bar -->
             <div
               v-if="totalPages > 1"
               class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs"
@@ -599,7 +599,7 @@
     </footer>
 
     <!-- ========================================================= -->
-    <!-- MODAL PENGATURAN PROFIL & KEAMANAN (UC-04 & UC-05)       -->
+    <!-- MODAL PENGATURAN PROFIL & KEAMANAN                        -->
     <!-- ========================================================= -->
     <div
       v-if="isProfileModalOpen"
@@ -636,7 +636,7 @@
             </button>
           </div>
 
-          <!-- Tab Navigasi (UC-04 & UC-05) -->
+          <!-- Tab Navigasi -->
           <div class="flex gap-2 p-1 bg-slate-950/60 rounded-xl border border-slate-800/80">
             <button
               type="button"
@@ -658,7 +658,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- TAB 1: PENGATURAN PROFIL (UC-04 & SD-04)   -->
+        <!-- TAB 1: PENGATURAN PROFIL                  -->
         <!-- ========================================== -->
         <div v-if="profileActiveTab === 'profile'">
           <!-- Notifikasi Error & Sukses Profil -->
@@ -768,7 +768,7 @@
               </p>
             </div>
 
-            <!-- Input Password Saat Ini (Verifikasi Keamanan SD-04 Langkah 12) -->
+            <!-- Input Password Saat Ini -->
             <div>
               <label for="profile-current-password" class="block text-xs font-semibold text-slate-300 mb-1.5">
                 Konfirmasi Password Saat Ini <span class="text-rose-400">*</span>
@@ -825,7 +825,7 @@
             </div>
           </form>
 
-          <!-- DIALOG VERIFIKASI OTP PERGANTIAN EMAIL (SD-04 Langkah 16-17) -->
+          <!-- DIALOG VERIFIKASI OTP PERGANTIAN EMAIL -->
           <div v-else class="mt-5 space-y-4">
             <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-slate-300 text-xs space-y-1.5">
               <p class="font-semibold text-amber-300 flex items-center gap-1.5">
@@ -880,7 +880,7 @@
         </div>
 
         <!-- ============================================== -->
-        <!-- TAB 2: FORM UBAH KATA SANDI (UC-05 & SD-05)    -->
+        <!-- TAB 2: FORM UBAH KATA SANDI                    -->
         <!-- ============================================== -->
         <div v-else-if="profileActiveTab === 'password'" class="mt-4 space-y-4">
           <!-- Notifikasi Error & Sukses Kata Sandi -->
@@ -989,7 +989,7 @@
               </div>
             </div>
 
-            <!-- Syarat & Ketentuan Keamanan Password (SRS UC-05) -->
+            <!-- Syarat & Ketentuan Keamanan Password -->
             <div class="p-3 bg-slate-950/50 rounded-xl border border-slate-800/80 space-y-1.5 text-[11px]">
               <p class="font-medium text-slate-400">Ketentuan kata sandi:</p>
               <div class="grid grid-cols-2 gap-1.5">
@@ -1007,7 +1007,7 @@
                 </div>
               </div>
               <p class="text-[10px] text-slate-500 pt-1 border-t border-slate-800/50">
-                🔒 Mengubah kata sandi akan otomatis mencabut seluruh sesi login Anda di perangkat lain (SD-05).
+                🔒 Mengubah kata sandi akan otomatis mencabut seluruh sesi login Anda di perangkat lain demi keamanan akun.
               </p>
             </div>
 
@@ -1079,7 +1079,7 @@ const emit = defineEmits<{
 const userData = ref<User | null>(props.currentUser || null);
 
 // =========================================================
-// PROFILE CONTROLLER (UC-04 & SD-04, UC-05 & SD-05)
+// PROFILE CONTROLLER (Profil & Pengaturan Kata Sandi)
 // =========================================================
 const {
   isModalOpen: isProfileModalOpen,
@@ -1099,7 +1099,7 @@ const {
   isVerifyingOtp: isVerifyingEmailOtp,
   otpErrorMessage: emailOtpErrorMessage,
   otpSuccessMessage: emailOtpSuccessMessage,
-  // Password state & methods (UC-05)
+  // Password state & methods
   pwdCurrent,
   pwdNew,
   pwdConfirm,
