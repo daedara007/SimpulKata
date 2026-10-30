@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS users (
     name            VARCHAR(100)    NOT NULL,
     -- Saldo kuota dalam detik (misal: 600 = 10 menit pemrosesan)
     balance         INTEGER         NOT NULL DEFAULT 0,
+    -- Status: 'PENDING' (menunggu verifikasi OTP), 'ACTIVE', 'SUSPENDED' (SD-01)
+    status          VARCHAR(20)     NOT NULL DEFAULT 'PENDING'
+                        CHECK (status IN ('PENDING', 'ACTIVE', 'SUSPENDED')),
     -- Role: 'user' untuk pengguna reguler, 'admin' untuk administrator
     role            VARCHAR(20)     NOT NULL DEFAULT 'user'
                         CHECK (role IN ('user', 'admin')),
@@ -50,6 +53,25 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions (user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_refresh_token ON user_sessions (refresh_token);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions (expires_at);
+
+-- ----------------------------------------------------------
+-- TABEL: otp_requests
+-- Menyimpan kode OTP 6-digit verifikasi email dan masa berlakunya
+-- Berdasarkan referensi/erd.puml (Relasi: 1 user → N otp_requests)
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS otp_requests (
+    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    otp_code    VARCHAR(6)   NOT NULL,
+    context     VARCHAR(50)  NOT NULL DEFAULT 'registration',
+    expires_at  TIMESTAMP    NOT NULL,
+    is_used     BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+-- Index untuk mempercepat validasi dan lookup OTP
+CREATE INDEX IF NOT EXISTS idx_otp_requests_user_id ON otp_requests (user_id);
+CREATE INDEX IF NOT EXISTS idx_otp_requests_lookup ON otp_requests (user_id, otp_code, context);
 
 -- ----------------------------------------------------------
 -- TABEL: transcripts

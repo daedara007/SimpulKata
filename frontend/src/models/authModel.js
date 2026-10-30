@@ -34,6 +34,26 @@ export const authModel = {
   },
 
   /**
+   * Memverifikasi kode OTP 6-digit (SRS UC-01 & SD-01)
+   * @param {Object} payload { userId, email, otpCode }
+   * @returns {Promise<Object>}
+   */
+  async verifyOtp({ userId, email, otpCode }) {
+    const response = await apiClient.post('/api/auth/verify-otp', { userId, email, otpCode });
+    return response.data;
+  },
+
+  /**
+   * Mengirim ulang kode OTP baru
+   * @param {Object} payload { userId, email }
+   * @returns {Promise<Object>}
+   */
+  async resendOtp({ userId, email }) {
+    const response = await apiClient.post('/api/auth/resend-otp', { userId, email });
+    return response.data;
+  },
+
+  /**
    * Mengambil data profil dan saldo kuota pengguna terkini
    * @returns {Promise<Object>}
    */

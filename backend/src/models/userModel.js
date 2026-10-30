@@ -15,7 +15,7 @@ class UserModel {
    */
   async findByEmail(email) {
     const res = await db.query(
-      `SELECT id, name, email, password_hash, balance, role, created_at, updated_at
+      `SELECT id, name, email, password_hash, balance, role, status, created_at, updated_at
        FROM users
        WHERE email = $1
        LIMIT 1`,
@@ -31,7 +31,7 @@ class UserModel {
    */
   async findById(id) {
     const res = await db.query(
-      `SELECT id, name, email, balance, role, created_at, updated_at
+      `SELECT id, name, email, balance, role, status, created_at, updated_at
        FROM users
        WHERE id = $1
        LIMIT 1`,
@@ -41,18 +41,51 @@ class UserModel {
   }
 
   /**
-   * Membuat pengguna baru di database
+   * Membuat pengguna baru di database dengan status awal
    * @param {Object} data
    * @returns {Promise<Object>}
    */
-  async create({ name, email, passwordHash, balance = 0, role = 'user' }) {
+  async create({ name, email, passwordHash, balance = 0, role = 'user', status = 'PENDING' }) {
     const res = await db.query(
-      `INSERT INTO users (name, email, password_hash, balance, role)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, email, balance, role, created_at`,
-      [name.trim(), email.toLowerCase().trim(), passwordHash, balance, role]
+      `INSERT INTO users (name, email, password_hash, balance, role, status)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, email, balance, role, status, created_at`,
+      [name.trim(), email.toLowerCase().trim(), passwordHash, balance, role, status]
     );
     return res.rows[0];
+  }
+
+  /**
+   * Mengaktifkan akun pengguna setelah verifikasi kode OTP berhasil (SD-01 Langkah 24)
+   * @param {string} userId
+   * @returns {Promise<Object|null>}
+   */
+  async activateUser(userId) {
+    const res = await db.query(
+      `UPDATE users
+       SET status = 'ACTIVE'
+       WHERE id = $1
+       RETURNING id, name, email, balance, role, status, created_at, updated_at`,
+      [userId]
+    );
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Memperbarui data pengguna yang masih berstatus PENDING
+   * @param {string} id
+   * @param {Object} param1
+   * @returns {Promise<Object|null>}
+   */
+  async updatePendingUser(id, { name, passwordHash }) {
+    const res = await db.query(
+      `UPDATE users
+       SET name = $1, password_hash = $2
+       WHERE id = $3 AND status = 'PENDING'
+       RETURNING id, name, email, balance, role, status`,
+      [name, passwordHash, id]
+    );
+    return res.rows[0] || null;
   }
 
   /**

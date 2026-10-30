@@ -11,6 +11,12 @@ async function authRoutes(fastify, options) {
   // POST /api/auth/register (Publik)
   fastify.post('/register', authController.register);
 
+  // POST /api/auth/verify-otp (Publik - Verifikasi OTP 6-Digit & Instant Login)
+  fastify.post('/verify-otp', authController.verifyOtp);
+
+  // POST /api/auth/resend-otp (Publik - Kirim Ulang OTP dengan Cooldown 60s)
+  fastify.post('/resend-otp', authController.resendOtp);
+
   // POST /api/auth/login (Publik)
   fastify.post('/login', authController.login);
 

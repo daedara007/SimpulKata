@@ -103,7 +103,19 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `password_hash` | VARCHAR(255) | Hash kata sandi menggunakan bcrypt (10 rounds) |
 | `balance` | INTEGER | Saldo kuota dalam hitungan **detik** (Default: 1.800 detik / 30 menit) |
 | `role` | VARCHAR(50) | Peran pengguna (`'user'` atau `'admin'`) |
+| `status` | VARCHAR(20) | Status akun (`'PENDING'`, `'ACTIVE'`, `'SUSPENDED'`) |
 | `created_at` / `updated_at` | TIMESTAMP | Waktu pembuatan & pembaruan record |
+
+### Tabel `otp_requests`
+| Kolom | Tipe | Deskripsi |
+|---|---|---|
+| `id` | UUID (PK) | Identifier unik permintaan OTP |
+| `user_id` | UUID (FK -> users.id) | Pemilik OTP (CASCADE on delete) |
+| `otp_code` | VARCHAR(6) | Kode OTP 6-digit numerik |
+| `context` | VARCHAR(50) | Konteks OTP (Default: `'registration'`) |
+| `expires_at` | TIMESTAMP | Waktu kedaluwarsa OTP (5 menit dari dibuat) |
+| `is_used` | BOOLEAN | Status apakah kode telah digunakan |
+| `created_at` | TIMESTAMP | Waktu penerbitan OTP |
 
 ### Tabel `transcripts`
 | Kolom | Tipe | Deskripsi |
@@ -125,8 +137,12 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 
 | Method | Endpoint | Akses | Deskripsi |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | Publik | Mendaftarkan akun baru & memberikan kuota 30 menit |
+| `POST` | `/api/auth/register` | Publik | Mendaftarkan akun baru (status PENDING) & mengirim kode OTP 6-digit |
+| `POST` | `/api/auth/verify-otp` | Publik | Verifikasi kode OTP, aktivasi akun (ACTIVE), & auto-login |
+| `POST` | `/api/auth/resend-otp` | Publik | Mengirim ulang kode OTP baru (dengan proteksi cooldown 60 detik) |
 | `POST` | `/api/auth/login` | Publik | Verifikasi login & mengembalikan token JWT |
+| `POST` | `/api/auth/refresh` | Publik | Memperbarui access token dengan refresh token (RTR) |
+| `POST` | `/api/auth/logout` | Protected (JWT) | Menghapus sesi refresh token dari database |
 | `GET` | `/api/auth/me` | Protected (JWT) | Mengambil data profil dan saldo kuota terkini |
 | `POST` | `/api/process-audio` | Protected (JWT) | Mengunggah audio, validasi kuota, transkripsi & rangkuman |
 | `GET` | `/api/history` | Protected (JWT) | Mengambil arsip riwayat pengguna (pagination & filter) |

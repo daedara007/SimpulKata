@@ -12,7 +12,8 @@
 
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const { userModel, sessionModel } = require('../models');
+const { userModel, sessionModel, otpModel } = require('../models');
+const emailService = require('../services/emailService');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BCRYPT_SALT_ROUNDS = 10;
@@ -21,7 +22,7 @@ const INITIAL_FREE_BALANCE_SECONDS = 1800; // 30 menit pemrosesan awal
 class AuthController {
   /**
    * POST /api/auth/register
-   * Mendaftarkan akun pengguna baru (SRS UC-01 & SD-01)
+   * Mendaftarkan akun pengguna baru dan mengirim kode OTP verifikasi (SRS UC-01 & SD-01)
    */
   async register(request, reply) {
     try {
@@ -57,36 +58,66 @@ class AuthController {
 
       // 2. Cek apakah email sudah terdaftar via UserModel (SD-01 langkah 7 & 8)
       const existingUser = await userModel.findByEmail(normalizedEmail);
-      if (existingUser) {
+      if (existingUser && existingUser.status === 'ACTIVE') {
         return reply.status(409).send({
           status: 'error',
           code: 'EMAIL_ALREADY_EXISTS',
-          message: `Alamat email '${normalizedEmail}' sudah terdaftar. Silakan gunakan email lain atau langsung masuk.`,
+          message: `Alamat email '${normalizedEmail}' sudah terdaftar dan aktif. Silakan langsung masuk.`,
         });
       }
 
       // 3. Hash Kata Sandi (SD-01 langkah 9: hashKataSandi)
       const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
-      // 4. Simpan ke database via UserModel (SD-01 langkah 10: insertUserBaru)
-      const newUser = await userModel.create({
-        name: cleanName,
-        email: normalizedEmail,
-        passwordHash,
-        balance: INITIAL_FREE_BALANCE_SECONDS,
-        role: 'user',
+      let targetUser = existingUser;
+
+      if (!targetUser) {
+        // Buat user baru dengan status PENDING (SD-01 langkah 10: insertUserBaru)
+        targetUser = await userModel.create({
+          name: cleanName,
+          email: normalizedEmail,
+          passwordHash,
+          balance: INITIAL_FREE_BALANCE_SECONDS,
+          role: 'user',
+          status: 'PENDING',
+        });
+      } else {
+        // User ada tapi masih PENDING: perbarui nama & sandi baru
+        targetUser = await userModel.updatePendingUser(targetUser.id, {
+          name: cleanName,
+          passwordHash,
+        });
+      }
+
+      // 4. Generate 6-Digit OTP acak numerik (SD-01 langkah 12: generateKodeOTP)
+      const otpCode = crypto.randomInt(100000, 999999).toString();
+
+      // 5. Hanguskan OTP sebelumnya dan simpan OTP baru (SD-01 langkah 13 & 14)
+      await otpModel.invalidatePrevious(targetUser.id, 'registration');
+      await otpModel.create({
+        userId: targetUser.id,
+        otpCode,
+        context: 'registration',
+        minutesValid: 5,
       });
 
+      // 6. Kirim Email OTP via Resend (SD-01 langkah 15 & 16)
+      await emailService.sendOtpEmail({
+        to: targetUser.email,
+        name: targetUser.name,
+        otpCode,
+        minutesValid: 5,
+      });
+
+      // 7. Kembalikan respons berhasil (SD-01 langkah 17 & 18)
       return reply.status(201).send({
         status: 'success',
-        message: 'Registrasi berhasil! Silakan masuk dengan akun baru Anda.',
+        message: 'Pendaftaran berhasil! Kode verifikasi OTP 6-digit telah dikirimkan ke email Anda.',
         data: {
-          id: newUser.id,
-          name: newUser.name,
-          email: newUser.email,
-          balance: newUser.balance,
-          role: newUser.role,
-          created_at: newUser.created_at,
+          userId: targetUser.id,
+          email: targetUser.email,
+          requiresOtp: true,
+          expiresInMinutes: 5,
         },
       });
     } catch (error) {
@@ -95,6 +126,197 @@ class AuthController {
         status: 'error',
         code: 'REGISTRATION_ERROR',
         message: 'Terjadi kesalahan pada server saat mendaftarkan akun. Silakan coba sesaat lagi.',
+      });
+    }
+  }
+
+  /**
+   * POST /api/auth/verify-otp
+   * Memverifikasi kode OTP 6-digit dan mengaktifkan akun (SD-01 Langkah 21-27, Opsi B Instant Login)
+   */
+  async verifyOtp(request, reply) {
+    try {
+      const { userId, email, otpCode } = request.body || {};
+
+      if (!otpCode || typeof otpCode !== 'string' || !/^\d{6}$/.test(otpCode.trim())) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Kode OTP harus berupa 6 digit angka.',
+        });
+      }
+
+      const cleanOtp = otpCode.trim();
+      let targetUserId = userId;
+
+      if (!targetUserId && email && typeof email === 'string') {
+        const user = await userModel.findByEmail(email.trim().toLowerCase());
+        if (user) {
+          targetUserId = user.id;
+        }
+      }
+
+      if (!targetUserId) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'ID pengguna atau alamat email wajib disertakan.',
+        });
+      }
+
+      // 1. Cari OTP aktif yang cocok dan belum kedaluwarsa (SD-01 langkah 22 & 23)
+      const validOtp = await otpModel.findLatestValid({
+        userId: targetUserId,
+        otpCode: cleanOtp,
+        context: 'registration',
+      });
+
+      if (!validOtp) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'INVALID_OTP',
+          message: 'Kode OTP tidak valid atau telah kedaluwarsa. Silakan periksa kembali atau minta kode baru.',
+        });
+      }
+
+      // 2. Tandai OTP telah digunakan (SD-01 langkah 24)
+      await otpModel.markAsUsed(validOtp.id);
+
+      // 3. Aktifkan akun pengguna: status -> 'ACTIVE' (SD-01 langkah 24 & 25)
+      const activatedUser = await userModel.activateUser(targetUserId);
+      if (!activatedUser) {
+        return reply.status(404).send({
+          status: 'error',
+          code: 'USER_NOT_FOUND',
+          message: 'Data pengguna tidak ditemukan.',
+        });
+      }
+
+      // 4. Opsi B: Instant Login (Terbitkan Access Token 15m & Refresh Token 7d)
+      const tokenPayload = {
+        id: activatedUser.id,
+        email: activatedUser.email,
+        name: activatedUser.name,
+        role: activatedUser.role,
+      };
+
+      const token = (request.server.jwt || this.jwt).sign(tokenPayload, {
+        expiresIn: '15m',
+      });
+
+      const refreshToken = crypto.randomBytes(40).toString('hex');
+      const ipAddress = request.ip || (request.headers['x-forwarded-for'] ? request.headers['x-forwarded-for'].split(',')[0].trim() : null) || null;
+      const userAgent = request.headers['user-agent'] || null;
+
+      await sessionModel.create({
+        userId: activatedUser.id,
+        refreshToken,
+        ipAddress,
+        userAgent,
+        daysValid: 7,
+      });
+
+      return reply.status(200).send({
+        status: 'success',
+        message: 'Email berhasil diverifikasi! Selamat datang di SimpulKata.',
+        token,
+        refreshToken,
+        user: {
+          id: activatedUser.id,
+          name: activatedUser.name,
+          email: activatedUser.email,
+          role: activatedUser.role,
+          balance: activatedUser.balance,
+        },
+      });
+    } catch (error) {
+      console.error('[AuthController] Error saat verifikasi OTP:', error);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'VERIFY_OTP_ERROR',
+        message: 'Terjadi kesalahan pada server saat memverifikasi kode OTP.',
+      });
+    }
+  }
+
+  /**
+   * POST /api/auth/resend-otp
+   * Mengirim ulang kode OTP baru dengan proteksi cooldown 60 detik
+   */
+  async resendOtp(request, reply) {
+    try {
+      const { userId, email } = request.body || {};
+
+      let user = null;
+      if (userId) {
+        user = await userModel.findById(userId);
+      } else if (email && typeof email === 'string') {
+        user = await userModel.findByEmail(email.trim().toLowerCase());
+      }
+
+      if (!user) {
+        return reply.status(404).send({
+          status: 'error',
+          code: 'USER_NOT_FOUND',
+          message: 'Pengguna tidak ditemukan.',
+        });
+      }
+
+      if (user.status === 'ACTIVE') {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'ALREADY_ACTIVE',
+          message: 'Akun ini sudah aktif dan terverifikasi. Silakan langsung masuk.',
+        });
+      }
+
+      // Cek jeda cooldown 60 detik
+      const cooldown = await otpModel.getCooldown(user.id, 'registration', 60);
+      if (cooldown.onCooldown) {
+        return reply.status(429).send({
+          status: 'error',
+          code: 'COOLDOWN_ACTIVE',
+          message: `Harap tunggu ${cooldown.remainingSeconds} detik sebelum meminta kode OTP baru.`,
+          remainingSeconds: cooldown.remainingSeconds,
+        });
+      }
+
+      // Hanguskan OTP lama
+      await otpModel.invalidatePrevious(user.id, 'registration');
+
+      // Generate 6-Digit OTP baru
+      const newOtpCode = crypto.randomInt(100000, 999999).toString();
+
+      // Simpan OTP baru
+      await otpModel.create({
+        userId: user.id,
+        otpCode: newOtpCode,
+        context: 'registration',
+        minutesValid: 5,
+      });
+
+      // Kirim via Resend
+      await emailService.sendOtpEmail({
+        to: user.email,
+        name: user.name,
+        otpCode: newOtpCode,
+        minutesValid: 5,
+      });
+
+      return reply.status(200).send({
+        status: 'success',
+        message: 'Kode OTP baru telah dikirimkan ke email Anda.',
+        data: {
+          expiresInMinutes: 5,
+          cooldownSeconds: 60,
+        },
+      });
+    } catch (error) {
+      console.error('[AuthController] Error saat kirim ulang OTP:', error);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'RESEND_OTP_ERROR',
+        message: 'Gagal mengirim ulang kode OTP. Coba beberapa saat lagi.',
       });
     }
   }
@@ -135,6 +357,19 @@ class AuthController {
           status: 'error',
           code: 'INVALID_CREDENTIALS',
           message: 'Email atau kata sandi salah.',
+        });
+      }
+
+      // Pengecekan status akun (SD-01 & SD-02): Jika masih PENDING, tolak dan arahkan verifikasi OTP
+      if (user.status === 'PENDING') {
+        return reply.status(403).send({
+          status: 'error',
+          code: 'ACCOUNT_NOT_VERIFIED',
+          message: 'Akun Anda belum diverifikasi. Silakan masukkan kode OTP yang telah dikirimkan ke email Anda.',
+          data: {
+            userId: user.id,
+            email: user.email,
+          },
         });
       }
 
@@ -337,6 +572,8 @@ const authController = new AuthController();
 
 module.exports = {
   register: authController.register.bind(authController),
+  verifyOtp: authController.verifyOtp.bind(authController),
+  resendOtp: authController.resendOtp.bind(authController),
   login: authController.login.bind(authController),
   refreshSession: authController.refreshSession.bind(authController),
   logout: authController.logout.bind(authController),

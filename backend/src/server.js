@@ -31,7 +31,7 @@ const fastify = require('fastify')({
 });
 
 const db = require('./db');
-const { transcriptModel, sessionModel } = require('./models');
+const { transcriptModel, sessionModel, otpModel } = require('./models');
 
 // ----------------------------------------------------------
 // PLUGIN: @fastify/cors
@@ -221,6 +221,16 @@ const start = async () => {
       }
     } catch (sessionErr) {
       fastify.log.warn({ err: sessionErr }, '[Startup] Gagal membersihkan sesi login kedaluwarsa');
+    }
+
+    // Pembersihan kode OTP yang sudah kedaluwarsa di tabel otp_requests (referensi/erd.puml)
+    try {
+      const deletedOtps = await otpModel.deleteExpired();
+      if (deletedOtps > 0) {
+        fastify.log.info(`[Startup] Membersihkan ${deletedOtps} rekaman OTP yang kedaluwarsa.`);
+      }
+    } catch (otpErr) {
+      fastify.log.warn({ err: otpErr }, '[Startup] Gagal membersihkan record OTP kedaluwarsa');
     }
 
     // Jalankan server

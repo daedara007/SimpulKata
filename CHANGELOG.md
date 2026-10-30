@@ -9,6 +9,16 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 
 ## [Unreleased] - 2026-10-30
 
+### Added
+- **Verifikasi Email dengan Kode OTP 6-Digit via Resend API (`UC-01`, `SD-01`)**:
+  - Mengimplementasikan alur pendaftaran akun dengan verifikasi email wajib menggunakan Resend API (`resend` SDK) dan kode OTP 6-digit numerik acak aman (`crypto.randomInt`).
+  - Menambahkan tabel `otp_requests` pada basis data PostgreSQL (`simpulkata_db`) dengan masa berlaku OTP 5 menit (`expires_at`), status pemakaian (`is_used`), dan indeks optimasi query.
+  - Menambahkan kolom status akun `status` (`'PENDING'`, `'ACTIVE'`, `'SUSPENDED'`) pada tabel `users`. Akun baru diinisialisasi dengan status `'PENDING'`.
+  - **Opsi B (Instant Login)**: Setelah kode OTP diverifikasi dengan benar, status akun langsung diubah menjadi `'ACTIVE'` dan sistem secara otomatis menerbitkan Access Token JWT (15 menit) serta Refresh Token (7 hari), sehingga pengguna langsung diarahkan masuk ke Dashboard tanpa perlu login manual ulang.
+  - **Mekanisme Proteksi & Cooldown**: Mencegah spam dengan memberlakukan jeda waktu (*cooldown*) pengiriman ulang kode OTP selama 60 detik (`COOLDOWN_ACTIVE`), membatalkan (*invalidate*) OTP sebelumnya saat OTP baru diminta, dan mencegah penggunaan ulang kode OTP yang sudah diverifikasi (`is_used = TRUE`).
+  - **Antarmuka OTP Interaktif**: Menambahkan komponen tampilan verifikasi OTP responsif pada `frontend/src/components/Auth.vue` dengan input digit terformat, penghitung waktu mundur (*countdown*), tombol kirim ulang OTP dinamis, dan penanganan status `'PENDING'` otomatis saat login.
+  - **Email Service & Template Responsif**: Membangun `backend/src/services/emailService.js` dengan template email HTML modern bermerek SimpulKata dan mekanisme fallback logger konsol untuk lingkungan pengujian/development.
+
 ### Refactored
 - **Adopsi Arsitektur MVC pada Frontend SimpulKata**:
   - Memisahkan logika klien menjadi lapisan modular yang rapi:
