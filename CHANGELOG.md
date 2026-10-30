@@ -9,6 +9,16 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 
 ## [Unreleased] - 2026-10-30
 
+### Refactored
+- **Adopsi Arsitektur MVC pada Backend SimpulKata**:
+  - Mengekstraksi seluruh query SQL langsung (*raw database queries*) dari controllers ke lapisan Data Access Object (DAO) / Model terdedikasi di `backend/src/models/`:
+    - `userModel.js`: Enkapsulasi seluruh operasi tabel `users` (`findByEmail`, `findById`, `create`, `getBalance`, `reserveBalance`, `refundBalance`).
+    - `sessionModel.js`: Enkapsulasi seluruh operasi tabel `user_sessions` (`create`, `findByRefreshToken`, `rotate`, `deleteByRefreshToken`, `deleteByUserId`, `deleteExpired`).
+    - `transcriptModel.js`: Enkapsulasi seluruh operasi tabel `transcripts` (`create`, `findByIdAndUserId`, `updateRawText`, `updateCompleted`, `updateFailed`, `countHistory`, `findHistory`, `cleanupHangingProcessing`).
+  - Mengonversi `backend/src/controllers/authController.js` dan `backend/src/controllers/audioController.js` menjadi Controller berbasis class bersih yang hanya berfokus pada validasi input HTTP, status code respons, dan orkestrasi service/model.
+  - Memperbarui startup cleanup di `backend/src/server.js` untuk memanfaatkan `transcriptModel.cleanupHangingProcessing()` dan `sessionModel.deleteExpired()`.
+  - Menjaga paritas fungsionalitas dan kompatibilitas API 100% tanpa mengubah kontrak payload/respons rute yang sudah ada.
+
 ### Security
 - **Mekanisme Dual-Token & Rotasi Sesi (RTR)**: Memperpendek masa aktif Access Token JWT dari 7 hari menjadi 15 menit untuk memitigasi risiko penyadapan token, didukung oleh Refresh Token Rotation (RTR) di setiap pembaruan sesi yang dicatat pada tabel `user_sessions`.
 - **Validasi Kunci Rahasia JWT Wajib & Hapus Fallback Default (`CR-01`)**: Menghapus fallback hardcoded `JWT_SECRET` di [`backend/src/server.js`](file:///home/kevin007/proyek/ippl/simpulkata/backend/src/server.js). Server kini memvalidasi dan mewajibkan variabel lingkungan `JWT_SECRET` serta menghentikan startup jika bernilai kosong atau nilai default yang tidak aman.

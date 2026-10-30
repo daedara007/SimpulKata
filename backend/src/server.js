@@ -31,6 +31,7 @@ const fastify = require('fastify')({
 });
 
 const db = require('./db');
+const { transcriptModel, sessionModel } = require('./models');
 
 // ----------------------------------------------------------
 // PLUGIN: @fastify/cors
@@ -204,13 +205,9 @@ const start = async () => {
 
     // Pembersihan transkrip berstatus 'processing' yang menggantung akibat restart/crash (CR-19, TC-TRS-010)
     try {
-      const cleanupRes = await db.query(
-        `UPDATE transcripts
-         SET status = 'failed'
-         WHERE status = 'processing'`
-      );
-      if (cleanupRes.rowCount > 0) {
-        fastify.log.info(`[Startup] Membersihkan ${cleanupRes.rowCount} record transkrip menggantung ('processing' -> 'failed').`);
+      const affectedRows = await transcriptModel.cleanupHangingProcessing();
+      if (affectedRows > 0) {
+        fastify.log.info(`[Startup] Membersihkan ${affectedRows} record transkrip menggantung ('processing' -> 'failed').`);
       }
     } catch (cleanupErr) {
       fastify.log.warn({ err: cleanupErr }, '[Startup] Gagal membersihkan record transkrip menggantung');
@@ -218,11 +215,9 @@ const start = async () => {
 
     // Pembersihan sesi login yang sudah kedaluwarsa di tabel user_sessions (referensi/erd.puml)
     try {
-      const sessionCleanup = await db.query(
-        `DELETE FROM user_sessions WHERE expires_at < NOW()`
-      );
-      if (sessionCleanup.rowCount > 0) {
-        fastify.log.info(`[Startup] Membersihkan ${sessionCleanup.rowCount} sesi login yang kedaluwarsa.`);
+      const deletedSessions = await sessionModel.deleteExpired();
+      if (deletedSessions > 0) {
+        fastify.log.info(`[Startup] Membersihkan ${deletedSessions} sesi login yang kedaluwarsa.`);
       }
     } catch (sessionErr) {
       fastify.log.warn({ err: sessionErr }, '[Startup] Gagal membersihkan sesi login kedaluwarsa');
