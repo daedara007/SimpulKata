@@ -10,6 +10,15 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [Unreleased] - 2026-10-30
 
 ### Added
+- **Fitur Pemulihan Kata Sandi Melalui Email dengan Kode OTP (`UC-03`, `SD-03`)**:
+  - Mengimplementasikan alur pemulihan kata sandi 2-tahap menggunakan kode OTP 6-digit acak aman via Resend API:
+    - Endpoint `POST /api/auth/forgot-password`: Menerima email terdaftar, validasi keberadaan pengguna di database (SRS UC-03 A1 / SD-03 8b), proteksi cooldown 60 detik (`COOLDOWN_ACTIVE`), dan pengiriman email OTP dengan masa aktif 5 menit.
+    - Endpoint `POST /api/auth/reset-password`: Menerima kode OTP, validasi panjang kata sandi baru ($\ge 8$ karakter), validasi kata sandi baru harus berbeda dengan kata sandi lama (SRS UC-03 A3), verifikasi kecocokan OTP di tabel `otp_requests` (`context = 'password_reset'`), pembaharuan hash kata sandi (bcrypt), dan penandaan OTP telah digunakan (`is_used = TRUE`).
+  - **Mitigasi Keamanan Sesi**: Menghapus seluruh sesi refresh token aktif lama di tabel `user_sessions` saat kata sandi berhasil disetel ulang untuk mencegah penyalahgunaan sesi di perangkat lain yang mungkin telah disusupi.
+  - **Template Email Pemulihan Bermerek**: Menambahkan template email HTML responsif khusus pemulihan kata sandi dengan aksen rose/peringatan keamanan pada `backend/src/services/emailService.js`.
+  - **Antarmuka UI Form Interaktif**:
+    - Menambahkan tombol *"Lupa kata sandi?"* pada form login di `frontend/src/components/Auth.vue`.
+    - Menyediakan form 2-tahap responsif dengan input email terdaftar, input kode OTP terformat, input kata sandi baru & konfirmasi dengan toggle visibilitas sandi, serta tombol kirim ulang OTP dinamis dengan timer *cooldown*.
 - **Verifikasi Email dengan Kode OTP 6-Digit via Resend API (`UC-01`, `SD-01`)**:
   - Mengimplementasikan alur pendaftaran akun dengan verifikasi email wajib menggunakan Resend API (`resend` SDK) dan kode OTP 6-digit numerik acak aman (`crypto.randomInt`).
   - Menambahkan tabel `otp_requests` pada basis data PostgreSQL (`simpulkata_db`) dengan masa berlaku OTP 5 menit (`expires_at`), status pemakaian (`is_used`), dan indeks optimasi query.

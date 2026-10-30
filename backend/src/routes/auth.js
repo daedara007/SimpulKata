@@ -17,6 +17,12 @@ async function authRoutes(fastify, options) {
   // POST /api/auth/resend-otp (Publik - Kirim Ulang OTP dengan Cooldown 60s)
   fastify.post('/resend-otp', authController.resendOtp);
 
+  // POST /api/auth/forgot-password (Publik - Request OTP Pemulihan Kata Sandi, UC-03 & SD-03)
+  fastify.post('/forgot-password', authController.forgotPassword);
+
+  // POST /api/auth/reset-password (Publik - Reset Kata Sandi dengan OTP, UC-03 & SD-03)
+  fastify.post('/reset-password', authController.resetPassword);
+
   // POST /api/auth/login (Publik)
   fastify.post('/login', authController.login);
 

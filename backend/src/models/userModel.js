@@ -89,6 +89,22 @@ class UserModel {
   }
 
   /**
+   * Memperbarui kata sandi pengguna (SD-03 Langkah 21, SD-05)
+   * @param {string} userId
+   * @param {string} newPasswordHash
+   * @returns {Promise<boolean>}
+   */
+  async updatePassword(userId, newPasswordHash) {
+    const res = await db.query(
+      `UPDATE users
+       SET password_hash = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [newPasswordHash, userId]
+    );
+    return res.rowCount > 0;
+  }
+
+  /**
    * Mengambil saldo sisa kuota pengguna saat ini
    * @param {string} userId
    * @returns {Promise<number>}

@@ -54,6 +54,26 @@ export const authModel = {
   },
 
   /**
+   * Meminta kode OTP pemulihan kata sandi (SRS UC-03 & SD-03)
+   * @param {string} email
+   * @returns {Promise<Object>}
+   */
+  async forgotPassword(email) {
+    const response = await apiClient.post('/api/auth/forgot-password', { email });
+    return response.data;
+  },
+
+  /**
+   * Mengirim OTP dan kata sandi baru untuk pemulihan kata sandi (SRS UC-03 & SD-03)
+   * @param {Object} payload { email, otpCode, newPassword }
+   * @returns {Promise<Object>}
+   */
+  async resetPassword({ email, otpCode, newPassword }) {
+    const response = await apiClient.post('/api/auth/reset-password', { email, otpCode, newPassword });
+    return response.data;
+  },
+
+  /**
    * Mengambil data profil dan saldo kuota pengguna terkini
    * @returns {Promise<Object>}
    */

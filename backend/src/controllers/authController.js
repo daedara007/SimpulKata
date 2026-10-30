@@ -6,8 +6,9 @@
  * Mengimplementasikan:
  * - UC-01: Registrasi Akun (SD-01)
  * - UC-02: Login Pengguna & Session Management (SD-02)
+ * - UC-03: Memulihkan Kata Sandi Melalui Email (SD-03)
  *
- * Referensi: SRS Bab 4.2 (UC-01 & UC-02), SDD Bab 6, referensi/erd.puml
+ * Referensi: SRS Bab 4.2 (UC-01 s/d UC-03), SDD Bab 6, referensi/erd.puml
  */
 
 const bcrypt = require('bcrypt');
@@ -566,6 +567,186 @@ class AuthController {
       });
     }
   }
+
+  /**
+   * POST /api/auth/forgot-password
+   * Meminta kode OTP pemulihan kata sandi melalui email (SRS UC-03 & SD-03 Langkah 5-13)
+   */
+  async forgotPassword(request, reply) {
+    try {
+      const { email } = request.body || {};
+
+      // 1. Validasi Input Email
+      if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Format email tidak valid.',
+        });
+      }
+
+      const normalizedEmail = email.toLowerCase().trim();
+
+      // 2. Cek apakah email terdaftar di database (SD-03 langkah 6-7, SRS UC-03 A1)
+      const user = await userModel.findByEmail(normalizedEmail);
+      if (!user) {
+        return reply.status(404).send({
+          status: 'error',
+          code: 'EMAIL_NOT_FOUND',
+          message: 'Email tidak ditemukan dalam database.',
+        });
+      }
+
+      // 3. Cek Jeda Cooldown 60 detik untuk mencegah spam pengiriman OTP
+      const cooldown = await otpModel.getCooldown(user.id, 'password_reset', 60);
+      if (cooldown.onCooldown) {
+        return reply.status(429).send({
+          status: 'error',
+          code: 'COOLDOWN_ACTIVE',
+          message: `Harap tunggu ${cooldown.remainingSeconds} detik sebelum meminta kode OTP reset baru.`,
+          remainingSeconds: cooldown.remainingSeconds,
+        });
+      }
+
+      // 4. Invalidate OTP reset lama yang belum terpakai
+      await otpModel.invalidatePrevious(user.id, 'password_reset');
+
+      // 5. Generate Kode OTP 6-Digit Acak Aman (SD-03 Langkah 8)
+      const otpCode = String(crypto.randomInt(100000, 1000000));
+
+      // 6. Simpan OTP ke tabel otp_requests dengan expiredAt 5 menit (SD-03 Langkah 9-10)
+      await otpModel.create({
+        userId: user.id,
+        otpCode,
+        context: 'password_reset',
+        minutesValid: 5,
+      });
+
+      // 7. Kirim email OTP via Resend (SD-03 Langkah 11-12)
+      await emailService.sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        otpCode,
+        minutesValid: 5,
+      });
+
+      // 8. Berikan respon sukses (SD-03 Langkah 13)
+      return reply.status(200).send({
+        status: 'success',
+        message: 'Kode OTP pemulihan kata sandi telah dikirim ke email Anda.',
+        data: {
+          email: user.email,
+          userId: user.id,
+          expiresInMinutes: 5,
+        },
+      });
+    } catch (error) {
+      console.error('[AuthController] Error saat forgotPassword:', error);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'FORGOT_PASSWORD_ERROR',
+        message: 'Gagal mengirim OTP pemulihan kata sandi. Silakan coba lagi nanti.',
+      });
+    }
+  }
+
+  /**
+   * POST /api/auth/reset-password
+   * Memverifikasi OTP dan menyetel kata sandi baru pengguna (SRS UC-03 & SD-03 Langkah 17-26)
+   */
+  async resetPassword(request, reply) {
+    try {
+      const { email, otpCode, newPassword } = request.body || {};
+
+      // 1. Validasi Input (SD-03 Langkah 17 & SRS UC-03)
+      if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Format email tidak valid.',
+        });
+      }
+
+      if (!otpCode || typeof otpCode !== 'string' || !/^\d{6}$/.test(otpCode.trim())) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Kode OTP harus berupa 6 digit angka.',
+        });
+      }
+
+      if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'VALIDATION_ERROR',
+          message: 'Kata sandi baru minimal 8 karakter.',
+        });
+      }
+
+      const normalizedEmail = email.toLowerCase().trim();
+      const sanitizedOtp = otpCode.trim();
+
+      // 2. Ambil data pengguna
+      const user = await userModel.findByEmail(normalizedEmail);
+      if (!user) {
+        return reply.status(404).send({
+          status: 'error',
+          code: 'EMAIL_NOT_FOUND',
+          message: 'Email tidak ditemukan dalam database.',
+        });
+      }
+
+      // 3. Verifikasi apakah kata sandi baru sama dengan kata sandi lama (SRS UC-03 Alur A3)
+      const isSamePassword = await bcrypt.compare(newPassword, user.password_hash);
+      if (isSamePassword) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'PASSWORD_UNCHANGED',
+          message: 'Password baru harus berbeda dengan password lama.',
+        });
+      }
+
+      // 4. Verifikasi OTP aktif dari tabel otp_requests (SD-03 Langkah 18-19, E2)
+      const validOtp = await otpModel.findLatestValid({
+        userId: user.id,
+        otpCode: sanitizedOtp,
+        context: 'password_reset',
+      });
+
+      if (!validOtp) {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'INVALID_OTP',
+          message: 'OTP tidak valid atau sudah kadaluarsa.',
+        });
+      }
+
+      // 5. Hash kata sandi baru (SD-03 Langkah 20)
+      const newPasswordHash = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+
+      // 6. Update kata sandi pengguna di database (SD-03 Langkah 21-22)
+      await userModel.updatePassword(user.id, newPasswordHash);
+
+      // 7. Hanguskan OTP (SD-03 Langkah 23-24)
+      await otpModel.markAsUsed(validOtp.id);
+
+      // 8. Hapus seluruh sesi aktif lama pengguna (Mitigasi Keamanan Sesi)
+      await sessionModel.deleteByUserId(user.id);
+
+      // 9. Berikan respon sukses (SD-03 Langkah 25)
+      return reply.status(200).send({
+        status: 'success',
+        message: 'Kata sandi berhasil dipulihkan. Silakan masuk dengan kata sandi baru Anda.',
+      });
+    } catch (error) {
+      console.error('[AuthController] Error saat resetPassword:', error);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'RESET_PASSWORD_ERROR',
+        message: 'Gagal memulihkan kata sandi. Silakan coba lagi nanti.',
+      });
+    }
+  }
 }
 
 const authController = new AuthController();
@@ -574,6 +755,8 @@ module.exports = {
   register: authController.register.bind(authController),
   verifyOtp: authController.verifyOtp.bind(authController),
   resendOtp: authController.resendOtp.bind(authController),
+  forgotPassword: authController.forgotPassword.bind(authController),
+  resetPassword: authController.resetPassword.bind(authController),
   login: authController.login.bind(authController),
   refreshSession: authController.refreshSession.bind(authController),
   logout: authController.logout.bind(authController),

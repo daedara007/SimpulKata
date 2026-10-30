@@ -140,6 +140,8 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `POST` | `/api/auth/register` | Publik | Mendaftarkan akun baru (status PENDING) & mengirim kode OTP 6-digit |
 | `POST` | `/api/auth/verify-otp` | Publik | Verifikasi kode OTP, aktivasi akun (ACTIVE), & auto-login |
 | `POST` | `/api/auth/resend-otp` | Publik | Mengirim ulang kode OTP baru (dengan proteksi cooldown 60 detik) |
+| `POST` | `/api/auth/forgot-password` | Publik | Meminta kode OTP pemulihan kata sandi melalui email (SRS UC-03 & SD-03) |
+| `POST` | `/api/auth/reset-password` | Publik | Memverifikasi OTP dan menyetel kata sandi baru (SRS UC-03 & SD-03) |
 | `POST` | `/api/auth/login` | Publik | Verifikasi login & mengembalikan token JWT |
 | `POST` | `/api/auth/refresh` | Publik | Memperbarui access token dengan refresh token (RTR) |
 | `POST` | `/api/auth/logout` | Protected (JWT) | Menghapus sesi refresh token dari database |
