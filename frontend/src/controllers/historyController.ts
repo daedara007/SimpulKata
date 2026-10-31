@@ -10,6 +10,8 @@ import type { TranscriptItem } from '../types';
  * - Filter status (all, completed, failed, processing)
  * - Pemilihan item riwayat untuk ditampilkan di panel utama
  */
+export type HistoryStatusFilter = 'all' | 'completed' | 'failed';
+
 export function useHistoryController() {
   const historyList = ref<TranscriptItem[]>([]);
   const totalRecords = ref<number>(0);
@@ -18,9 +20,9 @@ export function useHistoryController() {
   const selectedHistoryId = ref<string>('');
   const isLoadingHistory = ref<boolean>(false);
   const historyError = ref<string>('');
-  const statusFilter = ref<string>('all');
+  const statusFilter = ref<HistoryStatusFilter>('all');
 
-  function setStatusFilter(filter: string) {
+  function setStatusFilter(filter: HistoryStatusFilter) {
     statusFilter.value = filter;
     currentPage.value = 1;
     return fetchHistory(1);
