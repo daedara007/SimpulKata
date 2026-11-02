@@ -3,7 +3,7 @@ import { audioModel } from '../models/audioModel';
 import { getFileExtension } from '../utils/formatters';
 import type { TranscriptItem } from '../types';
 
-const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a'];
+const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.webm', '.ogg'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 export interface AudioMeta {
@@ -71,7 +71,7 @@ export function useAudioController() {
     const ext = getFileExtension(file.name).toLowerCase();
 
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      alert(`Format file '${ext}' tidak didukung. Harap pilih file dengan format .mp3, .wav, atau .m4a.`);
+      alert(`Format file '${ext}' tidak didukung. Harap pilih file dengan format .mp3, .wav, .m4a, .webm, atau .ogg.`);
       return false;
     }
 
