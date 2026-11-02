@@ -132,6 +132,10 @@ export class AuthController {
       return reply.status(201).send({
         status: 'success',
         message: 'Pendaftaran berhasil! Kode verifikasi OTP 6-digit telah dikirimkan ke email Anda.',
+        userId: targetUser.id,
+        email: targetUser.email,
+        requiresOtp: true,
+        expiresInMinutes: 5,
         data: {
           userId: targetUser.id,
           email: targetUser.email,

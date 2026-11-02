@@ -237,9 +237,13 @@ export function useAuthController(initialTab: AuthTab = 'login', emit?: (...args
       });
 
       if (data?.status === 'success') {
-        if (data.requiresOtp) {
-          pendingUserId.value = data.userId || '';
-          pendingEmail.value = data.email || email;
+        const requiresOtp = data?.requiresOtp ?? (data as any)?.data?.requiresOtp ?? true;
+        const targetUserId = data?.userId || (data as any)?.data?.userId || '';
+        const targetEmail = data?.email || (data as any)?.data?.email || email;
+
+        if (requiresOtp) {
+          pendingUserId.value = targetUserId;
+          pendingEmail.value = targetEmail;
           activeTab.value = 'otp';
           otpCode.value = '';
           startOtpCountdown(300);
