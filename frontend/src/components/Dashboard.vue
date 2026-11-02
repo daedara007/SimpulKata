@@ -56,7 +56,15 @@
 
     <!-- Footer -->
     <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-500 mt-auto">
-      <p>&copy; 2026 SimpulKata. Platform Transkripsi & Rangkuman AI.</p>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <span>&copy; 2026 SimpulKata</span>
+        <span>&bull;</span>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+          v0.5.0-alpha
+        </span>
+        <span class="hidden sm:inline">&bull;</span>
+        <span class="hidden sm:inline">Platform Transkripsi & Rangkuman AI</span>
+      </div>
     </footer>
 
     <!-- Modal Pengaturan Profil & Keamanan Kata Sandi -->

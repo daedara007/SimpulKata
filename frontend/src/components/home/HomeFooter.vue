@@ -37,8 +37,11 @@
         <span>&bull;</span>
         <span>Platform Transkripsi & Rangkuman AI</span>
       </div>
-      <div>
+      <div class="flex items-center gap-2">
         <p>&copy; 2026 SimpulKata. Hak Cipta Dilindungi.</p>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+          v0.5.0-alpha
+        </span>
       </div>
     </footer>
   </div>

@@ -7,9 +7,24 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 
 ---
 
-## [Unreleased] - 2026-11-02
+## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added
+- **Identitas Visual & Integrasi Logo Resmi SimpulKata**:
+  - Mengintegrasikan logo resmi SimpulKata (`referensi/Logo SimpulKata.jpg`) ke seluruh antarmuka aplikasi.
+  - Optimasi aset web modern: `frontend/public/logo.png` (512x512) dan favicon `frontend/public/favicon.png` (64x64).
+  - Pemasangan logo bermerek pada Navbar Beranda (`HomeNavbar.vue`), Navbar Dashboard (`DashboardNavbar.vue`), Kartu Autentikasi (`Auth.vue`), Footer, dan Tab Peramban.
+  - Badge rilis formal `v0.5.0-alpha` pada footer antarmuka Beranda dan Dashboard.
+- **Peningkatan Responsivitas Tampilan Ponsel (Mobile UI Overhaul)**:
+  - Mengatur ulang hierarki tampilan dashboard di layar HP (`order-1 lg:order-2`): menu Unggah/Rekam Audio kini tampil pertama di bagian atas, sedangkan riwayat berada di bawah.
+  - Membatasi lebar tombol CTA hero (`max-w-xs`) agar tidak meregang berlebihan (*edge-to-edge*) di ponsel.
+  - Merapikan tata letak navbar mobile: mencegah badge kuota melipat dua tingkat, menyederhanakan tombol keluar menjadi ikon di layar sempit, dan mencegah teks tombol navigasi terpotong.
+  - Mengganti dialog blocking `window.alert()` menjadi kartu alert reaktif di dalam UI agar thread browser mobile tidak membeku.
+  - Mengganti wildcard `accept="audio/*"` menjadi ekstensi eksplisit (`.mp3,.wav,.m4a,.webm,.ogg`) untuk mencegah browser Android me-reload tab akibat keterbatasan memori.
+- **Dukungan Format WebM & Fallback Durasi Audio Packet Scan (`UC-08`, `SD-08`)**:
+  - Menambahkan *Fallback 2* berbasis packet scanning cepat `ffmpeg -vn -c:a copy -f null -` pada `backend/src/services/aiService.ts` untuk membaca durasi audio browser WebM (`MediaRecorder`) yang tidak memiliki tag durasi container.
+  - Otomatisasi konversi format berkas non-MP3 (`.webm`, `.ogg`, `.wav`, `.m4a`) menjadi MP3 mono 16kHz sebelum dikirim ke Hugging Face Whisper untuk akurasi dan kompatibilitas maksimal.
+  - Pemutar audio pratinjau kustom (*custom audio player*) bertema glassmorphism dengan slider seek presisi yang terikat langsung ke durasi rekaman asli.
 - **Fitur Perekaman Audio Langsung via Browser (`UC-08`, `SD-08`)**:
   - **Dukungan Format WebM & OGG Backend (`backend/src/controllers/audioController.ts`)**:
     - Menambahkan `.webm` dan `.ogg` pada daftar ekstensi yang diizinkan (`ALLOWED_EXTENSIONS`).

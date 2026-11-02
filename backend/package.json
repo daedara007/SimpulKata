@@ -1,6 +1,6 @@
 {
   "name": "simpulkata-backend",
-  "version": "1.0.0",
+  "version": "0.5.0-alpha",
   "description": "Backend API untuk platform transkripsi & rangkuman audio SimpulKata",
   "main": "dist/server.js",
   "scripts": {
