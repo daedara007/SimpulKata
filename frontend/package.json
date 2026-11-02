@@ -12,6 +12,7 @@
   "dependencies": {
     "axios": "^1.20.0",
     "dompurify": "^3.4.17",
+    "fix-webm-duration": "^1.0.6",
     "marked": "^18.1.1",
     "vue": "^3.5.42"
   },

@@ -227,7 +227,12 @@
 
         <!-- Pratinjau Pemutar Audio (Audio Player Preview) -->
         <div v-if="audioPlaybackUrl" class="max-w-md mx-auto pt-1">
-          <audio :src="audioPlaybackUrl" controls class="w-full h-10 rounded-xl bg-slate-900 border border-slate-700/60" />
+          <audio
+            :src="audioPlaybackUrl"
+            controls
+            class="w-full h-10 rounded-xl bg-slate-900 border border-slate-700/60"
+            @loadedmetadata="handleAudioLoadedMetadata"
+          />
         </div>
 
         <div>
@@ -321,6 +326,7 @@
 
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue';
+import fixWebmDuration from 'fix-webm-duration';
 import { formatFileSize, getFileExtension } from '../../utils';
 
 defineProps<{
@@ -394,6 +400,19 @@ let mediaRecorder: MediaRecorder | null = null;
 let mediaStream: MediaStream | null = null;
 let audioChunks: Blob[] = [];
 let timerInterval: number | null = null;
+
+function handleAudioLoadedMetadata(event: Event) {
+  const audio = event.target as HTMLAudioElement;
+  if (!audio) return;
+  // Perbaiki jika browser mendeteksi durasi sebagai Infinity (fitur stream WebM)
+  if (audio.duration === Infinity || isNaN(audio.duration)) {
+    audio.currentTime = 1e101;
+    audio.ontimeupdate = () => {
+      audio.ontimeupdate = null;
+      audio.currentTime = 0;
+    };
+  }
+}
 
 function formatRecordingTimer(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -470,9 +489,21 @@ async function startRecording() {
     };
 
     // 5. Tangkap event onstop saat perekaman selesai (SD-08 Langkah 10 & 11)
-    mediaRecorder.onstop = () => {
+    mediaRecorder.onstop = async () => {
       const activeMimeType = mediaRecorder?.mimeType || 'audio/webm';
-      const finalBlob = new Blob(audioChunks, { type: activeMimeType });
+      const rawBlob = new Blob(audioChunks, { type: activeMimeType });
+      const durationMs = Math.max(recordingTimer.value * 1000, 1000);
+
+      let finalBlob: Blob = rawBlob;
+      // Perbaiki metadata durasi WebM pada header EBML agar playback slider full dan seekable
+      if (activeMimeType.includes('webm')) {
+        try {
+          finalBlob = await fixWebmDuration(rawBlob, durationMs);
+        } catch (fixErr) {
+          console.warn('[AudioUploadCard] Gagal mempatch metadata durasi WebM:', fixErr);
+          finalBlob = rawBlob;
+        }
+      }
 
       // Generate preview URL
       if (audioPlaybackUrl.value) {
