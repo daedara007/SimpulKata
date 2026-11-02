@@ -91,7 +91,7 @@ export async function getAudioDuration(filePath: string): Promise<number> {
     console.warn('[aiService] Gagal membaca metadata durasi audio via music-metadata:', metaErr.message);
   }
 
-  // Fallback: gunakan ffprobe untuk format/header rusak atau VBR tanpa Xing header (CR-02)
+  // Fallback 1: gunakan ffprobe untuk format/header rusak atau VBR tanpa Xing header (CR-02)
   try {
     const { stdout } = await execFileAsync('ffprobe', [
       '-v', 'error',
@@ -105,7 +105,42 @@ export async function getAudioDuration(filePath: string): Promise<number> {
       return Math.ceil(parsed);
     }
   } catch (probeErr: any) {
-    console.warn('[aiService] ffprobe juga gagal membaca durasi audio:', probeErr.message);
+    console.warn('[aiService] ffprobe gagal membaca durasi format header:', probeErr.message);
+  }
+
+  // Fallback 2: gunakan ffmpeg packet scan untuk rekaman WebM/Opus (MediaRecorder) tanpa header durasi container
+  try {
+    const { stderr, stdout } = await execFileAsync('ffmpeg', [
+      '-i', filePath,
+      '-vn',
+      '-c:a', 'copy',
+      '-f', 'null',
+      '-',
+    ]).catch((err) => ({
+      stderr: err.stderr || '',
+      stdout: err.stdout || '',
+    }));
+
+    const output = (stderr || '') + (stdout || '');
+    const matches = [...output.matchAll(/time=([0-9:.]+)/g)];
+    if (matches.length > 0) {
+      const timeStr = matches[matches.length - 1][1];
+      const parts = timeStr.split(':').map(Number);
+      let seconds = 0;
+      if (parts.length === 3) {
+        seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else if (parts.length === 2) {
+        seconds = parts[0] * 60 + parts[1];
+      } else if (parts.length === 1) {
+        seconds = parts[0];
+      }
+      if (seconds > 0) {
+        console.log(`[aiService] Durasi audio rekaman WebM berhasil dideteksi via ffmpeg scan: ${seconds}s (dibulatkan: ${Math.ceil(seconds)}s)`);
+        return Math.ceil(seconds);
+      }
+    }
+  } catch (ffmpegErr: any) {
+    console.warn('[aiService] ffmpeg packet scan juga gagal membaca durasi audio:', ffmpegErr.message);
   }
 
   return 0;
