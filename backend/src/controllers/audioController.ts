@@ -20,8 +20,8 @@ import { pipeline } from 'stream/promises';
 import { userModel, transcriptModel } from '../models';
 import aiService from '../services/aiService';
 
-// Daftar ekstensi audio yang didukung (sesuai SRS UC-07)
-const ALLOWED_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a']);
+// Daftar ekstensi audio yang didukung (sesuai SRS UC-07 & UC-08)
+const ALLOWED_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.webm', '.ogg']);
 
 // Direktori penyimpanan berkas sementara
 const UPLOAD_DIR = path.resolve(__dirname, '../../storage/uploads');
@@ -197,7 +197,7 @@ export class AudioController {
         return reply.status(400).send({
           status: 'error',
           code: 'INVALID_FORMAT',
-          message: `Format file '${ext}' tidak didukung. Gunakan format .mp3, .wav, atau .m4a.`,
+          message: `Format file '${ext}' tidak didukung. Gunakan format .mp3, .wav, .m4a, atau .webm.`,
         });
       }
 

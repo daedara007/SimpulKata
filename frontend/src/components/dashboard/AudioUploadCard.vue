@@ -6,12 +6,43 @@
         Transkripsi & Rangkuman <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Audio AI</span>
       </h2>
       <p class="text-slate-400 text-xs sm:text-sm">
-        Unggah berkas audio rapat atau perkuliahan Anda. Sistem AI akan mentranskripsikan percakapan secara presisi dan menyusun rangkuman intisari secara otomatis.
+        Unggah berkas audio atau rekam langsung percakapan rapat dan perkuliahan Anda. Sistem AI akan mentranskripsikan percakapan secara presisi dan menyusun rangkuman intisari secara otomatis.
       </p>
     </div>
 
-    <!-- Upload Card / Dropzone Area -->
+    <!-- Tab Pemilihan Mode Input (SRS UC-07 vs UC-08) -->
+    <div class="flex items-center gap-2 p-1 rounded-xl bg-slate-900/80 border border-slate-800 w-fit">
+      <button
+        type="button"
+        class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+        :class="inputMode === 'upload' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400 hover:text-slate-200'"
+        :disabled="isRecording || isLoading"
+        @click="setInputMode('upload')"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+        <span>Unggah Berkas</span>
+      </button>
+
+      <button
+        type="button"
+        class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+        :class="inputMode === 'record' ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30' : 'text-slate-400 hover:text-slate-200'"
+        :disabled="isLoading"
+        @click="setInputMode('record')"
+      >
+        <svg class="w-3.5 h-3.5" :class="{ 'animate-pulse text-white': isRecording }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+        </svg>
+        <span>Rekam Langsung</span>
+        <span v-if="isRecording" class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+      </button>
+    </div>
+
+    <!-- AREA 1: UPLOAD BERKAS AUDIO (SRS UC-07) -->
     <div
+      v-if="inputMode === 'upload'"
       class="relative border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all duration-200"
       :class="[
         isDragging
@@ -26,7 +57,7 @@
       <input
         ref="fileInputRef"
         type="file"
-        accept=".mp3,.wav,.m4a,audio/mp3,audio/wav,audio/x-m4a,audio/mp4"
+        accept=".mp3,.wav,.m4a,.webm,.ogg,audio/*"
         class="hidden"
         @change="onFileInputChange"
       />
@@ -47,7 +78,7 @@
             Pilih file audio
           </button>
           <span class="text-slate-400 text-sm"> atau seret ke area ini</span>
-          <p class="text-xs text-slate-500 mt-1">Mendukung format .MP3, .WAV, dan .M4A (Maksimal 50MB)</p>
+          <p class="text-xs text-slate-500 mt-1">Mendukung format .MP3, .WAV, .M4A, dan .WEBM (Maksimal 50MB)</p>
         </div>
       </div>
 
@@ -89,17 +120,142 @@
       </div>
     </div>
 
-    <!-- Action Button -->
+    <!-- AREA 2: REKAM AUDIO LANGSUNG VIA WEB (SRS UC-08 & Sequence SD-08) -->
+    <div
+      v-else
+      class="relative border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all duration-200"
+      :class="[
+        isRecording
+          ? 'border-rose-500 bg-rose-500/10 shadow-lg shadow-rose-500/20'
+          : selectedFile && !isRecording
+            ? 'border-emerald-500/60 bg-emerald-500/5'
+            : 'border-slate-800 hover:border-slate-700 bg-slate-900/40 hover:bg-slate-900/60'
+      ]"
+    >
+      <!-- State 1: Belum Merekam (Idle) -->
+      <div v-if="!isRecording && !selectedFile" class="space-y-4">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shadow-md">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+          </svg>
+        </div>
+        <div class="space-y-1">
+          <h3 class="text-sm sm:text-base font-bold text-white">Rekam Percakapan Langsung</h3>
+          <p class="text-xs text-slate-400 max-w-sm mx-auto">
+            Gunakan mikrofon perangkat Anda untuk merekam diskusi, presentasi, atau kuliah secara real-time.
+          </p>
+        </div>
+        <div>
+          <button
+            type="button"
+            class="px-5 py-2.5 rounded-xl font-semibold text-xs text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-600/30 hover:scale-105 active:scale-95 transition-all inline-flex items-center gap-2 cursor-pointer"
+            :disabled="isLoading"
+            @click="startRecording"
+          >
+            <span class="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
+            <span>Mulai Merekam</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- State 2: Sedang Merekam (Active Recording) -->
+      <div v-else-if="isRecording" class="space-y-5 py-2">
+        <div class="relative w-20 h-20 mx-auto flex items-center justify-center">
+          <span class="absolute inset-0 rounded-full bg-rose-500/20 animate-ping"></span>
+          <span class="absolute inset-2 rounded-full bg-rose-500/30 animate-pulse"></span>
+          <div class="relative w-14 h-14 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-600/50">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <p class="text-xs font-semibold uppercase tracking-wider text-rose-400 flex items-center justify-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
+            Merekam Suara Langsung
+          </p>
+          <div class="text-3xl sm:text-4xl font-mono font-bold text-white tracking-widest">
+            {{ formatRecordingTimer(recordingTimer) }}
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Bicaralah dengan jelas ke arah mikrofon. Klik tombol di bawah setelah selesai.
+          </p>
+        </div>
+
+        <div>
+          <button
+            type="button"
+            class="px-5 py-2.5 rounded-xl font-semibold text-xs text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 shadow-md inline-flex items-center gap-2 cursor-pointer transition-all hover:scale-105 active:scale-95"
+            @click="stopRecording"
+          >
+            <span class="w-3 h-3 rounded-sm bg-rose-500"></span>
+            <span>Hentikan Rekaman</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- State 3: Rekaman Selesai & Pratinjau Pemutar Audio (Ready to Process) -->
+      <div v-else class="space-y-4">
+        <div class="inline-flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/80 border border-emerald-500/30 max-w-full">
+          <div class="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div class="text-left truncate">
+            <p class="text-sm font-medium text-slate-200 truncate">{{ selectedFile?.name }}</p>
+            <p class="text-xs text-emerald-400 font-medium">
+              Durasi: {{ formatRecordingTimer(recordingTimer) }} • {{ selectedFile ? formatFileSize(selectedFile.size) : '0 KB' }}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors ml-2 cursor-pointer"
+            title="Hapus rekaman"
+            :disabled="isLoading"
+            @click="resetRecording"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Pratinjau Pemutar Audio (Audio Player Preview) -->
+        <div v-if="audioPlaybackUrl" class="max-w-md mx-auto pt-1">
+          <audio :src="audioPlaybackUrl" controls class="w-full h-10 rounded-xl bg-slate-900 border border-slate-700/60" />
+        </div>
+
+        <div>
+          <button
+            type="button"
+            class="text-xs text-rose-400 hover:text-rose-300 underline focus:outline-none cursor-pointer"
+            :disabled="isLoading"
+            @click="resetRecording"
+          >
+            Rekam ulang audio
+          </button>
+        </div>
+      </div>
+
+      <!-- Alert Error Rekaman Mikrofon -->
+      <div v-if="recordingError" class="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+        {{ recordingError }}
+      </div>
+    </div>
+
+    <!-- Action Button (Kirim ke Pipeline AI) -->
     <div class="flex justify-start">
       <button
         type="button"
         class="w-full sm:w-auto min-w-[220px] px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-lg cursor-pointer"
         :class="[
-          !selectedFile || isLoading
+          !selectedFile || isLoading || isRecording
             ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/60 shadow-none'
             : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-[0.98]'
         ]"
-        :disabled="!selectedFile || isLoading"
+        :disabled="!selectedFile || isLoading || isRecording"
         @click="$emit('process-audio')"
       >
         <!-- Loading Spinner -->
@@ -161,7 +317,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onUnmounted } from 'vue';
 import { formatFileSize, getFileExtension } from '../../utils';
 
 defineProps<{
@@ -179,6 +335,18 @@ const emit = defineEmits<{
   (e: 'clear-error'): void;
 }>();
 
+// Mode Input: 'upload' (UC-07) atau 'record' (UC-08)
+const inputMode = ref<'upload' | 'record'>('upload');
+
+function setInputMode(mode: 'upload' | 'record') {
+  if (isRecording.value) return;
+  inputMode.value = mode;
+  recordingError.value = '';
+}
+
+// -------------------------------------------------------------
+// LOGIKA UNGGAH BERKAS (UC-07)
+// -------------------------------------------------------------
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const isDragging = ref<boolean>(false);
 
@@ -210,5 +378,152 @@ function onClearFile() {
   }
   emit('clear-file');
 }
+
+// -------------------------------------------------------------
+// LOGIKA PEREKAMAN AUDIO LANGSUNG WEB (SRS UC-08 & Sequence SD-08)
+// -------------------------------------------------------------
+const isRecording = ref<boolean>(false);
+const recordingTimer = ref<number>(0);
+const recordingError = ref<string>('');
+const audioPlaybackUrl = ref<string | null>(null);
+
+let mediaRecorder: MediaRecorder | null = null;
+let mediaStream: MediaStream | null = null;
+let audioChunks: Blob[] = [];
+let timerInterval: number | null = null;
+
+function formatRecordingTimer(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+async function startRecording() {
+  recordingError.value = '';
+
+  // 1. Validasi dukungan API MediaRecorder browser
+  if (!navigator?.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    recordingError.value =
+      'Browser Anda tidak mendukung fitur rekaman audio langsung. Silakan gunakan Google Chrome, Firefox, atau Edge modern.';
+    return;
+  }
+
+  try {
+    // 2. Minta izin akses mikrofon perangkat (SD-08 Langkah 2 & 3)
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    // 3. Tentukan format audio yang didukung browser
+    let mimeType = 'audio/webm;codecs=opus';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      mimeType = MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : '';
+    }
+
+    mediaRecorder = mimeType
+      ? new MediaRecorder(mediaStream, { mimeType })
+      : new MediaRecorder(mediaStream);
+
+    audioChunks = [];
+
+    // 4. Tangkap chunk audio berkala (SD-08 Langkah 5 & 6)
+    mediaRecorder.ondataavailable = (event: BlobEvent) => {
+      if (event.data && event.data.size > 0) {
+        audioChunks.push(event.data);
+      }
+    };
+
+    // 5. Tangkap event onstop saat perekaman selesai (SD-08 Langkah 10 & 11)
+    mediaRecorder.onstop = () => {
+      const activeMimeType = mediaRecorder?.mimeType || 'audio/webm';
+      const finalBlob = new Blob(audioChunks, { type: activeMimeType });
+
+      // Generate preview URL
+      if (audioPlaybackUrl.value) {
+        URL.revokeObjectURL(audioPlaybackUrl.value);
+      }
+      audioPlaybackUrl.value = URL.createObjectURL(finalBlob);
+
+      // Buat objek File standar untuk diserahkan ke sistem
+      const ext = activeMimeType.includes('mp4') ? '.m4a' : '.webm';
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, '-')
+        .slice(0, 19);
+      const audioFile = new File([finalBlob], `rekaman-${timestamp}${ext}`, {
+        type: activeMimeType,
+      });
+
+      emit('file-selected', audioFile);
+
+      // Matikan seluruh track audio perangkat (lepaskan hardware mic)
+      if (mediaStream) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+        mediaStream = null;
+      }
+    };
+
+    // Mulai merekam dengan interval chunk 1000ms
+    mediaRecorder.start(1000);
+    isRecording.value = true;
+    recordingTimer.value = 0;
+
+    // Timer berjalan per detik
+    timerInterval = window.setInterval(() => {
+      recordingTimer.value++;
+      // Batas keamanan maksimal 60 menit (A3: SRS UC-08)
+      if (recordingTimer.value >= 3600) {
+        stopRecording();
+      }
+    }, 1000);
+  } catch (err: any) {
+    console.error('[AudioUploadCard] Gagal memulai perekaman audio:', err);
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      recordingError.value =
+        'Izin akses mikrofon ditolak oleh browser. Mohon izinkan mikrofon di pengaturan peramban Anda untuk merekam.';
+    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      recordingError.value =
+        'Perangkat mikrofon tidak ditemukan. Pastikan mikrofon terpasang pada komputer atau laptop Anda.';
+    } else {
+      recordingError.value = `Gagal menginisiasi perekaman: ${err.message || 'Kesalahan perangkat keras'}`;
+    }
+    isRecording.value = false;
+  }
+}
+
+function stopRecording() {
+  if (timerInterval !== null) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+
+  isRecording.value = false;
+}
+
+function resetRecording() {
+  stopRecording();
+  if (audioPlaybackUrl.value) {
+    URL.revokeObjectURL(audioPlaybackUrl.value);
+    audioPlaybackUrl.value = null;
+  }
+  recordingTimer.value = 0;
+  recordingError.value = '';
+  emit('clear-file');
+}
+
+onUnmounted(() => {
+  stopRecording();
+  if (audioPlaybackUrl.value) {
+    URL.revokeObjectURL(audioPlaybackUrl.value);
+  }
+});
 </script>
 
