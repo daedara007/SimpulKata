@@ -400,19 +400,48 @@ function formatRecordingTimer(seconds: number): string {
   return `${m}:${s}`;
 }
 
+async function getAudioStream(): Promise<MediaStream> {
+  // 1. Modern MediaDevices API standard
+  if (navigator?.mediaDevices?.getUserMedia) {
+    return await navigator.mediaDevices.getUserMedia({ audio: true });
+  }
+
+  // 2. Legacy getUserMedia fallback
+  const legacyGetUserMedia =
+    (navigator as any).getUserMedia ||
+    (navigator as any).webkitGetUserMedia ||
+    (navigator as any).mozGetUserMedia ||
+    (navigator as any).msGetUserMedia;
+
+  if (legacyGetUserMedia) {
+    return new Promise((resolve, reject) => {
+      legacyGetUserMedia.call(navigator, { audio: true }, resolve, reject);
+    });
+  }
+
+  // 3. Deteksi masalah Secure Context (HTTP vs HTTPS / localhost)
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    throw new Error(
+      `Fitur mikrofon diblokir oleh browser karena diakses melalui HTTP (${window.location.hostname}). Silakan buka aplikasi via http://localhost:8080 (atau gunakan HTTPS) agar browser mengaktifkan izin mikrofon.`
+    );
+  }
+
+  throw new Error('API perekaman audio (getUserMedia) tidak tersedia pada peramban Anda.');
+}
+
 async function startRecording() {
   recordingError.value = '';
 
-  // 1. Validasi dukungan API MediaRecorder browser
-  if (!navigator?.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+  // 1. Validasi dukungan MediaRecorder
+  if (typeof MediaRecorder === 'undefined') {
     recordingError.value =
-      'Browser Anda tidak mendukung fitur rekaman audio langsung. Silakan gunakan Google Chrome, Firefox, atau Edge modern.';
+      'Browser Anda tidak mendukung MediaRecorder. Silakan gunakan Google Chrome, Firefox, atau Edge versi terbaru.';
     return;
   }
 
   try {
     // 2. Minta izin akses mikrofon perangkat (SD-08 Langkah 2 & 3)
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaStream = await getAudioStream();
 
     // 3. Tentukan format audio yang didukung browser
     let mimeType = 'audio/webm;codecs=opus';
@@ -484,12 +513,12 @@ async function startRecording() {
     console.error('[AudioUploadCard] Gagal memulai perekaman audio:', err);
     if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
       recordingError.value =
-        'Izin akses mikrofon ditolak oleh browser. Mohon izinkan mikrofon di pengaturan peramban Anda untuk merekam.';
+        'Izin akses mikrofon ditolak oleh browser. Mohon izinkan mikrofon di bilah alamat browser (ikon gembok / izin situs).';
     } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
       recordingError.value =
         'Perangkat mikrofon tidak ditemukan. Pastikan mikrofon terpasang pada komputer atau laptop Anda.';
     } else {
-      recordingError.value = `Gagal menginisiasi perekaman: ${err.message || 'Kesalahan perangkat keras'}`;
+      recordingError.value = err.message || 'Gagal menginisiasi perekaman audio.';
     }
     isRecording.value = false;
   }
