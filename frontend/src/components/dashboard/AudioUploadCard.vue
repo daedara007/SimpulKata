@@ -225,13 +225,53 @@
           </button>
         </div>
 
-        <!-- Pratinjau Pemutar Audio (Audio Player Preview) -->
-        <div v-if="audioPlaybackUrl" class="max-w-md mx-auto pt-1">
+        <!-- Pratinjau Pemutar Audio Kustom (Custom Audio Player) -->
+        <div v-if="audioPlaybackUrl" class="max-w-md mx-auto p-3.5 rounded-2xl bg-slate-900/90 border border-slate-700/70 shadow-lg space-y-2">
+          <!-- Hidden Native Audio -->
           <audio
+            ref="audioPlayerRef"
             :src="audioPlaybackUrl"
-            controls
-            class="w-full h-10 rounded-xl bg-slate-900 border border-slate-700/60"
+            class="hidden"
+            @timeupdate="onPlaybackTimeUpdate"
+            @ended="onPlaybackEnded"
+            @play="isPlayingPreview = true"
+            @pause="isPlayingPreview = false"
           />
+
+          <!-- Controls Bar -->
+          <div class="flex items-center gap-3">
+            <!-- Play/Pause Button -->
+            <button
+              type="button"
+              class="w-10 h-10 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white flex items-center justify-center shadow-md shadow-rose-600/30 transition-all hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
+              :title="isPlayingPreview ? 'Jeda' : 'Putar'"
+              @click="togglePlayPreview"
+            >
+              <svg v-if="!isPlayingPreview" class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+              </svg>
+            </button>
+
+            <!-- Custom Slider & Times -->
+            <div class="flex-1 space-y-1">
+              <input
+                type="range"
+                min="0"
+                :max="recordedDurationSeconds || 1"
+                step="0.1"
+                :value="playbackCurrentTime"
+                class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-rose-500 focus:outline-none"
+                @input="onSeekPreview"
+              />
+              <div class="flex justify-between items-center text-[11px] font-mono text-slate-400">
+                <span>{{ formatRecordingTimer(Math.floor(playbackCurrentTime)) }}</span>
+                <span class="text-slate-300 font-semibold">{{ formatRecordingTimer(recordedDurationSeconds) }}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div>
@@ -325,7 +365,6 @@
 
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue';
-import fixWebmDuration from 'fix-webm-duration';
 import { formatFileSize, getFileExtension } from '../../utils';
 
 defineProps<{
@@ -395,11 +434,48 @@ const recordingTimer = ref<number>(0);
 const recordingError = ref<string>('');
 const audioPlaybackUrl = ref<string | null>(null);
 
+// State Pemutar Audio Pratinjau Kustom
+const audioPlayerRef = ref<HTMLAudioElement | null>(null);
+const isPlayingPreview = ref<boolean>(false);
+const playbackCurrentTime = ref<number>(0);
+const recordedDurationSeconds = ref<number>(0);
+
 let mediaRecorder: MediaRecorder | null = null;
 let mediaStream: MediaStream | null = null;
 let audioChunks: Blob[] = [];
 let timerInterval: number | null = null;
 let recordingStartTime = 0;
+
+function togglePlayPreview() {
+  if (!audioPlayerRef.value) return;
+  if (isPlayingPreview.value) {
+    audioPlayerRef.value.pause();
+  } else {
+    audioPlayerRef.value.play();
+  }
+}
+
+function onPlaybackTimeUpdate() {
+  if (!audioPlayerRef.value) return;
+  playbackCurrentTime.value = Math.min(audioPlayerRef.value.currentTime, recordedDurationSeconds.value);
+}
+
+function onPlaybackEnded() {
+  isPlayingPreview.value = false;
+  playbackCurrentTime.value = 0;
+  if (audioPlayerRef.value) {
+    audioPlayerRef.value.currentTime = 0;
+  }
+}
+
+function onSeekPreview(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const newTime = parseFloat(target.value);
+  playbackCurrentTime.value = newTime;
+  if (audioPlayerRef.value) {
+    audioPlayerRef.value.currentTime = newTime;
+  }
+}
 
 function formatRecordingTimer(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -475,22 +551,16 @@ async function startRecording() {
     };
 
     // 5. Tangkap event onstop saat perekaman selesai (SD-08 Langkah 10 & 11)
-    mediaRecorder.onstop = async () => {
+    mediaRecorder.onstop = () => {
       const activeMimeType = mediaRecorder?.mimeType || 'audio/webm';
-      const rawBlob = new Blob(audioChunks, { type: activeMimeType });
+      const finalBlob = new Blob(audioChunks, { type: activeMimeType });
       const durationMs = Math.max(Date.now() - recordingStartTime, 1000);
-      recordingTimer.value = Math.max(Math.round(durationMs / 1000), 1);
+      const totalSeconds = Math.max(Math.round(durationMs / 1000), 1);
 
-      let finalBlob: Blob = rawBlob;
-      // Perbaiki metadata durasi WebM pada header EBML agar playback slider full dan seekable
-      if (activeMimeType.includes('webm')) {
-        try {
-          finalBlob = await fixWebmDuration(rawBlob, durationMs);
-        } catch (fixErr) {
-          console.warn('[AudioUploadCard] Gagal mempatch metadata durasi WebM:', fixErr);
-          finalBlob = rawBlob;
-        }
-      }
+      recordingTimer.value = totalSeconds;
+      recordedDurationSeconds.value = totalSeconds;
+      playbackCurrentTime.value = 0;
+      isPlayingPreview.value = false;
 
       // Generate preview URL
       if (audioPlaybackUrl.value) {
@@ -565,6 +635,13 @@ function stopRecording() {
 
 function resetRecording() {
   stopRecording();
+  if (audioPlayerRef.value) {
+    audioPlayerRef.value.pause();
+    audioPlayerRef.value.currentTime = 0;
+  }
+  isPlayingPreview.value = false;
+  playbackCurrentTime.value = 0;
+  recordedDurationSeconds.value = 0;
   if (audioPlaybackUrl.value) {
     URL.revokeObjectURL(audioPlaybackUrl.value);
     audioPlaybackUrl.value = null;
@@ -576,6 +653,9 @@ function resetRecording() {
 
 onUnmounted(() => {
   stopRecording();
+  if (audioPlayerRef.value) {
+    audioPlayerRef.value.pause();
+  }
   if (audioPlaybackUrl.value) {
     URL.revokeObjectURL(audioPlaybackUrl.value);
   }
