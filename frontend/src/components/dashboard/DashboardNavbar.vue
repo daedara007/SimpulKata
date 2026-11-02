@@ -52,7 +52,8 @@
             </span>
           </button>
           <span
-            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700"
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium border"
+            :class="quotaBadgeClass"
             :title="'Sisa kuota: ' + (userData.balance || 0) + ' detik'"
           >
             ⏱️ {{ formatDuration(userData.balance || 0) }}
@@ -85,7 +86,11 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </button>
-          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-medium bg-slate-800 text-slate-300 border border-slate-700" :title="'Sisa kuota: ' + (userData.balance || 0) + ' detik'">
+          <span
+            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium border shadow-sm"
+            :class="quotaBadgeClass"
+            :title="'Sisa kuota: ' + (userData.balance || 0) + ' detik'"
+          >
             ⏱️ {{ formatDuration(userData.balance || 0) }} kuota
           </span>
         </div>
@@ -108,10 +113,11 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { User } from '../../types';
 import { formatDuration } from '../../utils';
 
-defineProps<{
+const props = defineProps<{
   userData?: User | null;
 }>();
 
@@ -120,5 +126,20 @@ defineEmits<{
   (e: 'open-profile'): void;
   (e: 'logout'): void;
 }>();
+
+// Indikator visual ambang batas sisa kuota (SRS UC-06 & Sequence SD-06)
+const quotaBadgeClass = computed(() => {
+  const balance = props.userData?.balance || 0;
+  if (balance > 600) {
+    // Hijau: Cukup (> 10 menit / > 600s)
+    return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
+  } else if (balance >= 300) {
+    // Kuning: Menipis (5 - 10 menit / 300s - 600s)
+    return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
+  } else {
+    // Merah: Kritis / Habis (< 5 menit / < 300s)
+    return 'bg-rose-500/10 text-rose-300 border-rose-500/30 animate-pulse';
+  }
+});
 </script>
 

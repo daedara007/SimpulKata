@@ -21,7 +21,17 @@
         <span v-if="durationSeconds" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
           ⏱️ Kuota Terpakai: <strong class="text-white">{{ formatDuration(durationSeconds) }}</strong>
         </span>
-        <span v-if="userBalance !== undefined" class="px-2.5 py-1 rounded-lg bg-indigo-950/60 text-indigo-300 border border-indigo-500/30">
+        <span
+          v-if="userBalance !== undefined"
+          class="px-2.5 py-1 rounded-lg border font-medium"
+          :class="[
+            userBalance > 600
+              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+              : userBalance >= 300
+                ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                : 'bg-rose-500/10 text-rose-300 border-rose-500/30 animate-pulse'
+          ]"
+        >
           🔋 Sisa Kuota: <strong class="text-white font-mono">{{ formatDuration(userBalance) }}</strong>
         </span>
       </div>
