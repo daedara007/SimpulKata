@@ -231,7 +231,6 @@
             :src="audioPlaybackUrl"
             controls
             class="w-full h-10 rounded-xl bg-slate-900 border border-slate-700/60"
-            @loadedmetadata="handleAudioLoadedMetadata"
           />
         </div>
 
@@ -400,19 +399,7 @@ let mediaRecorder: MediaRecorder | null = null;
 let mediaStream: MediaStream | null = null;
 let audioChunks: Blob[] = [];
 let timerInterval: number | null = null;
-
-function handleAudioLoadedMetadata(event: Event) {
-  const audio = event.target as HTMLAudioElement;
-  if (!audio) return;
-  // Perbaiki jika browser mendeteksi durasi sebagai Infinity (fitur stream WebM)
-  if (audio.duration === Infinity || isNaN(audio.duration)) {
-    audio.currentTime = 1e101;
-    audio.ontimeupdate = () => {
-      audio.ontimeupdate = null;
-      audio.currentTime = 0;
-    };
-  }
-}
+let recordingStartTime = 0;
 
 function formatRecordingTimer(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -465,15 +452,14 @@ async function startRecording() {
     // 2. Minta izin akses mikrofon perangkat (SD-08 Langkah 2 & 3)
     mediaStream = await getAudioStream();
 
-    // 3. Tentukan format audio yang didukung browser
-    let mimeType = 'audio/webm;codecs=opus';
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-      mimeType = MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : MediaRecorder.isTypeSupported('audio/mp4')
-          ? 'audio/mp4'
-          : '';
-    }
+    // 3. Tentukan format audio yang didukung browser (utamakan audio/mp4 agar seekbar dan durasi native sempurna)
+    const preferredTypes = [
+      'audio/mp4',
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg',
+    ];
+    let mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type)) || '';
 
     mediaRecorder = mimeType
       ? new MediaRecorder(mediaStream, { mimeType })
@@ -492,7 +478,8 @@ async function startRecording() {
     mediaRecorder.onstop = async () => {
       const activeMimeType = mediaRecorder?.mimeType || 'audio/webm';
       const rawBlob = new Blob(audioChunks, { type: activeMimeType });
-      const durationMs = Math.max(recordingTimer.value * 1000, 1000);
+      const durationMs = Math.max(Date.now() - recordingStartTime, 1000);
+      recordingTimer.value = Math.max(Math.round(durationMs / 1000), 1);
 
       let finalBlob: Blob = rawBlob;
       // Perbaiki metadata durasi WebM pada header EBML agar playback slider full dan seekable
@@ -512,7 +499,11 @@ async function startRecording() {
       audioPlaybackUrl.value = URL.createObjectURL(finalBlob);
 
       // Buat objek File standar untuk diserahkan ke sistem
-      const ext = activeMimeType.includes('mp4') ? '.m4a' : '.webm';
+      const ext = activeMimeType.includes('mp4')
+        ? '.m4a'
+        : activeMimeType.includes('ogg')
+          ? '.ogg'
+          : '.webm';
       const timestamp = new Date()
         .toISOString()
         .replace(/[:.]/g, '-')
@@ -534,6 +525,7 @@ async function startRecording() {
     mediaRecorder.start(1000);
     isRecording.value = true;
     recordingTimer.value = 0;
+    recordingStartTime = Date.now();
 
     // Timer berjalan per detik
     timerInterval = window.setInterval(() => {
