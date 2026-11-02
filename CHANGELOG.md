@@ -7,7 +7,36 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 
 ---
 
-## [Unreleased] - 2026-10-30
+## [Unreleased] - 2026-11-02
+
+### Added
+- **Fitur Perekaman Audio Langsung via Browser (`UC-08`, `SD-08`)**:
+  - **Dukungan Format WebM & OGG Backend (`backend/src/controllers/audioController.ts`)**:
+    - Menambahkan `.webm` dan `.ogg` pada daftar ekstensi yang diizinkan (`ALLOWED_EXTENSIONS`).
+    - Dukungan konversi otomatis via `ffmpeg` dan probe durasi lokal via `music-metadata`.
+  - **Antarmuka Rekaman Suara Web (`frontend/src/components/dashboard/AudioUploadCard.vue`)**:
+    - Menambahkan tab selector: `Unggah Berkas` dan `Rekam Langsung`.
+    - Integrasi MediaRecorder API dengan visualisasi animasi pulsasi mikrofon saat merekam.
+    - Timer durasi langsung (`00:00`), tombol kontrol jeda/lanjut/hentikan rekaman.
+    - Pemutar audio pratinjau (`<audio controls>`) sebelum audio dikirim ke server.
+    - Tombol rekam ulang dan deteksi proteksi konteks aman (*Secure Context*) peramban (Edge/Chrome).
+- **Fitur Menghapus Riwayat Transkripsi (`UC-12`, `SD-12`, `TC-07`)**:
+  - **Backend API (`DELETE /api/history/:id`)**:
+    - Endpoint penghapusan riwayat dengan validasi autentikasi JWT dan proteksi IDOR (`user_id = auth.user.id`).
+    - Penghapusan aman berkas fisik sementara (jika masih tersimpan) via helper `safeUnlink()`.
+    - Method DAO `transcriptModel.deleteByIdAndUserId(id, userId)` dan `transcriptModel.findById(id)`.
+  - **Frontend UI & State Management**:
+    - Tombol hapus (ikon tempat sampah) pada setiap kartu item riwayat di `HistoryPanel.vue`.
+    - Modal dialog konfirmasi penghapusan bertema glassmorphism untuk mencegah penghapusan tidak disengaja.
+    - Integrasi controller `historyController.deleteHistoryItem(id)` dan otomatis membersihkan tampilan hasil aktif jika riwayat yang sedang dibuka dihapus.
+- **Indikator Visual Ambang Batas Kuota Berwarna Sesuai Desain (`UC-06`, `SD-06`)**:
+  - Menyesuaikan tampilan badge saldo sisa kuota pada `DashboardNavbar.vue` dan `AudioResultCard.vue`:
+    - `> 600s` (> 10 menit): Badge hijau emerald (`bg-emerald-500/10 text-emerald-300 border-emerald-500/30`).
+    - `300s - 600s` (5-10 menit): Badge kuning amber (`bg-amber-500/10 text-amber-300 border-amber-500/30`).
+    - `< 300s` (< 5 menit): Badge merah rose dengan efek berkedip (`bg-rose-500/10 text-rose-300 border-rose-500/30 animate-pulse`).
+- **Pengiriman Email Transaksional via Domain Kustom Terverifikasi**:
+  - Mengonfigurasi domain kustom `auth.simpulkata.fragpoint.my.id` pada Resend API (`EMAIL_FROM=SimpulKata <noreply@auth.simpulkata.fragpoint.my.id>`).
+  - Memungkinkan pengiriman kode OTP pendaftaran, verifikasi perubahan email, dan pemulihan kata sandi ke seluruh alamat email publik tanpa batasan sandbox akun gratis.
 
 ### Added
 - **Fitur Mengubah Kata Sandi saat Login (`UC-05`, `SD-05`)**:
