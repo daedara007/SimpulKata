@@ -78,17 +78,6 @@
       </svg>
       <span>{{ isLoading ? 'Memverifikasi...' : 'Masuk ke Aplikasi' }}</span>
     </button>
-
-    <!-- Tombol Cepat Akun Demo Testing -->
-    <div class="pt-2 border-t border-slate-800/80 text-center">
-      <button
-        type="button"
-        class="text-[11px] text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
-        @click="$emit('fill-demo')"
-      >
-        Gunakan Akun Admin Demo (<span class="font-mono text-indigo-400">admin@simpulkata.id</span>)
-      </button>
-    </div>
   </form>
 </template>
 
@@ -106,7 +95,6 @@ defineEmits<{
   (e: 'update:showPassword', value: boolean): void;
   (e: 'switch-tab', tab: AuthTab): void;
   (e: 'submit'): void;
-  (e: 'fill-demo'): void;
 }>();
 </script>
 

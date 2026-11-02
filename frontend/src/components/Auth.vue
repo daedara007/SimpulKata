@@ -122,7 +122,6 @@
           @update:show-password="showPassword = $event"
           @switch-tab="switchTab"
           @submit="handleLogin"
-          @fill-demo="fillDemoAccount"
         />
 
         <!-- Form 2: Registrasi -->
@@ -221,7 +220,6 @@ const {
   loginForm,
   registerForm,
   switchTab,
-  fillDemoAccount,
   handleLogin,
   handleRegister,
   handleVerifyOtp,
