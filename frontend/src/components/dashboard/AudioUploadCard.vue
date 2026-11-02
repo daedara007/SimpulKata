@@ -53,11 +53,11 @@
       @dragleave.prevent="isDragging = false"
       @drop.prevent="onDrop"
     >
-      <!-- Hidden File Input -->
+      <!-- Hidden File Input (Gunakan ekstensi eksplisit tanpa wildcard audio/* agar browser mobile Android tidak crash/refresh) -->
       <input
         ref="fileInputRef"
         type="file"
-        accept=".mp3,.wav,.m4a,.webm,.ogg,audio/*"
+        accept=".mp3,.wav,.m4a,.webm,.ogg"
         class="hidden"
         @change="onFileInputChange"
       />

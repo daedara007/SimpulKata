@@ -162,13 +162,13 @@ export async function transcribeAudio(
   // Gunakan durasi yang sudah dihitung sebelumnya atau ekstrak jika belum ada
   let duration_seconds: number = knownDuration ?? (await getAudioDuration(filePath));
 
-  // Konversi ke MP3 jika diperlukan (.m4a atau .wav agar ukuran kecil & tidak kena limit 413)
+  // Konversi ke MP3 jika diperlukan (.webm, .ogg, .m4a, atau .wav agar ukuran kecil & format standar untuk Whisper)
   let audioToProcess = filePath;
   let convertedFile: string | null = null;
   const ext = path.extname(filePath).toLowerCase();
 
-  if (ext === '.m4a' || ext === '.wav') {
-    console.log(`[aiService] Format ${ext} terdeteksi, mengonversi ke MP3 optimal untuk Whisper fal-ai...`);
+  if (ext !== '.mp3') {
+    console.log(`[aiService] Format ${ext} terdeteksi, mengonversi ke MP3 optimal untuk Whisper...`);
     convertedFile = await convertAudioToMp3(filePath);
     audioToProcess = convertedFile;
   }

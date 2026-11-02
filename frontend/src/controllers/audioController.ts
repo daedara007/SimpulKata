@@ -71,17 +71,17 @@ export function useAudioController() {
     const ext = getFileExtension(file.name).toLowerCase();
 
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      alert(`Format file '${ext}' tidak didukung. Harap pilih file dengan format .mp3, .wav, .m4a, .webm, atau .ogg.`);
+      errorMessage.value = `Format file '${ext}' tidak didukung. Harap pilih file dengan format .mp3, .wav, .m4a, .webm, atau .ogg.`;
       return false;
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      alert('Ukuran file melebihi batas maksimal 50MB.');
+      errorMessage.value = 'Ukuran file melebihi batas maksimal 50MB.';
       return false;
     }
 
     if (file.size === 0) {
-      alert('File yang dipilih kosong (0 bytes). Silakan pilih file audio yang valid.');
+      errorMessage.value = 'File yang dipilih kosong (0 bytes). Silakan pilih file audio yang valid.';
       return false;
     }
 
@@ -169,7 +169,7 @@ export function useAudioController() {
 
   async function processAudio({ onProgressUpdate, onCompleted }: AudioProcessCallbacks = {}) {
     if (!selectedFile.value) {
-      alert('Silakan pilih file audio terlebih dahulu.');
+      errorMessage.value = 'Silakan pilih file audio terlebih dahulu.';
       return;
     }
 
@@ -220,7 +220,6 @@ export function useAudioController() {
       }
 
       errorMessage.value = errorMsg;
-      alert(`Error: ${errorMsg}`);
     } finally {
       isLoading.value = false;
       if (timerInterval) clearInterval(timerInterval);
