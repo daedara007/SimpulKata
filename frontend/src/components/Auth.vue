@@ -21,10 +21,12 @@
     <div class="w-full max-w-md space-y-6 relative z-10">
       <!-- Logo & Brand Header -->
       <div class="text-center space-y-2">
-        <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 shadow-xl shadow-indigo-500/20 mb-1">
-          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
-          </svg>
+        <div class="inline-flex items-center justify-center mb-1">
+          <img
+            src="/logo.png"
+            alt="SimpulKata Logo"
+            class="w-14 h-14 rounded-2xl object-cover shadow-2xl shadow-indigo-500/30 border border-indigo-500/30 hover:scale-105 transition-transform"
+          />
         </div>
         <h1 class="text-2xl font-black tracking-tight text-white">SimpulKata</h1>
         <p class="text-xs text-slate-400">Platform Transkripsi & Rangkuman Percakapan AI</p>

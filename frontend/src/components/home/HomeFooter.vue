@@ -28,11 +28,11 @@
     <!-- Footer Bar -->
     <footer class="border-t border-slate-900 py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
-          </svg>
-        </div>
+        <img
+          src="/logo.png"
+          alt="SimpulKata Logo"
+          class="w-6 h-6 rounded-lg object-cover"
+        />
         <span class="font-semibold text-slate-300">SimpulKata</span>
         <span>&bull;</span>
         <span>Platform Transkripsi & Rangkuman AI</span>
