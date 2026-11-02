@@ -151,13 +151,25 @@
               </span>
             </div>
 
-            <!-- Badge Status -->
-            <span
-              class="shrink-0 text-[10px] uppercase font-mono px-2 py-0.5 rounded-full border font-semibold"
-              :class="getStatusBadgeClass(item.status)"
-            >
-              {{ formatStatusLabel(item.status) }}
-            </span>
+            <!-- Badge Status & Tombol Hapus -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <span
+                class="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full border font-semibold"
+                :class="getStatusBadgeClass(item.status)"
+              >
+                {{ formatStatusLabel(item.status) }}
+              </span>
+              <button
+                type="button"
+                class="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer opacity-70 group-hover:opacity-100"
+                title="Hapus riwayat transkripsi"
+                @click.stop="openDeleteModal(item)"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <!-- Metadata Item: Tanggal, Durasi, Word Count -->
@@ -197,10 +209,92 @@
         </button>
       </div>
     </div>
+
+    <!-- Modal Konfirmasi Hapus Riwayat (SRS UC-12, Sequence SD-12, SDD Bab 7.3 TC-07) -->
+    <div
+      v-if="showDeleteModal && itemToDelete"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm transition-opacity"
+      @click.self="closeDeleteModal"
+    >
+      <div
+        class="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl shadow-rose-950/20 space-y-5 animate-in fade-in zoom-in-95 duration-200"
+      >
+        <!-- Header Modal & Icon -->
+        <div class="flex items-start gap-4">
+          <div class="w-11 h-11 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+          <div class="space-y-1">
+            <h4 class="text-base font-bold text-white">Hapus Riwayat Transkripsi</h4>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Apakah Anda yakin ingin menghapus data transkripsi untuk berkas
+              <span class="font-medium text-slate-200">"{{ itemToDelete.original_file_name }}"</span>?
+            </p>
+          </div>
+        </div>
+
+        <!-- Info Singkat Item -->
+        <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+          <div class="flex items-center justify-between">
+            <span>Dibuat pada:</span>
+            <span class="text-slate-300 font-mono">{{ formatDate(itemToDelete.created_at) }}</span>
+          </div>
+          <div v-if="itemToDelete.duration_seconds > 0" class="flex items-center justify-between">
+            <span>Durasi audio:</span>
+            <span class="text-slate-300 font-mono">{{ formatDuration(itemToDelete.duration_seconds) }}</span>
+          </div>
+        </div>
+
+        <!-- Alert Error jika gagal menghapus -->
+        <div v-if="deleteError" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+          {{ deleteError }}
+        </div>
+
+        <!-- Warning Note -->
+        <p class="text-[11px] text-rose-400/90 font-medium flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Tindakan ini permanen. Data transkrip dan rangkuman tidak dapat dikembalikan.
+        </p>
+
+        <!-- Aksi Tombol -->
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <button
+            type="button"
+            class="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
+            :disabled="isDeleting"
+            @click="closeDeleteModal"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-lg shadow-rose-600/25 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="isDeleting"
+            @click="confirmDelete"
+          >
+            <svg
+              v-if="isDeleting"
+              class="w-3.5 h-3.5 animate-spin"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>{{ isDeleting ? 'Menghapus...' : 'Hapus Sekarang' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </aside>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import type { TranscriptItem } from '../../types';
 import type { HistoryStatusFilter } from '../../controllers/historyController';
 import {
@@ -221,11 +315,44 @@ defineProps<{
   statusFilter: HistoryStatusFilter;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'select', item: TranscriptItem): void;
   (e: 'filter-change', filter: HistoryStatusFilter): void;
   (e: 'page-change', page: number): void;
   (e: 'refresh'): void;
+  (e: 'delete', id: string, done: (err?: string) => void): void;
 }>();
+
+const itemToDelete = ref<TranscriptItem | null>(null);
+const showDeleteModal = ref<boolean>(false);
+const isDeleting = ref<boolean>(false);
+const deleteError = ref<string>('');
+
+function openDeleteModal(item: TranscriptItem) {
+  itemToDelete.value = item;
+  deleteError.value = '';
+  showDeleteModal.value = true;
+}
+
+function closeDeleteModal() {
+  if (isDeleting.value) return;
+  showDeleteModal.value = false;
+  itemToDelete.value = null;
+  deleteError.value = '';
+}
+
+function confirmDelete() {
+  if (!itemToDelete.value) return;
+  isDeleting.value = true;
+  deleteError.value = '';
+  emit('delete', itemToDelete.value.id, (err?: string) => {
+    isDeleting.value = false;
+    if (err) {
+      deleteError.value = err;
+    } else {
+      closeDeleteModal();
+    }
+  });
+}
 </script>
 

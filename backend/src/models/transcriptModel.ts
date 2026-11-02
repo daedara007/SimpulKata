@@ -173,6 +173,34 @@ export class TranscriptModel {
     );
     return res.rowCount ?? 0;
   }
+
+  /**
+   * Mengambil rekaman transkrip berdasarkan ID (untuk verifikasi kepemilikan & IDOR)
+   */
+  async findById(id: string): Promise<TranscriptRow | null> {
+    const res = await db.query<TranscriptRow>(
+      `SELECT id, user_id, original_file_name, file_path, status, created_at
+       FROM transcripts
+       WHERE id = $1
+       LIMIT 1`,
+      [id]
+    );
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Menghapus rekaman transkrip berdasarkan ID dan pemilik (user_id) untuk mencegah IDOR (SRS UC-12, SD-12)
+   * Mengembalikan baris data yang dihapus atau null jika tidak cocok
+   */
+  async deleteByIdAndUserId(id: string, userId: string): Promise<TranscriptRow | null> {
+    const res = await db.query<TranscriptRow>(
+      `DELETE FROM transcripts
+       WHERE id = $1 AND user_id = $2
+       RETURNING id, user_id, original_file_name, file_path, status`,
+      [id, userId]
+    );
+    return res.rows[0] || null;
+  }
 }
 
 export const transcriptModel = new TranscriptModel();

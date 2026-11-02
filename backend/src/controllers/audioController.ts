@@ -530,6 +530,80 @@ export class AudioController {
       });
     }
   }
+
+  /**
+   * DELETE /api/history/:id
+   * Menghapus item riwayat transkripsi milik pengguna yang sedang login (SRS UC-12, Sequence SD-12, SDD Bab 7.3 TC-07)
+   */
+  async deleteHistoryItem(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) {
+    try {
+      const { id } = (request.params || {}) as { id?: string };
+      const userId = request.user?.id;
+
+      if (!userId) {
+        return reply.status(401).send({
+          status: 'error',
+          code: 'UNAUTHORIZED',
+          message: 'Akses tidak sah. Silakan login terlebih dahulu.',
+        });
+      }
+
+      if (!id || typeof id !== 'string') {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'INVALID_ID',
+          message: 'ID transkrip tidak valid.',
+        });
+      }
+
+      // 1. Eksekusi penghapusan berproteksi kepemilikan via TranscriptModel (mencegah IDOR)
+      const deletedRecord = await transcriptModel.deleteByIdAndUserId(id, userId);
+
+      if (!deletedRecord) {
+        // Cek apakah transkrip ada di DB tetapi dimiliki pengguna lain (A3: SD-12 Langkah 7b)
+        const existingRecord = await transcriptModel.findById(id);
+        if (existingRecord && existingRecord.user_id !== userId) {
+          return reply.status(403).send({
+            status: 'error',
+            code: 'FORBIDDEN',
+            message: 'Anda tidak berwenang menghapus data riwayat ini.',
+          });
+        }
+
+        // Jika memang tidak ditemukan sama sekali (A1: SD-12)
+        return reply.status(404).send({
+          status: 'error',
+          code: 'NOT_FOUND',
+          message: 'Data riwayat transkripsi tidak ditemukan atau sudah dihapus.',
+        });
+      }
+
+      // 2. Jika berkas audio fisik masih tersimpan di storage server, hapus secara aman (SD-12 Langkah 13-14)
+      if (deletedRecord.file_path) {
+        await safeUnlink(deletedRecord.file_path);
+      }
+
+      console.log(`[AudioController] Riwayat transkripsi berhasil dihapus: ID=${id}, User=${userId}`);
+
+      return reply.status(200).send({
+        status: 'success',
+        message: 'Data riwayat transkripsi berhasil dihapus.',
+        data: {
+          id: deletedRecord.id,
+        },
+      });
+    } catch (error: any) {
+      console.error('[AudioController] Gagal menghapus riwayat transkripsi:', error);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'DELETE_HISTORY_ERROR',
+        message: 'Gagal menghapus data riwayat transkripsi dari server. Silakan coba lagi.',
+      });
+    }
+  }
 }
 
 export const audioController = new AudioController();

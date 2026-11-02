@@ -60,6 +60,16 @@ export const audioModel = {
     const response = await apiClient.get<HistoryResponse>('/api/history', { params });
     return response.data;
   },
+
+  /**
+   * Menghapus rekaman riwayat transkripsi berdasarkan ID (SRS UC-12, Sequence SD-12)
+   */
+  async deleteHistory(transcriptId: string): Promise<{ status: string; message: string; data?: { id: string } }> {
+    const response = await apiClient.delete<{ status: string; message: string; data?: { id: string } }>(
+      `/api/history/${transcriptId}`
+    );
+    return response.data;
+  },
 };
 
 export default audioModel;

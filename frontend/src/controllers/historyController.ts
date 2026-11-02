@@ -90,6 +90,30 @@ export function useHistoryController() {
     }
   }
 
+  /**
+   * Menghapus item riwayat transkripsi (SRS UC-12, Sequence SD-12)
+   */
+  async function deleteHistoryItem(id: string): Promise<boolean> {
+    try {
+      const response = await audioModel.deleteHistory(id);
+      if (response?.status === 'success') {
+        if (selectedHistoryId.value === id) {
+          selectedHistoryId.value = '';
+        }
+        // Jika item di halaman saat ini hanya 1 dan halaman > 1, mundur ke halaman sebelumnya
+        const newPage = historyList.value.length === 1 && currentPage.value > 1
+          ? currentPage.value - 1
+          : currentPage.value;
+        await fetchHistory(newPage);
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error('[HistoryController] Gagal menghapus riwayat transkripsi:', err);
+      throw err;
+    }
+  }
+
   return {
     historyList,
     totalRecords,
@@ -102,6 +126,7 @@ export function useHistoryController() {
     setStatusFilter,
     fetchHistory,
     selectHistoryItem,
+    deleteHistoryItem,
   };
 }
 

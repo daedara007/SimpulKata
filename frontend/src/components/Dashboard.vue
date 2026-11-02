@@ -25,6 +25,7 @@
           @filter-change="setStatusFilter"
           @page-change="fetchHistory"
           @refresh="fetchHistory(currentPage)"
+          @delete="handleDeleteHistory"
         />
 
         <!-- Kolom Kanan: Workspace (Upload & Side-by-Side Result) -->
@@ -172,6 +173,7 @@ const {
   setStatusFilter,
   fetchHistory,
   selectHistoryItem: triggerSelectHistoryItem,
+  deleteHistoryItem,
 } = useHistoryController();
 
 // Handler pemilihan item dari riwayat ke panel utama
@@ -185,6 +187,34 @@ function selectHistoryItem(item: TranscriptItem, shouldScroll = true) {
       tokensUsed: selected.tokens_used || 0,
     };
   });
+}
+
+// Handler penghapusan item riwayat (SRS UC-12, Sequence SD-12, SDD Bab 7.3 TC-07)
+async function handleDeleteHistory(id: string, done: (err?: string) => void) {
+  try {
+    const success = await deleteHistoryItem(id);
+    if (success) {
+      // Jika item yang dihapus adalah item yang sedang ditampilkan di hasil transkrip
+      if (transcriptId.value === id) {
+        transcriptId.value = '';
+        rawText.value = '';
+        summaryText.value = '';
+        meta.value = {
+          durationSeconds: 0,
+          tokensUsed: 0,
+        };
+      }
+      done();
+    } else {
+      done('Gagal menghapus data riwayat transkripsi.');
+    }
+  } catch (err: any) {
+    const message =
+      err?.response?.data?.message ||
+      err?.message ||
+      'Terjadi kesalahan saat menghapus data.';
+    done(message);
+  }
 }
 
 // Wrapper pemrosesan audio yang mengorkestrasi polling, riwayat, dan profil
