@@ -2,15 +2,15 @@
   <section id="top" class="pt-16 sm:pt-24 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center relative">
     <div class="space-y-6 max-w-4xl mx-auto">
       <!-- Floating Pill Announcement -->
-      <div class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium backdrop-blur-md shadow-sm">
-        <span class="flex h-2 w-2 rounded-full bg-indigo-400 animate-ping"></span>
-        <span>Platform Transkripsi & Rangkuman AI Cerdas</span>
-        <span class="text-slate-500">&bull;</span>
-        <span class="text-emerald-400 font-semibold">Gratis 30 Menit Kuota</span>
+      <div class="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium backdrop-blur-md shadow-sm max-w-full">
+        <span class="flex h-2 w-2 rounded-full bg-indigo-400 animate-ping shrink-0"></span>
+        <span class="hidden sm:inline">Platform Transkripsi & Rangkuman AI Cerdas &bull;</span>
+        <span class="sm:hidden">Platform AI Cerdas &bull;</span>
+        <span class="text-emerald-400 font-semibold whitespace-nowrap">Gratis 30 Menit Kuota</span>
       </div>
 
       <!-- Main Headline -->
-      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.12]">
+      <h1 class="text-3xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.18] sm:leading-[1.12]">
         Ubah Rekaman Suara Jadi <br class="hidden sm:inline" />
         <span class="bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">
           Transkrip & Rangkuman Cerdas
@@ -18,27 +18,27 @@
       </h1>
 
       <!-- Subtitle -->
-      <p class="text-base sm:text-xl text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed">
+      <p class="text-sm sm:text-xl text-slate-300 max-w-2xl mx-auto font-normal leading-relaxed px-2 sm:px-0">
         Dengarkan lebih sedikit, pahami lebih banyak. SimpulKata mentranskripsikan audio rapat, seminar, dan perkuliahan Anda serta menyusun intisari poin aksi secara otomatis dalam hitungan menit.
       </p>
 
       <!-- CTA Buttons -->
-      <div class="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+      <div class="pt-2 sm:pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full">
         <button
           type="button"
-          class="w-full sm:w-auto py-3.5 px-8 rounded-2xl font-bold text-sm sm:text-base text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-xl shadow-indigo-600/35 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+          class="w-full sm:w-auto max-w-xs sm:max-w-none py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-bold text-sm sm:text-base text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-xl shadow-indigo-600/35 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
           @click="handlePrimaryCTA"
         >
           <span>Coba Gratis Sekarang</span>
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
           </svg>
         </button>
         <a
           href="#cara-kerja"
-          class="w-full sm:w-auto py-3.5 px-6 rounded-2xl font-semibold text-sm sm:text-base text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition-all flex items-center justify-center gap-2"
+          class="w-full sm:w-auto max-w-xs sm:max-w-none py-3 sm:py-3.5 px-5 sm:px-6 rounded-xl sm:rounded-2xl font-semibold text-sm sm:text-base text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition-all flex items-center justify-center gap-2"
         >
-          <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -47,21 +47,21 @@
       </div>
 
       <!-- Micro Social Proof Badges -->
-      <div class="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400">
-        <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+      <div class="pt-4 sm:pt-6 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-[11px] sm:text-xs text-slate-400">
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
           </svg>
           <span>Tanpa Kartu Kredit</span>
         </div>
-        <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
           </svg>
-          <span>Format .MP3, .WAV, .M4A</span>
+          <span>Format .MP3, .WAV, .M4A, .WEBM</span>
         </div>
-        <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
           </svg>
           <span>Proses Cepat & Terenkripsi</span>
@@ -74,15 +74,15 @@
     <!-- ========================================================= -->
     <div id="preview" class="mt-14 max-w-5xl mx-auto rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl p-4 sm:p-6 backdrop-blur-xl text-left relative overflow-hidden group">
       <!-- Window Controls Bar -->
-      <div class="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-5">
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
-          <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
-          <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
-          <span class="ml-2 text-xs font-mono text-slate-400">Rapat_Evaluasi_Produk_Q3.m4a (14m 20s)</span>
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-5 gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="w-3 h-3 rounded-full bg-rose-500/80 shrink-0"></div>
+          <div class="w-3 h-3 rounded-full bg-amber-500/80 shrink-0"></div>
+          <div class="w-3 h-3 rounded-full bg-emerald-500/80 shrink-0"></div>
+          <span class="ml-1 sm:ml-2 text-xs font-mono text-slate-400 truncate">Rapat_Evaluasi_Produk_Q3.m4a (14m 20s)</span>
         </div>
-        <div class="flex items-center gap-2">
-          <span class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-[10px] sm:text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
             Selesai Diproses
           </span>
         </div>

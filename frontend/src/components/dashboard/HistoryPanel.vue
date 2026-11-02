@@ -1,5 +1,5 @@
 <template>
-  <aside class="lg:col-span-4 space-y-4">
+  <aside class="lg:col-span-4 space-y-4 order-2 lg:order-1">
     <div class="rounded-2xl bg-slate-900/60 border border-slate-800 p-4 sm:p-5 shadow-xl space-y-4 backdrop-blur-sm sticky top-24">
       <!-- Header Panel Riwayat -->
       <div class="flex items-center justify-between">

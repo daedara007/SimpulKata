@@ -2,22 +2,22 @@
   <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <!-- Logo & Brand -->
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="flex items-center gap-2.5 sm:gap-3 shrink-0">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
           </svg>
         </div>
         <div>
-          <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+          <h1 class="text-base sm:text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
             SimpulKata
           </h1>
-          <p class="text-xs text-slate-400">Transkripsi & Rangkuman AI</p>
+          <p class="hidden sm:block text-xs text-slate-400">Transkripsi & Rangkuman AI</p>
         </div>
       </div>
 
       <!-- Menu Aksi Kanan -->
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
         <!-- Tombol Beranda -->
         <button
           type="button"
@@ -31,10 +31,10 @@
         </button>
 
         <!-- Info Sisa Kuota Ringkas untuk Layar Ponsel (< 640px) -->
-        <div v-if="userData?.name" class="flex sm:hidden items-center gap-2">
+        <div v-if="userData?.name" class="flex sm:hidden items-center gap-1.5 shrink-0">
           <button
             type="button"
-            class="flex items-center gap-1.5 p-1 rounded-full bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 transition-all cursor-pointer"
+            class="flex items-center gap-1.5 p-1 rounded-full bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 transition-all cursor-pointer shrink-0"
             title="Pengaturan Profil (Ubah Nama & Avatar)"
             @click="$emit('open-profile')"
           >
@@ -52,7 +52,7 @@
             </span>
           </button>
           <span
-            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium border"
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-medium border whitespace-nowrap shrink-0"
             :class="quotaBadgeClass"
             :title="'Sisa kuota: ' + (userData.balance || 0) + ' detik'"
           >
@@ -87,7 +87,7 @@
             </svg>
           </button>
           <span
-            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium border shadow-sm"
+            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium border shadow-sm whitespace-nowrap"
             :class="quotaBadgeClass"
             :title="'Sisa kuota: ' + (userData.balance || 0) + ' detik'"
           >
@@ -98,14 +98,14 @@
         <!-- Tombol Logout -->
         <button
           type="button"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700/80 hover:border-rose-500/30 transition-all cursor-pointer"
+          class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700/80 hover:border-rose-500/30 transition-all cursor-pointer shrink-0"
           title="Keluar dari akun"
           @click="$emit('logout')"
         >
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          <span>Keluar</span>
+          <span class="hidden sm:inline">Keluar</span>
         </button>
       </div>
     </div>

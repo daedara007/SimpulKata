@@ -9,8 +9,8 @@
     />
 
     <!-- Main Content Layout (Sidebar Riwayat + Workspace) -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
         <!-- Kolom Kiri: Panel Riwayat Transkripsi -->
         <HistoryPanel
           :history-list="historyList"
@@ -28,8 +28,8 @@
           @delete="handleDeleteHistory"
         />
 
-        <!-- Kolom Kanan: Workspace (Upload & Side-by-Side Result) -->
-        <section class="lg:col-span-8 space-y-8">
+        <!-- Kolom Kanan: Workspace (Upload & Side-by-Side Result) - Prioritas utama di mobile -->
+        <section class="lg:col-span-8 space-y-8 order-1 lg:order-2">
           <!-- Area Upload Audio & Progress -->
           <AudioUploadCard
             :selected-file="selectedFile"
