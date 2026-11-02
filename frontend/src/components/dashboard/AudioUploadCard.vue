@@ -145,7 +145,7 @@
             Gunakan mikrofon perangkat Anda untuk merekam diskusi, presentasi, atau kuliah secara real-time.
           </p>
         </div>
-        <div>
+        <div class="space-y-2">
           <button
             type="button"
             class="px-5 py-2.5 rounded-xl font-semibold text-xs text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-600/30 hover:scale-105 active:scale-95 transition-all inline-flex items-center gap-2 cursor-pointer"
@@ -155,6 +155,9 @@
             <span class="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
             <span>Mulai Merekam</span>
           </button>
+          <p class="text-[11px] text-slate-500">
+            Peramban akan meminta izin akses mikrofon secara otomatis saat tombol diklik.
+          </p>
         </div>
       </div>
 
