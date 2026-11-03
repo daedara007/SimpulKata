@@ -54,9 +54,9 @@ fastify.register(cors, {
 
 // ----------------------------------------------------------
 // PLUGIN: @fastify/multipart
-// Limit: 50MB sesuai SRS UC-07
+// Limit: 200MB (Mendukung rekaman perkuliahan/rapat panjang)
 // ----------------------------------------------------------
-const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_UPLOAD_SIZE_MB || '50', 10);
+const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_UPLOAD_SIZE_MB || '200', 10);
 fastify.register(multipart, {
   limits: {
     fileSize: MAX_FILE_SIZE_MB * 1024 * 1024,

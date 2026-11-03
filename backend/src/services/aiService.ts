@@ -162,13 +162,14 @@ export async function transcribeAudio(
   // Gunakan durasi yang sudah dihitung sebelumnya atau ekstrak jika belum ada
   let duration_seconds: number = knownDuration ?? (await getAudioDuration(filePath));
 
-  // Konversi ke MP3 jika diperlukan (.webm, .ogg, .m4a, atau .wav agar ukuran kecil & format standar untuk Whisper)
+  // Konversi ke MP3 64k mono jika format bukan MP3 atau ukuran file > 25MB agar terhindar dari limit HTTP 413 Hugging Face
   let audioToProcess = filePath;
   let convertedFile: string | null = null;
   const ext = path.extname(filePath).toLowerCase();
+  const fileSize = fs.existsSync(filePath) ? fs.statSync(filePath).size : 0;
 
-  if (ext !== '.mp3') {
-    console.log(`[aiService] Format ${ext} terdeteksi, mengonversi ke MP3 optimal untuk Whisper...`);
+  if (ext !== '.mp3' || fileSize > 25 * 1024 * 1024) {
+    console.log(`[aiService] Mengonversi audio (${ext}, ${(fileSize / (1024 * 1024)).toFixed(1)}MB) ke MP3 64kbps mono optimal untuk Whisper...`);
     convertedFile = await convertAudioToMp3(filePath);
     audioToProcess = convertedFile;
   }

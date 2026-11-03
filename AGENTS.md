@@ -52,7 +52,7 @@
 - **Framework Web**: Fastify 5 (dengan logger `pino-pretty`).
 - **Plugins**:
   - `@fastify/cors`: Pengaturan CORS origin.
-  - `@fastify/multipart`: Menerima unggahan audio (limit: 50MB, field: `'audio'`).
+  - `@fastify/multipart`: Menerima unggahan audio (limit: 200MB, field: `'audio'`).
   - `@fastify/jwt`: Verifikasi dan pembuatan token sesi JWT beserta TypeScript module augmentation.
 - **Pemrosesan Audio Lokal**:
   - `music-metadata`: Ekstraksi durasi audio langsung dari buffer/file lokal sebelum memanggil AI.

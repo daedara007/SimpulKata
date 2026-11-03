@@ -27,7 +27,7 @@
           <ul class="space-y-2.5 text-xs text-slate-300 pt-2 border-t border-slate-800">
             <li class="flex items-center gap-2">✓ <strong>30 Menit</strong> Kuota Awal Otomatis</li>
             <li class="flex items-center gap-2">✓ Transkrip Lengkap & Rangkuman AI</li>
-            <li class="flex items-center gap-2">✓ Format .MP3, .WAV, .M4A (Hingga 50MB)</li>
+            <li class="flex items-center gap-2">✓ Format .MP3, .WAV, .M4A, .WEBM (Hingga 200MB)</li>
             <li class="flex items-center gap-2">✓ Riwayat Pemrosesan Akun</li>
           </ul>
         </div>

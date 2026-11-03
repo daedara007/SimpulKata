@@ -10,6 +10,10 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added
+- **Peningkatan Batas Ukuran Unggah Berkas Menjadi 200MB**:
+  - Menyesuaikan konfigurasi plugin `@fastify/multipart` backend dan variabel lingkungan `MAX_UPLOAD_SIZE_MB` menjadi 200MB.
+  - Memperbarui validasi ukuran berkas di frontend controller dan keterangan panduan pengguna di kartu unggah menjadi maksimal 200MB.
+  - Menambahkan proteksi kompresi otomatis audio besar ke format MP3 64kbps mono 16kHz sebelum pengiriman ke Hugging Face guna mencegah limitasi payload HTTP 413.
 - **Identitas Visual & Integrasi Logo Resmi SimpulKata**:
   - Mengintegrasikan logo resmi SimpulKata (`referensi/Logo SimpulKata.jpg`) ke seluruh antarmuka aplikasi.
   - Optimasi aset web modern: `frontend/public/logo.png` (512x512) dan favicon `frontend/public/favicon.png` (64x64).

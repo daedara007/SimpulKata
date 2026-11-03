@@ -52,7 +52,7 @@ interface FaqItem {
 const faqs = reactive<FaqItem[]>([
   {
     q: 'Format berkas audio apa saja yang didukung?',
-    a: 'SimpulKata mendukung format .mp3, .wav, dan .m4a dengan ukuran berkas hingga 50MB per berkas rekaman.',
+    a: 'SimpulKata mendukung format .mp3, .wav, .m4a, .webm, dan .ogg dengan ukuran berkas hingga 200MB per berkas rekaman.',
     open: true,
   },
   {

@@ -4,7 +4,7 @@ import { getFileExtension } from '../utils/formatters';
 import type { TranscriptItem } from '../types';
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.webm', '.ogg'];
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
 
 export interface AudioMeta {
   durationSeconds: number;
@@ -76,7 +76,7 @@ export function useAudioController() {
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      errorMessage.value = 'Ukuran file melebihi batas maksimal 50MB.';
+      errorMessage.value = 'Ukuran file melebihi batas maksimal 200MB.';
       return false;
     }
 

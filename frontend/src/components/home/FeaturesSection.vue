@@ -20,7 +20,7 @@
         </div>
         <h4 class="text-lg font-bold text-white">Transkripsi Presisi Tinggi</h4>
         <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Mengenali percakapan audio secara presisi, mendukung istilah teknis, percakapan campuran, dan file hingga 50MB.
+          Mengenali percakapan audio secara presisi, mendukung istilah teknis, percakapan campuran, dan file hingga 200MB.
         </p>
       </div>
 

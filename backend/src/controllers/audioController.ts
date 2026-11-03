@@ -369,7 +369,7 @@ export class AudioController {
       }
 
       if (error.code === 'FST_REQ_FILE_TOO_LARGE' || error.code === 'FST_FILES_LIMIT') {
-        const maxMb = process.env.MAX_UPLOAD_SIZE_MB || '50';
+        const maxMb = process.env.MAX_UPLOAD_SIZE_MB || '200';
         return reply.status(413).send({
           status: 'error',
           code: 'FILE_TOO_LARGE',
