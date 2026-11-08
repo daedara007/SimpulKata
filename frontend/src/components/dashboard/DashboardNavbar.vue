@@ -2,11 +2,11 @@
   <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <!-- Logo & Brand -->
-      <div class="flex items-center gap-2.5 sm:gap-3 shrink-0">
+      <RouterLink to="/dashboard" class="flex items-center gap-2.5 sm:gap-3 shrink-0 group">
         <img
           src="/logo.png"
           alt="SimpulKata Logo"
-          class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover shadow-lg shadow-indigo-500/20 shrink-0 border border-indigo-500/20"
+          class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover shadow-lg shadow-indigo-500/20 shrink-0 border border-indigo-500/20 group-hover:scale-105 transition-transform"
         />
         <div>
           <h1 class="text-base sm:text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
@@ -14,21 +14,56 @@
           </h1>
           <p class="hidden sm:block text-xs text-slate-400">Transkripsi & Rangkuman AI</p>
         </div>
-      </div>
+      </RouterLink>
+
+      <!-- Navigasi Menu Tengah (Desktop >= 768px) -->
+      <nav class="hidden md:flex items-center gap-1.5 p-1 rounded-2xl bg-slate-950/80 border border-slate-800/80 shadow-inner">
+        <RouterLink
+          to="/dashboard"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer"
+          :class="isTranscribeActive
+            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/25'
+            : 'text-slate-400 hover:text-white hover:bg-slate-800/60'"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+          </svg>
+          <span>Studio Transkripsi</span>
+        </RouterLink>
+
+        <RouterLink
+          to="/history"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer"
+          :class="isHistoryActive
+            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/25'
+            : 'text-slate-400 hover:text-white hover:bg-slate-800/60'"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Riwayat Arsip</span>
+          <span
+            v-if="typeof historyCount === 'number'"
+            class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold transition-colors"
+            :class="isHistoryActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300 border border-slate-700'"
+          >
+            {{ historyCount }}
+          </span>
+        </RouterLink>
+      </nav>
 
       <!-- Menu Aksi Kanan -->
       <div class="flex items-center gap-2 sm:gap-3 shrink-0">
         <!-- Tombol Beranda -->
-        <button
-          type="button"
+        <RouterLink
+          to="/"
           class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-          @click="$emit('navigate', 'home')"
         >
           <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
           <span>Beranda</span>
-        </button>
+        </RouterLink>
 
         <!-- Info Sisa Kuota Ringkas untuk Layar Ponsel (< 640px) -->
         <div v-if="userData?.name" class="flex sm:hidden items-center gap-1.5 shrink-0">
@@ -114,11 +149,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 import type { User } from '../../types';
 import { formatDuration } from '../../utils';
 
 const props = defineProps<{
   userData?: User | null;
+  historyCount?: number;
 }>();
 
 defineEmits<{
@@ -126,6 +163,16 @@ defineEmits<{
   (e: 'open-profile'): void;
   (e: 'logout'): void;
 }>();
+
+const route = useRoute();
+
+const isTranscribeActive = computed(() => {
+  return route.path === '/dashboard' || route.path === '/transcribe' || route.path.startsWith('/app/dashboard');
+});
+
+const isHistoryActive = computed(() => {
+  return route.path === '/history' || route.path.startsWith('/app/history');
+});
 
 // Indikator visual ambang batas sisa kuota (SRS UC-06 & Sequence SD-06)
 const quotaBadgeClass = computed(() => {
@@ -142,4 +189,3 @@ const quotaBadgeClass = computed(() => {
   }
 });
 </script>
-

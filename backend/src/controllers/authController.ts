@@ -566,7 +566,7 @@ export class AuthController {
     try {
       const { refreshToken } = request.body || {};
 
-      if (refreshToken && typeof refreshToken !== 'string') {
+      if (refreshToken && typeof refreshToken === 'string') {
         await sessionModel.deleteByRefreshToken(refreshToken);
       } else if (request.user?.id) {
         await sessionModel.deleteByUserId(request.user.id);

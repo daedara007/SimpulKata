@@ -10,6 +10,13 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added
+- **Pemisahan Halaman Dashboard & Integrasi Vue Router (v4)**:
+  - Mengintegrasikan library resmi `vue-router@4` dengan History API dan route navigation guards (`requiresAuth` dan `guestOnly`).
+  - Memisahkan dashboard yang sebelumnya bertumpuk menjadi dua halaman mandiri berdedikasi:
+    - `/dashboard` (atau `/transcribe`): Halaman Studio Transkripsi lebar penuh (fokus pada unggah audio 200MB, rekam suara langsung, dan hasil rangkuman AI).
+    - `/history`: Halaman Arsip Riwayat Transkripsi lengkap dengan fitur pencarian nama berkas, filter status, statistik kata/durasi, salin teks cepat, serta tombol "Buka di Studio Transkripsi".
+  - Menyederhanakan `App.vue` dengan `<router-view>` dan menghapus parsing manual `window.location.hash` serta logika kondisional `v-if/v-else-if`.
+  - Menambahkan navigasi tab di desktop navbar dan mobile sticky sub-navbar untuk perpindahan halaman yang mulus.
 - **Peningkatan Batas Ukuran Unggah Berkas Menjadi 200MB**:
   - Menyesuaikan konfigurasi plugin `@fastify/multipart` backend dan variabel lingkungan `MAX_UPLOAD_SIZE_MB` menjadi 200MB.
   - Memperbarui validasi ukuran berkas di frontend controller dan keterangan panduan pengguna di kartu unggah menjadi maksimal 200MB.
