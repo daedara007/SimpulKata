@@ -47,3 +47,21 @@ export interface ProcessAudioResponse {
   remaining_balance?: number;
   data?: TranscriptItem;
 }
+
+export interface ChunkUploadProgress {
+  percent: number;
+  loadedBytes: number;
+  totalBytes: number;
+  currentChunk: number;
+  totalChunks: number;
+  phase: 'uploading' | 'assembling';
+}
+
+export interface InitUploadResponse {
+  status: string;
+  data: {
+    uploadId: string;
+    chunkSize: number;
+    totalChunks: number;
+  };
+}

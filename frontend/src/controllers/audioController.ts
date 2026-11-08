@@ -34,6 +34,14 @@ export function useAudioController() {
   const loadingTimer = ref<number>(0);
   let timerInterval: ReturnType<typeof setInterval> | null = null;
 
+  // State Kemajuan Chunked Upload
+  const uploadProgressPercent = ref<number>(0);
+  const uploadTransferredBytes = ref<number>(0);
+  const uploadTotalBytes = ref<number>(0);
+  const uploadPhase = ref<'idle' | 'uploading' | 'assembling' | 'transcribing' | 'summarizing'>('idle');
+  const uploadChunkCurrent = ref<number>(0);
+  const uploadChunkTotal = ref<number>(0);
+
   // State Hasil Aktif
   const transcriptId = ref<string>('');
   const rawText = ref<string>('');
@@ -77,13 +85,6 @@ export function useAudioController() {
 
     if (file.size > MAX_FILE_SIZE) {
       errorMessage.value = 'Ukuran file melebihi batas maksimal 200MB.';
-      return false;
-    }
-
-    // Peringatan dini jika mengakses melalui Cloudflare Tunnel (Free Tier max 100MB)
-    const isPublicTunnel = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname);
-    if (isPublicTunnel && file.size > 100 * 1024 * 1024) {
-      errorMessage.value = `Ukuran berkas (${formatFileSize(file.size)}) melebihi batas 100MB dari jaringan Cloudflare Tunnel (Free Tier). Silakan gunakan berkas di bawah 100MB untuk domain ini, atau akses via http://localhost:8080 untuk kapasitas penuh 200MB.`;
       return false;
     }
 
@@ -180,25 +181,56 @@ export function useAudioController() {
       return;
     }
 
+    const file = selectedFile.value;
     isLoading.value = true;
-    loadingMessage.value = 'Mengunggah file audio ke server...';
     errorMessage.value = '';
     loadingTimer.value = 0;
 
+    uploadProgressPercent.value = 0;
+    uploadTransferredBytes.value = 0;
+    uploadTotalBytes.value = file.size;
+    uploadPhase.value = 'uploading';
+    uploadChunkCurrent.value = 0;
+    uploadChunkTotal.value = Math.max(1, Math.ceil(file.size / (5 * 1024 * 1024)));
+    loadingMessage.value = `Mengunggah berkas audio: 0% (0 B / ${formatFileSize(file.size)})`;
+
     timerInterval = setInterval(() => {
       loadingTimer.value++;
-      if (loadingTimer.value === 3) {
-        loadingMessage.value = 'Sistem sedang mentranskripsikan audio...';
-      } else if (loadingTimer.value === 12) {
-        loadingMessage.value = 'Sistem sedang menyusun rangkuman intisari...';
+      if (uploadPhase.value === 'transcribing') {
+        if (loadingTimer.value >= 15) {
+          uploadPhase.value = 'summarizing';
+          loadingMessage.value = 'Sistem sedang menyusun rangkuman intisari...';
+        }
       }
     }, 1000);
 
     try {
-      const response = await audioModel.uploadAudio(selectedFile.value);
+      // Unggah menggunakan mekanisme Chunked Upload (5MB per request)
+      const response = await audioModel.uploadAudioChunked(file, {
+        onProgress: ({ percent, loadedBytes, totalBytes, currentChunk, totalChunks, phase }) => {
+          uploadProgressPercent.value = percent;
+          uploadTransferredBytes.value = loadedBytes;
+          uploadTotalBytes.value = totalBytes;
+          uploadChunkCurrent.value = currentChunk;
+          uploadChunkTotal.value = totalChunks;
+
+          if (phase === 'assembling') {
+            uploadPhase.value = 'assembling';
+            loadingMessage.value = 'Menyatukan kepingan berkas & memeriksa durasi audio...';
+          } else {
+            uploadPhase.value = 'uploading';
+            loadingMessage.value = `Mengunggah berkas audio: ${percent}% (${formatFileSize(loadedBytes)} / ${formatFileSize(totalBytes)})`;
+          }
+        },
+      });
 
       if (response.status === 202 || response.data?.status === 'processing') {
-        const activeTranscriptId = (response.data as any)?.data?.transcript_id || (response.data as any)?.transcript_id;
+        uploadPhase.value = 'transcribing';
+        loadingMessage.value = 'Sistem sedang mentranskripsikan audio...';
+
+        const activeTranscriptId =
+          (response.data as any)?.data?.transcript_id ||
+          (response.data as any)?.transcript_id;
         transcriptId.value = activeTranscriptId;
 
         // Segera beri tahu UI untuk memperbarui daftar riwayat & profil
@@ -218,7 +250,7 @@ export function useAudioController() {
 
       let errorMsg = 'Terjadi kesalahan saat memproses audio.';
       if (err.response?.status === 413 || err.message?.includes('413')) {
-        errorMsg = 'Unggahan ditolak (HTTP 413): Ukuran berkas melebihi batas maksimal 100MB dari jaringan Cloudflare Tunnel Free Tier. Silakan gunakan berkas di bawah 100MB untuk domain ini, atau akses via http://localhost:8080 untuk kapasitas penuh 200MB.';
+        errorMsg = 'Unggahan ditolak (HTTP 413): Ukuran berkas melebihi batas maksimal yang diizinkan server (200MB).';
       } else if (err.response?.data?.message) {
         errorMsg = err.response.data.message;
         if (err.response.data.detail) {
@@ -231,6 +263,7 @@ export function useAudioController() {
       errorMessage.value = errorMsg;
     } finally {
       isLoading.value = false;
+      uploadPhase.value = 'idle';
       if (timerInterval) clearInterval(timerInterval);
     }
   }
@@ -242,6 +275,12 @@ export function useAudioController() {
     isLoading,
     loadingMessage,
     loadingTimer,
+    uploadProgressPercent,
+    uploadTransferredBytes,
+    uploadTotalBytes,
+    uploadPhase,
+    uploadChunkCurrent,
+    uploadChunkTotal,
     transcriptId,
     rawText,
     summaryText,

@@ -10,6 +10,16 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added
+- **Mekanisme Chunked Audio Upload (Bypass Limit 100MB Cloudflare Edge & Dukungan 200MB)**:
+  - Mengatasi galat `HTTP 413 Payload Too Large` saat mengunggah berkas besar (>100MB, misal 132MB) melalui Cloudflare Tunnel publik.
+  - Memotong berkas audio di sisi klien menjadi kepingan-kepingan berukuran 5MB menggunakan `File.prototype.slice()` dan mengunggahnya secara berurutan.
+  - Mengembangkan endpoint backend baru:
+    - `POST /api/upload/init`: Inisiasi sesi upload berkas hingga 200MB dan validasi kuota awal.
+    - `POST /api/upload/chunk`: Menerima kepingan chunk multipart dan menyimpannya ke direktori sesi sementara.
+    - `POST /api/upload/complete`: Merangkai kepingan secara streaming (Node.js stream pipeline) menjadi berkas utuh di disk, memvalidasi durasi lokal (`music-metadata`), reservasi kuota atomik, dan memicu Whisper STT serta Llama 3.1 summarization di latar belakang.
+    - `POST /api/upload/abort`: Membatalkan sesi dan membersihkan kepingan sementara.
+  - Pembersih otomatis (*garbage collector*) kepingan chunk yang menggantung saat server startup (`cleanupExpiredChunks`).
+  - Indikator antarmuka real-time di `AudioUploadCard.vue`: bilah persentase nyata (`0% - 100%`), penghitung data terkirim (`90.0 MB / 132.4 MB`), nomor kepingan aktif (`Kepingan 18/27`), serta status tahapan proses (*Menyatukan berkas...*, *Mentranskripsikan audio...*, *Menyusun rangkuman intisari...*).
 - **Pemisahan Halaman Dashboard & Integrasi Vue Router (v4)**:
   - Mengintegrasikan library resmi `vue-router@4` dengan History API dan route navigation guards (`requiresAuth` dan `guestOnly`).
   - Memisahkan dashboard yang sebelumnya bertumpuk menjadi dua halaman mandiri berdedikasi:

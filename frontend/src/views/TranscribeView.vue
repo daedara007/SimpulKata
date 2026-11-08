@@ -36,6 +36,12 @@
       :loading-message="loadingMessage"
       :loading-timer="loadingTimer"
       :error-message="errorMessage"
+      :upload-progress-percent="uploadProgressPercent"
+      :upload-transferred-bytes="uploadTransferredBytes"
+      :upload-total-bytes="uploadTotalBytes"
+      :upload-phase="uploadPhase"
+      :upload-chunk-current="uploadChunkCurrent"
+      :upload-chunk-total="uploadChunkTotal"
       @file-selected="validateAndSetFile"
       @clear-file="clearFile"
       @process-audio="handleProcessAudio"
@@ -70,6 +76,12 @@ const {
   isLoading,
   loadingMessage,
   loadingTimer,
+  uploadProgressPercent,
+  uploadTransferredBytes,
+  uploadTotalBytes,
+  uploadPhase,
+  uploadChunkCurrent,
+  uploadChunkTotal,
   transcriptId,
   rawText,
   summaryText,

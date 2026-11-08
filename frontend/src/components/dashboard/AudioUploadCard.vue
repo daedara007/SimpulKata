@@ -78,7 +78,7 @@
             Pilih file audio
           </button>
           <span class="text-slate-400 text-sm"> atau seret ke area ini</span>
-          <p class="text-xs text-slate-500 mt-1">Mendukung format .MP3, .WAV, .M4A, .WEBM, dan .OGG (Maksimal 200MB lokal / 100MB online)</p>
+          <p class="text-xs text-slate-500 mt-1">Mendukung format .MP3, .WAV, .M4A, .WEBM, dan .OGG (Hingga 200MB)</p>
         </div>
       </div>
 
@@ -323,20 +323,54 @@
     </div>
 
     <!-- Loading Progress Bar & Status Details -->
-    <div v-if="isLoading" class="p-4 rounded-xl bg-slate-900/80 border border-indigo-500/30 space-y-2">
+    <div v-if="isLoading" class="p-5 rounded-2xl bg-slate-900/90 border border-indigo-500/30 space-y-3.5 shadow-xl shadow-indigo-950/20 backdrop-blur-md">
+      <!-- Header Loading: Status & Timer -->
       <div class="flex items-center justify-between text-xs text-slate-300">
-        <span class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
-          {{ loadingMessage }}
+        <span class="flex items-center gap-2 font-medium">
+          <span class="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-ping"></span>
+          <span>{{ loadingMessage }}</span>
         </span>
-        <span class="text-slate-400 font-mono">{{ loadingTimer }}s</span>
+        <span class="text-slate-400 font-mono text-xs px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700/60">
+          {{ loadingTimer }}s
+        </span>
       </div>
-      <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-        <div class="bg-gradient-to-r from-indigo-500 to-purple-500 h-1.5 rounded-full animate-pulse w-full"></div>
+
+      <!-- Real-time Progress Bar untuk Chunked Upload -->
+      <div v-if="uploadPhase === 'uploading'" class="space-y-2">
+        <div class="w-full bg-slate-800/90 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-700/50">
+          <div
+            class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-full rounded-full transition-all duration-300 ease-out shadow-sm shadow-indigo-500/50"
+            :style="{ width: `${uploadProgressPercent || 0}%` }"
+          ></div>
+        </div>
+        <div class="flex items-center justify-between text-[11px] text-slate-400">
+          <span>Kepingan {{ uploadChunkCurrent || 1 }} dari {{ uploadChunkTotal || 1 }} terkirim (5MB / keping)</span>
+          <span class="font-mono text-indigo-300">
+            {{ formatFileSize(uploadTransferredBytes || 0) }} / {{ formatFileSize(uploadTotalBytes || (selectedFile?.size || 0)) }} ({{ uploadProgressPercent || 0 }}%)
+          </span>
+        </div>
       </div>
-      <p class="text-[11px] text-slate-400 text-center">
-        Sistem sedang menganalisis berkas audio, mentranskripsikan percakapan, dan menyusun rangkuman intisari.
-      </p>
+
+      <!-- Animated Bar saat Menyatukan atau Memproses AI -->
+      <div v-else class="space-y-1.5">
+        <div class="w-full bg-slate-800/90 rounded-full h-2 overflow-hidden border border-slate-700/50">
+          <div class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-full rounded-full animate-pulse w-full"></div>
+        </div>
+        <p class="text-[11px] text-slate-400 text-center">
+          <template v-if="uploadPhase === 'assembling'">
+            Server sedang menggabungkan potongan berkas audio dan memvalidasi durasi...
+          </template>
+          <template v-else-if="uploadPhase === 'transcribing'">
+            Whisper AI sedang menganalisis audio dan mentranskripsikan tuturan percakapan...
+          </template>
+          <template v-else-if="uploadPhase === 'summarizing'">
+            LLM sedang menyusun intisari topik utama, poin penting, dan tindak lanjut...
+          </template>
+          <template v-else>
+            Sistem sedang memproses audio dan menyiapkan transkripsi intisari.
+          </template>
+        </p>
+      </div>
     </div>
 
     <!-- Error Alert Card -->
@@ -373,6 +407,12 @@ defineProps<{
   loadingMessage: string;
   loadingTimer: number;
   errorMessage: string;
+  uploadProgressPercent?: number;
+  uploadTransferredBytes?: number;
+  uploadTotalBytes?: number;
+  uploadPhase?: 'idle' | 'uploading' | 'assembling' | 'transcribing' | 'summarizing';
+  uploadChunkCurrent?: number;
+  uploadChunkTotal?: number;
 }>();
 
 const emit = defineEmits<{

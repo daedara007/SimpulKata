@@ -22,6 +22,7 @@ import jwt from '@fastify/jwt';
 
 import db from './db';
 import { transcriptModel, sessionModel, otpModel } from './models';
+import { cleanupExpiredChunks } from './controllers/uploadController';
 import authRoutes from './routes/auth';
 import audioRoutes from './routes/audio';
 import userRoutes from './routes/user';
@@ -227,6 +228,16 @@ const start = async () => {
       }
     } catch (otpErr: any) {
       fastify.log.warn({ err: otpErr }, '[Startup] Gagal membersihkan record OTP kedaluwarsa');
+    }
+
+    // Pembersihan folder chunk unggahan yang kedaluwarsa / menggantung
+    try {
+      const deletedChunks = await cleanupExpiredChunks();
+      if (deletedChunks > 0) {
+        fastify.log.info(`[Startup] Membersihkan ${deletedChunks} folder upload chunk yang kedaluwarsa.`);
+      }
+    } catch (chunkErr: any) {
+      fastify.log.warn({ err: chunkErr }, '[Startup] Gagal membersihkan folder chunk kedaluwarsa');
     }
 
     // Jalankan server
