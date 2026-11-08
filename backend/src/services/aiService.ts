@@ -332,6 +332,40 @@ export async function transcribeAudio(
 }
 
 /**
+ * Membersihkan perulangan siklus (repetition loop) yang dihasilkan LLM
+ * Menghentikan teks seketika saat terdeteksi paragraf atau blok yang berulang.
+ */
+export function removeRepetitiveLoops(text: string): string {
+  if (!text || text.length < 100) return text;
+
+  // 1. Cek di tingkat blok/paragraf
+  const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  if (paragraphs.length <= 2) return text;
+
+  const seenBlocks = new Set<string>();
+  const cleanParagraphs: string[] = [];
+
+  for (const para of paragraphs) {
+    const normalized = para
+      .replace(/[#*_`~-]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+    // Jika blok memiliki panjang lebih dari 15 karakter dan sudah pernah muncul, hentikan loop
+    if (normalized.length > 15 && seenBlocks.has(normalized)) {
+      console.warn(`[aiService] Terdeteksi loop pengulangan pada blok teks ("${para.substring(0, 40)}..."). Memotong loop.`);
+      break;
+    }
+
+    seenBlocks.add(normalized);
+    cleanParagraphs.push(para);
+  }
+
+  return cleanParagraphs.join('\n\n').trim();
+}
+
+/**
  * Membuat rangkuman terstruktur dari teks transkripsi menggunakan LLM.
  */
 export async function summarizeText(
@@ -352,10 +386,18 @@ export async function summarizeText(
   }
 
   const systemInstruction =
-    'Anda adalah asisten cerdas pembuat notula dan rangkuman profesional. ' +
-    'Tugas Anda: Buat rangkuman terstruktur langsung dari transkripsi rapat/kuliah berikut. ' +
-    'PENTING: Jangan sertakan kalimat pembuka atau pengantar seperti "Berikut adalah rangkuman...", langsung mulai dari inti/poin utama. ' +
-    'Gunakan bahasa Indonesia yang baik dan poin-poin yang jelas.';
+    'Anda adalah asisten AI cerdas pembuat notula dan rangkuman rapat/kuliah profesional.\n' +
+    'TUGAS: Susun rangkuman terstruktur HANYA dalam 3 bagian berikut:\n' +
+    '### 📌 Topik Utama\n' +
+    '(Jelaskan inti pembahasan secara padat dalam 1-2 paragraf)\n\n' +
+    '### 💡 Poin-Poin Penting\n' +
+    '- (Daftar poin kunci dan argumen penting)\n\n' +
+    '### 🎯 Tindak Lanjut & Kesimpulan\n' +
+    '(Simpulan akhir dan poin aksi atau rekomendasi)\n\n' +
+    'ATURAN KETAT:\n' +
+    '1. DILARANG KERAS mengulang kalimat, poin, atau judul yang sama.\n' +
+    '2. DILARANG membuat perulangan siklus. Setelah bagian Tindak Lanjut & Kesimpulan selesai, SEGERA HENTIKAN pembuatan teks.\n' +
+    '3. Jangan sertakan kalimat basa-basi pengantar (misal: "Berikut adalah rangkuman..."), langsung mulai dari judul "### 📌 Topik Utama".';
 
   const prompt = `<s>[INST] ${systemInstruction}\n\n${textToSummarize} [/INST]`;
   const model = process.env.HF_SUMMARY_MODEL || 'meta-llama/Llama-3.1-8B-Instruct';
@@ -374,8 +416,8 @@ export async function summarizeText(
             { role: 'system', content: systemInstruction },
             { role: 'user', content: textToSummarize },
           ],
-          max_tokens: 1024,
-          temperature: 0.4,
+          max_tokens: 2048,
+          temperature: 0.6,
         });
         summaryText = (chatRes.choices[0]?.message?.content || '').trim();
       } catch (chatErr: any) {
@@ -385,9 +427,9 @@ export async function summarizeText(
           model,
           inputs: prompt,
           parameters: {
-            max_new_tokens: 1024,
-            temperature: 0.4,
-            repetition_penalty: 1.1,
+            max_new_tokens: 2048,
+            temperature: 0.6,
+            repetition_penalty: 1.2,
             return_full_text: false,
           },
         });
@@ -400,6 +442,9 @@ export async function summarizeText(
         .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
         .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
         .trim();
+
+      // Hapus perulangan loop jika model sempat masuk ke jebakan siklus berulang
+      summaryText = removeRepetitiveLoops(summaryText);
 
       // Estimasi token kasar: ~4 karakter per token
       const tokens_used = Math.ceil((prompt.length + summaryText.length) / 4);
