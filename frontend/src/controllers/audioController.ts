@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { audioModel } from '../models/audioModel';
-import { getFileExtension } from '../utils/formatters';
+import { getFileExtension, formatFileSize } from '../utils/formatters';
 import type { TranscriptItem } from '../types';
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.webm', '.ogg'];
@@ -77,6 +77,13 @@ export function useAudioController() {
 
     if (file.size > MAX_FILE_SIZE) {
       errorMessage.value = 'Ukuran file melebihi batas maksimal 200MB.';
+      return false;
+    }
+
+    // Peringatan dini jika mengakses melalui Cloudflare Tunnel (Free Tier max 100MB)
+    const isPublicTunnel = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname);
+    if (isPublicTunnel && file.size > 100 * 1024 * 1024) {
+      errorMessage.value = `Ukuran berkas (${formatFileSize(file.size)}) melebihi batas 100MB dari jaringan Cloudflare Tunnel (Free Tier). Silakan gunakan berkas di bawah 100MB untuk domain ini, atau akses via http://localhost:8080 untuk kapasitas penuh 200MB.`;
       return false;
     }
 
@@ -210,7 +217,9 @@ export function useAudioController() {
       console.error('[AudioController] Error saat memproses audio:', err);
 
       let errorMsg = 'Terjadi kesalahan saat memproses audio.';
-      if (err.response?.data?.message) {
+      if (err.response?.status === 413 || err.message?.includes('413')) {
+        errorMsg = 'Unggahan ditolak (HTTP 413): Ukuran berkas melebihi batas maksimal 100MB dari jaringan Cloudflare Tunnel Free Tier. Silakan gunakan berkas di bawah 100MB untuk domain ini, atau akses via http://localhost:8080 untuk kapasitas penuh 200MB.';
+      } else if (err.response?.data?.message) {
         errorMsg = err.response.data.message;
         if (err.response.data.detail) {
           errorMsg += ` (${err.response.data.detail})`;

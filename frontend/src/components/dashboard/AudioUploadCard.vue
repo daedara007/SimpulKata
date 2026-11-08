@@ -78,7 +78,7 @@
             Pilih file audio
           </button>
           <span class="text-slate-400 text-sm"> atau seret ke area ini</span>
-          <p class="text-xs text-slate-500 mt-1">Mendukung format .MP3, .WAV, .M4A, .WEBM, dan .OGG (Maksimal 200MB)</p>
+          <p class="text-xs text-slate-500 mt-1">Mendukung format .MP3, .WAV, .M4A, .WEBM, dan .OGG (Maksimal 200MB lokal / 100MB online)</p>
         </div>
       </div>
 

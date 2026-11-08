@@ -501,3 +501,4 @@ onMounted(async () => {
   setHistoryCount(totalRecords.value);
 });
 </script>
+

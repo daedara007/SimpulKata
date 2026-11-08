@@ -28,3 +28,4 @@ function handleNavigate(view: string, tab?: string) {
   }
 }
 </script>
+
