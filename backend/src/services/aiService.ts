@@ -149,6 +149,57 @@ export async function getAudioDuration(filePath: string): Promise<number> {
 /**
  * Mentranskripsikan file audio fisik menjadi teks menggunakan Whisper di Hugging Face.
  */
+/**
+ * Mentranskripsikan satu file audio/segmen tunggal (< 25MB) via Hugging Face Whisper
+ */
+async function transcribeSingleAudio(
+  audioFilePath: string,
+  model: string,
+  segmentLabel = ''
+): Promise<string> {
+  const audioBuffer = await fs.promises.readFile(audioFilePath);
+  const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+
+  let lastError: any;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      console.log(`[aiService] Mengirim audio ${segmentLabel} (${(audioBlob.size / 1024).toFixed(1)} KB) ke HF Whisper (${model}) - Percobaan ${attempt}...`);
+      const result = await hf.automaticSpeechRecognition({
+        model,
+        data: audioBlob,
+      });
+
+      const text = (result && typeof result.text === 'string') ? result.text.trim() : '';
+      return text;
+    } catch (err: any) {
+      lastError = err;
+      const errMsg = err.message || '';
+      const is503 = err.status === 503 || errMsg.toLowerCase().includes('loading');
+      const is429 = err.status === 429 || errMsg.toLowerCase().includes('rate limit');
+
+      if ((is503 || is429) && attempt < 3) {
+        const waitTime = is503 ? 15000 : 3000;
+        console.warn(`[aiService] Retry ${segmentLabel} (${is503 ? 'Cold Start' : 'Rate Limit'}). Tunggu ${waitTime}ms...`);
+        await sleep(waitTime);
+        continue;
+      }
+      if (attempt < 3) {
+        console.warn(`[aiService] Error pada ${segmentLabel} (${errMsg}). Mencoba lagi dalam 2 detik...`);
+        await sleep(2000);
+        continue;
+      }
+      break;
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Mentranskripsikan file audio fisik menjadi teks menggunakan Whisper di Hugging Face.
+ * Didukung dengan segmentasi audio pintar (10 menit per slice) agar kebal dari batas payload HTTP 413
+ * dari provider inference (fal-ai / Hugging Face router) untuk rekaman berdurasi panjang (hingga beberapa jam).
+ */
 export async function transcribeAudio(
   filePath: string,
   knownDuration: number | null = null
@@ -160,67 +211,124 @@ export async function transcribeAudio(
   }
 
   // Gunakan durasi yang sudah dihitung sebelumnya atau ekstrak jika belum ada
-  let duration_seconds: number = knownDuration ?? (await getAudioDuration(filePath));
+  const duration_seconds: number = knownDuration ?? (await getAudioDuration(filePath));
+  const fileSize = fs.existsSync(filePath) ? fs.statSync(filePath).size : 0;
+  const ext = path.extname(filePath).toLowerCase();
+  const model = process.env.HF_WHISPER_MODEL || 'openai/whisper-large-v3';
 
-  // Konversi ke MP3 64k mono jika format bukan MP3 atau ukuran file > 25MB agar terhindar dari limit HTTP 413 Hugging Face
+  console.log(`[aiService] Memulai transkripsi: ${filePath} (Durasi: ${duration_seconds}s, Ukuran: ${(fileSize / (1024 * 1024)).toFixed(1)}MB)`);
+
+  const SEGMENT_DURATION_SECONDS = 600; // 10 menit (maks ~4.8MB per segmen di 64kbps mono)
+
+  // 1. JIKA AUDIO PANJANG (> 10 menit) ATAU BERKAS SANGAT BESAR (> 25MB):
+  // Segmentasikan ke beberapa potongan 10 menit via ffmpeg agar kebal HTTP 413 dari provider AI
+  if (duration_seconds > SEGMENT_DURATION_SECONDS || fileSize > 25 * 1024 * 1024) {
+    const segmentDir = `${filePath}_segments_${Date.now()}`;
+    await fs.promises.mkdir(segmentDir, { recursive: true });
+
+    try {
+      console.log(`[aiService] Audio panjang terdeteksi (${duration_seconds}s). Memotong audio ke segmen 10 menit MP3 64kbps mono...`);
+
+      // 1 pass ffmpeg: decode input format (m4a, mp3, wav, webm, ogg) -> slice into 10-minute 64k mono mp3 files
+      await execFileAsync('ffmpeg', [
+        '-y',
+        '-i', filePath,
+        '-f', 'segment',
+        '-segment_time', String(SEGMENT_DURATION_SECONDS),
+        '-c:a', 'libmp3lame',
+        '-b:a', '64k',
+        '-ar', '16000',
+        '-ac', '1',
+        path.join(segmentDir, 'seg_%03d.mp3'),
+      ]);
+
+      const files = (await fs.promises.readdir(segmentDir))
+        .filter((f) => f.startsWith('seg_') && f.endsWith('.mp3'))
+        .sort();
+
+      if (files.length === 0) {
+        throw new Error('Gagal memotong audio menjadi segmen pemrosesan.');
+      }
+
+      console.log(`[aiService] Audio berhasil dipecah menjadi ${files.length} segmen (maks ~4.8MB per segmen).`);
+
+      const transcribedParts: string[] = [];
+      let failureCount = 0;
+
+      for (let i = 0; i < files.length; i++) {
+        const segFileName = files[i];
+        const segPath = path.join(segmentDir, segFileName);
+        const segLabel = `[Segmen ${i + 1}/${files.length}]`;
+
+        try {
+          const segText = await transcribeSingleAudio(segPath, model, segLabel);
+          if (segText) {
+            transcribedParts.push(segText);
+            console.log(`[aiService] ${segLabel} selesai: "${segText.substring(0, 60)}..."`);
+          } else {
+            console.log(`[aiService] ${segLabel} hening / tanpa ucapan.`);
+          }
+        } catch (segErr: any) {
+          failureCount++;
+          console.warn(`[aiService] Peringatan: ${segLabel} gagal ditranskripsikan (${segErr.message}). Melanjutkan ke segmen berikutnya...`);
+        } finally {
+          // Hapus berkas fisik segmen segera setelah selesai diproses
+          await fs.promises.unlink(segPath).catch(() => {});
+        }
+
+        // Delay singkat 600ms antar panggilan untuk menjaga kestabilan rate limit provider
+        if (i < files.length - 1) {
+          await sleep(600);
+        }
+      }
+
+      // Jika seluruh segmen mengalami error kegagalan teknis
+      if (failureCount === files.length && transcribedParts.length === 0) {
+        const error: any = new Error('Seluruh segmen audio gagal ditranskripsikan oleh Hugging Face Whisper.');
+        error.code = 'AI_SERVICE_ERROR';
+        throw error;
+      }
+
+      const finalText = transcribedParts.join(' ').replace(/\s+/g, ' ').trim();
+
+      if (!finalText) {
+        console.warn(`[aiService] Seluruh ${files.length} segmen audio tidak menghasilkan ucapan yang terdeteksi.`);
+      } else {
+        console.log(`[aiService] Transkripsi ${files.length} segmen selesai sukses (${finalText.length} karakter, durasi ${duration_seconds}s).`);
+      }
+
+      return { text: finalText, duration_seconds };
+    } finally {
+      // Pastikan direktori segmen dibersihkan secara menyeluruh
+      if (fs.existsSync(segmentDir)) {
+        await fs.promises.rm(segmentDir, { recursive: true, force: true }).catch(() => {});
+      }
+    }
+  }
+
+  // 2. JIKA AUDIO PENDEK (<= 10 menit):
   let audioToProcess = filePath;
   let convertedFile: string | null = null;
-  const ext = path.extname(filePath).toLowerCase();
-  const fileSize = fs.existsSync(filePath) ? fs.statSync(filePath).size : 0;
 
-  if (ext !== '.mp3' || fileSize > 25 * 1024 * 1024) {
-    console.log(`[aiService] Mengonversi audio (${ext}, ${(fileSize / (1024 * 1024)).toFixed(1)}MB) ke MP3 64kbps mono optimal untuk Whisper...`);
+  if (ext !== '.mp3') {
     convertedFile = await convertAudioToMp3(filePath);
     audioToProcess = convertedFile;
   }
 
-  const audioBuffer = fs.readFileSync(audioToProcess);
-  const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
-
-  // Hapus file konversi sementara
-  if (convertedFile && fs.existsSync(convertedFile)) {
-    try {
-      await fs.promises.unlink(convertedFile);
-    } catch (_) {}
-  }
-
-  const model = process.env.HF_WHISPER_MODEL || 'openai/whisper-large-v3';
-
-  // Kirim ke Hugging Face Inference API dengan retry jika cold-start (503)
-  let lastError: any;
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      console.log(`[aiService] Mengirim audio ke HF Whisper (${model}) - Percobaan ${attempt}...`);
-      const result = await hf.automaticSpeechRecognition({
-        model,
-        data: audioBlob,
-      });
-
-      if (!result || typeof result.text !== 'string') {
-        const err: any = new Error('Hugging Face Whisper tidak mengembalikan teks transkripsi');
-        err.code = 'EMPTY_TRANSCRIPT';
-        throw err;
-      }
-
-      const text = result.text.trim();
-      console.log(`[aiService] Transkripsi selesai (${text.length} karakter, durasi ${duration_seconds}s)`);
-      return { text, duration_seconds };
-    } catch (err: any) {
-      lastError = err;
-      const is503 = err.status === 503 || (err.message && err.message.toLowerCase().includes('loading'));
-      if (is503 && attempt === 1) {
-        console.warn('[aiService] Model Whisper sedang loading (cold start). Menunggu 15 detik sebelum retry...');
-        await sleep(15000);
-        continue;
-      }
-      break;
+  try {
+    const text = await transcribeSingleAudio(audioToProcess, model, '[Audio Utuh]');
+    console.log(`[aiService] Transkripsi selesai (${text.length} karakter, durasi ${duration_seconds}s)`);
+    return { text, duration_seconds };
+  } catch (err: any) {
+    const error: any = new Error(`Gagal transkripsi audio via Hugging Face: ${err?.message || 'Unknown error'}`);
+    error.code = 'AI_SERVICE_ERROR';
+    error.originalError = err;
+    throw error;
+  } finally {
+    if (convertedFile && fs.existsSync(convertedFile)) {
+      await fs.promises.unlink(convertedFile).catch(() => {});
     }
   }
-
-  const error: any = new Error(`Gagal transkripsi audio via Hugging Face: ${lastError?.message || 'Unknown error'}`);
-  error.code = 'AI_SERVICE_ERROR';
-  error.originalError = lastError;
-  throw error;
 }
 
 /**
@@ -235,11 +343,12 @@ export async function summarizeText(
     throw err;
   }
 
-  // Validasi batasan panjang konteks (maksimal 50.000 karakter)
-  if (text.length > 50000) {
-    const err: any = new Error('Transkripsi terlalu panjang untuk dirangkum (maksimal 50.000 karakter)');
-    err.code = 'TEXT_TOO_LONG';
-    throw err;
+  // Batasan konteks cerdas: jika teks transkripsi sangat panjang (>120.000 karakter),
+  // ambil bagian utama untuk dirangkum agar tidak melebihi jendela konteks LLM
+  let textToSummarize = text.trim();
+  if (textToSummarize.length > 120000) {
+    console.log(`[aiService] Transkripsi sangat panjang (${textToSummarize.length} karakter). Memotong ke 120.000 karakter untuk rangkuman LLM.`);
+    textToSummarize = textToSummarize.substring(0, 120000) + '\n\n[...Catatan: Transkripsi lengkap tersimpan, bagian akhir dipotong khusus untuk rangkuman inti...]';
   }
 
   const systemInstruction =
@@ -248,7 +357,7 @@ export async function summarizeText(
     'PENTING: Jangan sertakan kalimat pembuka atau pengantar seperti "Berikut adalah rangkuman...", langsung mulai dari inti/poin utama. ' +
     'Gunakan bahasa Indonesia yang baik dan poin-poin yang jelas.';
 
-  const prompt = `<s>[INST] ${systemInstruction}\n\n${text.trim()} [/INST]`;
+  const prompt = `<s>[INST] ${systemInstruction}\n\n${textToSummarize} [/INST]`;
   const model = process.env.HF_SUMMARY_MODEL || 'meta-llama/Llama-3.1-8B-Instruct';
 
   let lastError: any;
@@ -263,7 +372,7 @@ export async function summarizeText(
           model,
           messages: [
             { role: 'system', content: systemInstruction },
-            { role: 'user', content: text.trim() },
+            { role: 'user', content: textToSummarize },
           ],
           max_tokens: 1024,
           temperature: 0.4,

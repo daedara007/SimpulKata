@@ -10,6 +10,11 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added
+- **Segmentasi Audio Pintar untuk Whisper AI (Bypass Limit HTTP 413 Provider / fal-ai)**:
+  - Mengatasi galat `HTTP 413 Payload Too Large` saat mengirim audio panjang (>10 menit atau ukuran konversi >25MB, misal audio 2 jam 14 menit / 8.084 detik) ke Hugging Face Inference API / provider fal-ai.
+  - Memotong rekaman audio berdurasi panjang secara otomatis menjadi segmen 10 menit (600 detik) berformat MP3 64kbps mono (~4.8MB per segmen) dalam satu lintasan *ffmpeg*.
+  - Mengirimkan segmen secara berurutan dengan retry cerdas (*exponential backoff* untuk *cold-start* 503 & *rate-limit* 429), menggabungkan teks transkripsi dari seluruh segmen secara mulus, serta menghapus berkas fisik segmen seketika.
+  - Memperluas kapasitas rangkuman Llama 3.1 8B Instruct hingga 120.000 karakter dengan pemotongan cerdas jika melebihi konteks, mencegah galat `TEXT_TOO_LONG`.
 - **Mekanisme Chunked Audio Upload (Bypass Limit 100MB Cloudflare Edge & Dukungan 200MB)**:
   - Mengatasi galat `HTTP 413 Payload Too Large` saat mengunggah berkas besar (>100MB, misal 132MB) melalui Cloudflare Tunnel publik.
   - Memotong berkas audio di sisi klien menjadi kepingan-kepingan berukuran 5MB menggunakan `File.prototype.slice()` dan mengunggahnya secara berurutan.
