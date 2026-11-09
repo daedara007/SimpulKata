@@ -10,6 +10,11 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added
+- **Pembaruan Desain Tabbed Preview & Halaman Mandiri Detail Riwayat (`/transcripts/:id`)**:
+  - Memperbarui komponen `AudioResultCard.vue` dengan antarmuka Tabbed modern bergaya Fathom AI: tab **Rangkuman (SUMMARY)** dan **Transkrip Lengkap (TRANSCRIPT)** dengan garis indikator aktif cyan dan toolbar aksi cepat (*Salin Rangkuman*, *Salin Transkrip*, dan *Unduh TXT*).
+  - Membuat halaman mandiri baru `TranscriptDetailView.vue` pada rute `/transcripts/:id` (alias `/history/:id`) khusus untuk membaca dokumen riwayat secara fokus tanpa terganggu kotak unggah audio.
+  - Memperbarui halaman `HistoryView.vue` sehingga mengeklik kartu riwayat atau tombol *"Lihat Detail"* langsung membuka halaman dokumen mandiri `/transcripts/:id`.
+  - Membersihkan halaman Studio Transkripsi (`TranscribeView.vue`) agar selalu siap untuk memproses berkas/rekaman audio baru tanpa memuat riwayat lama secara otomatis.
 - **Segmentasi Audio Pintar untuk Whisper AI (Bypass Limit HTTP 413 Provider / fal-ai)**:
   - Mengatasi galat `HTTP 413 Payload Too Large` saat mengirim audio panjang (>10 menit atau ukuran konversi >25MB, misal audio 2 jam 14 menit / 8.084 detik) ke Hugging Face Inference API / provider fal-ai.
   - Memotong rekaman audio berdurasi panjang secara otomatis menjadi segmen 10 menit (600 detik) berformat MP3 64kbps mono (~4.8MB per segmen) dalam satu lintasan *ffmpeg*.

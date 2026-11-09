@@ -41,6 +41,12 @@ const routes: RouteRecordRaw[] = [
         name: 'history',
         component: () => import('../views/HistoryView.vue'),
       },
+      {
+        path: '/transcripts/:id',
+        name: 'transcript-detail',
+        alias: '/history/:id',
+        component: () => import('../views/TranscriptDetailView.vue'),
+      },
     ],
   },
   // Backward compatibility: redirect anchor-like paths

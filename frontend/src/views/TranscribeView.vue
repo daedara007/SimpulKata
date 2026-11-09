@@ -60,15 +60,14 @@
 
 <script setup lang="ts">
 import { onMounted, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import AudioUploadCard from '../components/dashboard/AudioUploadCard.vue';
 import AudioResultCard from '../components/dashboard/AudioResultCard.vue';
 import { useAudioController } from '../controllers/audioController';
 import useCurrentUser from '../composables/useCurrentUser';
-import audioModel from '../models/audioModel';
-import type { TranscriptItem } from '../types';
 
 const route = useRoute();
+const router = useRouter();
 const { currentUser, refreshUser } = useCurrentUser();
 
 const {
@@ -104,44 +103,20 @@ async function handleProcessAudio() {
   });
 }
 
-// Muat transkrip spesifik jika pengguna datang dari riwayat via query ?id=UUID
-async function loadTranscriptFromQuery(id: string) {
-  if (!id) return;
-  try {
-    const res = await audioModel.getTranscriptStatus(id);
-    if (res?.data) {
-      displayResults(res.data);
-    }
-  } catch (err) {
-    console.warn('[TranscribeView] Gagal memuat transkrip dari query ID:', err);
-  }
-}
-
+// Jika pengguna mengakses studio dengan query ?id=..., arahkan langsung ke halaman detail dokumen
 watch(
   () => route.query.id,
   (newId) => {
     if (typeof newId === 'string' && newId) {
-      loadTranscriptFromQuery(newId);
+      router.replace({ path: `/transcripts/${newId}` });
     }
   }
 );
 
-onMounted(async () => {
+onMounted(() => {
   const queryId = route.query.id;
   if (typeof queryId === 'string' && queryId) {
-    await loadTranscriptFromQuery(queryId);
-  } else if (!transcriptId.value) {
-    // Jika belum ada hasil yang aktif, muat transkrip selesai paling baru untuk ditampilkan sebagai contoh
-    try {
-      const historyRes = await audioModel.getHistory({ page: 1, limit: 1, status: 'completed' });
-      const rawData: any = historyRes?.data;
-      const items: TranscriptItem[] = Array.isArray(rawData) ? rawData : (rawData?.items || []);
-      if (items.length > 0) {
-        displayResults(items[0]);
-      }
-    } catch (_) {
-      // Abaikan jika riwayat masih kosong
-    }
+    router.replace({ path: `/transcripts/${queryId}` });
   }
 });
 </script>

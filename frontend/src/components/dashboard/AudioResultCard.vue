@@ -4,22 +4,24 @@
     id="results-area"
     class="space-y-4 pt-6 border-t border-slate-800"
   >
-    <!-- Results Header & Badges -->
+    <!-- Header & Status Info -->
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h3 class="text-lg font-bold text-white flex items-center gap-2">
-          <span>Hasil Transkripsi & Rangkuman</span>
+          <span>Hasil Pemrosesan AI</span>
           <span class="text-xs font-normal px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             Selesai
           </span>
         </h3>
         <p class="text-xs text-slate-400 mt-0.5">
-          Teks transkripsi lengkap dan intisari rangkuman audio
+          Tinjau rangkuman intisari rapat atau periksa transkripsi tuturan lengkap.
         </p>
       </div>
+
+      <!-- Informasi Saldo Kuota -->
       <div class="flex items-center gap-2 text-xs">
         <span v-if="durationSeconds" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
-          ⏱️ Kuota Terpakai: <strong class="text-white">{{ formatDuration(durationSeconds) }}</strong>
+          ⏱️ Durasi: <strong class="text-white">{{ formatDuration(durationSeconds) }}</strong>
         </span>
         <span
           v-if="userBalance !== undefined"
@@ -37,85 +39,128 @@
       </div>
     </div>
 
-    <!-- Side-by-Side 2 Columns -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Left Column: Raw Transcription -->
-      <div class="flex flex-col rounded-2xl bg-slate-900/60 border border-slate-800 overflow-hidden shadow-xl">
-        <div class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
-            <h4 class="text-sm font-semibold text-slate-200">Teks Transkripsi</h4>
-            <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              Lengkap
+    <!-- Main Container Card (Layout Mirip Fathom) -->
+    <div class="rounded-2xl bg-slate-900/80 border border-slate-800 shadow-2xl overflow-hidden backdrop-blur-md">
+      <!-- 1. Top Tabs Navigation Bar (SUMMARY / TRANSCRIPT) -->
+      <div class="flex items-center gap-6 px-6 pt-4 border-b border-slate-800 bg-slate-950/60 select-none">
+        <button
+          type="button"
+          class="pb-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all cursor-pointer relative"
+          :class="[
+            activeTab === 'summary'
+              ? 'text-cyan-400 border-b-2 border-cyan-400'
+              : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent'
+          ]"
+          @click="activeTab = 'summary'"
+        >
+          <span class="flex items-center gap-2">
+            <span>Rangkuman</span>
+            <span class="text-[10px] font-mono font-normal px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+              AI Summary
             </span>
-          </div>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          class="pb-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all cursor-pointer relative"
+          :class="[
+            activeTab === 'transcript'
+              ? 'text-cyan-400 border-b-2 border-cyan-400'
+              : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent'
+          ]"
+          @click="activeTab = 'transcript'"
+        >
+          <span class="flex items-center gap-2">
+            <span>Transkrip Lengkap</span>
+            <span class="text-[10px] font-mono font-normal px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+              Whisper STT
+            </span>
+          </span>
+        </button>
+      </div>
+
+      <!-- 2. Sub-Toolbar: Metadata & Tombol Aksi Cepat -->
+      <div class="flex flex-wrap items-center justify-between gap-3 px-6 py-3 bg-slate-900/90 border-b border-slate-800/80 text-xs">
+        <!-- Metadata Pills -->
+        <div class="flex items-center gap-2 text-slate-400">
+          <span class="px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700/80 text-slate-300 font-medium">
+            {{ activeTab === 'summary' ? 'Format: Terstruktur Markdown' : 'Format: Teks Percakapan Alami' }}
+          </span>
+          <span class="text-slate-500 hidden sm:inline">&bull;</span>
+          <span class="font-mono text-slate-400 hidden sm:inline">
+            {{ countWords(activeTab === 'summary' ? summaryText : rawText) }} kata
+          </span>
+          <span class="text-slate-500 hidden sm:inline">&bull;</span>
+          <span class="text-slate-400 hidden sm:inline">
+            {{ (activeTab === 'summary' ? summaryText : rawText).length.toLocaleString('id-ID') }} karakter
+          </span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2.5">
+          <!-- Tombol Unduh TXT -->
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors cursor-pointer"
-            @click="copyText(rawText, 'raw')"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors cursor-pointer"
+            :title="activeTab === 'summary' ? 'Unduh Rangkuman (.txt)' : 'Unduh Transkrip (.txt)'"
+            @click="downloadActiveContent"
           >
-            <svg v-if="copiedRaw" class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span class="hidden sm:inline">Unduh TXT</span>
+          </button>
+
+          <!-- Tombol Salin Utama -->
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-cyan-300 hover:text-white bg-cyan-500/10 hover:bg-cyan-600 border border-cyan-500/30 transition-all cursor-pointer shadow-sm shadow-cyan-950/30"
+            @click="handleCopyActiveTab"
+          >
+            <svg v-if="copiedActive" class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>
-            <svg v-else class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg v-else class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
-            <span>{{ copiedRaw ? 'Tersalin!' : 'Salin Teks' }}</span>
+            <span>{{ copiedActive ? 'Tersalin!' : activeTab === 'summary' ? 'Salin Rangkuman' : 'Salin Transkrip' }}</span>
           </button>
-        </div>
-        <!-- Scrollable Text Area -->
-        <div class="p-4 flex-1">
-          <div class="h-96 overflow-y-auto pr-2 text-sm leading-relaxed text-slate-300 font-mono whitespace-pre-wrap select-text">
-            {{ rawText || 'Tidak ada teks transkripsi.' }}
-          </div>
-        </div>
-        <div class="px-4 py-2 bg-slate-900/40 border-t border-slate-800/60 text-[11px] text-slate-500 flex justify-between">
-          <span>{{ (rawText || '').length }} karakter</span>
-          <span>{{ countWords(rawText || '') }} kata</span>
         </div>
       </div>
 
-      <!-- Right Column: Structured Summary -->
-      <div class="flex flex-col rounded-2xl bg-slate-900/60 border border-slate-800 overflow-hidden shadow-xl">
-        <div class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
-            <h4 class="text-sm font-semibold text-slate-200">Rangkuman Intisari</h4>
-            <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              Ringkas
-            </span>
-          </div>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors cursor-pointer"
-            @click="copyText(summaryText, 'summary')"
-          >
-            <svg v-if="copiedSummary" class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-            <svg v-else class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            <span>{{ copiedSummary ? 'Tersalin!' : 'Salin Rangkuman' }}</span>
-          </button>
-        </div>
-        <!-- Scrollable Summary Area -->
-        <div class="p-4 flex-1">
-          <div class="h-96 overflow-y-auto pr-2 text-sm leading-relaxed text-slate-200 select-text">
-            <div
-              v-if="summaryText"
-              class="summary-markdown"
-              v-html="renderedSummary"
-            ></div>
-            <div v-else class="text-slate-500 italic">
-              Belum ada rangkuman.
-            </div>
+      <!-- 3. Document Content Area -->
+      <div class="p-6 sm:p-8 min-h-[420px] max-h-[680px] overflow-y-auto select-text">
+        <!-- TAB 1: RANGKUMAN (SUMMARY) -->
+        <div v-if="activeTab === 'summary'">
+          <div
+            v-if="summaryText"
+            class="summary-markdown prose prose-invert max-w-none text-slate-200 text-sm sm:text-base leading-relaxed"
+            v-html="renderedSummary"
+          ></div>
+          <div v-else class="text-center py-16 text-slate-500 italic">
+            Belum ada rangkuman yang dihasilkan untuk rekaman ini.
           </div>
         </div>
-        <div class="px-4 py-2 bg-slate-900/40 border-t border-slate-800/60 text-[11px] text-slate-500 flex justify-between">
-          <span>{{ (summaryText || '').length }} karakter</span>
-          <span>{{ countWords(summaryText || '') }} kata</span>
+
+        <!-- TAB 2: TRANSKRIP LENGKAP (TRANSCRIPT) -->
+        <div v-else class="space-y-4">
+          <div v-if="rawText" class="text-sm sm:text-base leading-relaxed text-slate-300 font-sans whitespace-pre-wrap">
+            {{ rawText }}
+          </div>
+          <div v-else class="text-center py-16 text-slate-500 italic">
+            Belum ada teks transkripsi yang terdeteksi.
+          </div>
         </div>
+      </div>
+
+      <!-- 4. Footer Bar -->
+      <div class="px-6 py-3 bg-slate-950/80 border-t border-slate-800 text-[11px] text-slate-500 flex items-center justify-between">
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+          <span>Diproses oleh Whisper AI & Llama 3.1</span>
+        </span>
+        <span>SimpulKata Platform</span>
       </div>
     </div>
   </div>
@@ -137,28 +182,45 @@ const props = defineProps<{
   userBalance?: number;
 }>();
 
+// Tab Aktif: 'summary' (default) atau 'transcript'
+const activeTab = ref<'summary' | 'transcript'>('summary');
+const copiedActive = ref<boolean>(false);
+
 const renderedSummary = computed(() => {
   return sanitizeAndRenderMarkdown(props.summaryText);
 });
 
-const copiedRaw = ref(false);
-const copiedSummary = ref(false);
-
-async function copyText(text: string | null | undefined, type: 'raw' | 'summary') {
-  const isSummary = type === 'summary';
-  const success = await copyToClipboard(text, isSummary);
+async function handleCopyActiveTab() {
+  const isSummary = activeTab.value === 'summary';
+  const textToCopy = isSummary ? props.summaryText : props.rawText;
+  const success = await copyToClipboard(textToCopy, isSummary);
 
   if (success) {
-    if (type === 'raw') {
-      copiedRaw.value = true;
-      setTimeout(() => (copiedRaw.value = false), 2000);
-    } else {
-      copiedSummary.value = true;
-      setTimeout(() => (copiedSummary.value = false), 2000);
-    }
+    copiedActive.value = true;
+    setTimeout(() => {
+      copiedActive.value = false;
+    }, 2000);
   } else {
     alert('Gagal menyalin teks ke papan klip secara otomatis. Silakan salin teks secara manual.');
   }
+}
+
+function downloadActiveContent() {
+  const isSummary = activeTab.value === 'summary';
+  const text = isSummary ? props.summaryText : props.rawText;
+  if (!text) return;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const filename = isSummary ? `rangkuman-simpulkata-${Date.now()}.txt` : `transkrip-simpulkata-${Date.now()}.txt`;
+
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 </script>
 
@@ -168,14 +230,14 @@ async function copyText(text: string | null | undefined, type: 'raw' | 'summary'
 }
 
 :deep(.summary-markdown p) {
-  margin-bottom: 0.85rem;
-  line-height: 1.65;
+  margin-bottom: 1rem;
+  line-height: 1.7;
 }
 
 :deep(.summary-markdown strong),
 :deep(.summary-markdown b) {
   font-weight: 700;
-  color: #c7d2fe;
+  color: #ffffff;
 }
 
 :deep(.summary-markdown h1),
@@ -184,43 +246,43 @@ async function copyText(text: string | null | undefined, type: 'raw' | 'summary'
 :deep(.summary-markdown h4) {
   font-weight: 700;
   color: #ffffff;
-  margin-top: 1.1rem;
-  margin-bottom: 0.4rem;
+  margin-top: 1.4rem;
+  margin-bottom: 0.5rem;
   letter-spacing: -0.01em;
 }
 
-:deep(.summary-markdown h1) { font-size: 1.15rem; }
-:deep(.summary-markdown h2) { font-size: 1.05rem; }
-:deep(.summary-markdown h3) { font-size: 0.95rem; }
+:deep(.summary-markdown h1) { font-size: 1.25rem; }
+:deep(.summary-markdown h2) { font-size: 1.15rem; }
+:deep(.summary-markdown h3) { font-size: 1.05rem; }
 
 :deep(.summary-markdown ul) {
   list-style-type: disc;
-  padding-left: 1.25rem;
-  margin-bottom: 0.85rem;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 :deep(.summary-markdown ol) {
   list-style-type: decimal;
-  padding-left: 1.25rem;
-  margin-bottom: 0.85rem;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 :deep(.summary-markdown li) {
-  margin-bottom: 0.35rem;
-  line-height: 1.6;
+  margin-bottom: 0.45rem;
+  line-height: 1.65;
+  color: #cbd5e1;
 }
 
 :deep(.summary-markdown hr) {
   border-color: rgba(51, 65, 85, 0.6);
-  margin: 1rem 0;
+  margin: 1.25rem 0;
 }
 
 :deep(.summary-markdown blockquote) {
-  border-left: 3px solid #818cf8;
-  padding-left: 0.75rem;
+  border-left: 3px solid #38bdf8;
+  padding-left: 0.85rem;
   color: #94a3b8;
   font-style: italic;
-  margin: 0.75rem 0;
+  margin: 0.85rem 0;
 }
 </style>
-

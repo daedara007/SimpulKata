@@ -189,7 +189,12 @@
               </svg>
             </div>
             <div class="truncate">
-              <h4 class="text-sm font-bold text-white truncate group-hover:text-indigo-300 transition-colors" :title="item.original_file_name">
+              <h4
+                class="text-sm font-bold text-white truncate transition-colors"
+                :class="item.status === 'completed' ? 'cursor-pointer hover:text-cyan-300' : ''"
+                :title="item.original_file_name"
+                @click="item.status === 'completed' && openDetail(item.id)"
+              >
                 {{ item.original_file_name }}
               </h4>
               <p class="text-[11px] text-slate-400 mt-0.5">
@@ -207,19 +212,19 @@
               {{ formatStatusLabel(item.status) }}
             </span>
 
-            <!-- Tombol Buka di Studio Transkripsi -->
+            <!-- Tombol Lihat Dokumen Detail Halaman Baru -->
             <button
               v-if="item.status === 'completed'"
               type="button"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-600 border border-indigo-500/30 transition-all cursor-pointer"
-              title="Buka transkrip lengkap di Studio"
-              @click="openInStudio(item.id)"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-cyan-300 hover:text-white bg-cyan-500/10 hover:bg-cyan-600 border border-cyan-500/30 transition-all cursor-pointer shadow-sm shadow-cyan-950/20"
+              title="Buka dokumen rangkuman & transkrip lengkap di halaman baru"
+              @click="openDetail(item.id)"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
-              <span>Buka di Studio</span>
+              <span>Lihat Detail</span>
             </button>
 
             <!-- Tombol Salin Rangkuman Cepat -->
@@ -395,8 +400,8 @@ const filteredHistoryList = computed(() => {
   );
 });
 
-function openInStudio(id: string) {
-  router.push({ path: '/dashboard', query: { id } });
+function openDetail(id: string) {
+  router.push({ path: `/transcripts/${id}` });
 }
 
 async function copyText(text: string, id: string) {
