@@ -120,10 +120,25 @@
       </div>
     </div>
 
+    <!-- Alert Pesan Galat jika ada -->
+    <div
+      v-if="errorMessage"
+      class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between"
+    >
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span>{{ errorMessage }}</span>
+      </div>
+      <button type="button" class="text-rose-400 hover:text-white" @click="errorMessage = null">✕</button>
+    </div>
+
     <!-- Toolbar Filter & Pencarian Log -->
-    <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-md space-y-3">
-      <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <!-- Filter Level Tabs (All / ERROR / WARN / INFO) -->
+    <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-md space-y-4">
+      <!-- Baris 1: Tingkat Level & Input Pencarian -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <!-- Filter Level Tabs (Semua / ERROR / WARN / INFO) -->
         <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-950/80 border border-slate-800/80 w-fit">
           <button
             v-for="lvl in levelOptions"
@@ -141,35 +156,56 @@
           </button>
         </div>
 
-        <!-- Filter Sumber (Source Dropdown) -->
-        <div class="flex items-center gap-2">
-          <select
-            v-model="selectedSource"
-            class="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-            @change="fetchLogs(1)"
-          >
-            <option value="ALL">Semua Sumber</option>
-            <option value="AUTH">AUTH (Autentikasi)</option>
-            <option value="AI_SERVICE">AI_SERVICE (Whisper / Llama)</option>
-            <option value="AUDIO_UPLOAD">AUDIO_UPLOAD (Unggahan)</option>
-            <option value="SYSTEM">SYSTEM (Server Fastify)</option>
-            <option value="USER">USER (Aktivitas Pengguna)</option>
-            <option value="DATABASE">DATABASE (PostgreSQL)</option>
-          </select>
+        <!-- Input Pencarian Pesan / Kata Kunci -->
+        <div class="relative w-full sm:w-72">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Cari pesan atau sumber log..."
+            class="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            @keyup.enter="fetchLogs(1)"
+          />
+          <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </div>
 
-          <!-- Input Pencarian Pesan / Kata Kunci -->
-          <div class="relative w-full sm:w-64">
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Cari pesan log..."
-              class="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              @keyup.enter="fetchLogs(1)"
-            />
-            <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+      <!-- Baris 2: Filter Sumber Modul (Checkboxes) -->
+      <div class="pt-3 border-t border-slate-800/80 space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-300">Pilihan Sumber Modul:</span>
+            <span class="text-[11px] text-slate-500 font-mono">({{ selectedSources.length }} dari {{ sourceOptions.length }} terpilih)</span>
           </div>
+          <button
+            type="button"
+            class="text-[11px] font-medium text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer transition-colors"
+            @click="toggleAllSources"
+          >
+            {{ isAllSourcesSelected ? 'Batalkan Semua' : 'Pilih Semua Sumber' }}
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <label
+            v-for="src in sourceOptions"
+            :key="src.value"
+            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all border select-none"
+            :class="selectedSources.includes(src.value)
+              ? 'bg-indigo-600/15 border-indigo-500/50 text-indigo-200 shadow-sm shadow-indigo-500/10'
+              : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-300 hover:bg-slate-900/60'"
+          >
+            <input
+              type="checkbox"
+              :value="src.value"
+              v-model="selectedSources"
+              class="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-indigo-600"
+              @change="onSourceChange"
+            />
+            <span>{{ src.label }}</span>
+            <span class="text-[10px] text-slate-500 font-normal">({{ src.description }})</span>
+          </label>
         </div>
       </div>
     </div>
@@ -270,7 +306,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import adminModel, { SystemLog, LogStats } from '../models/adminModel';
 
 const logs = ref<SystemLog[]>([]);
@@ -283,6 +319,7 @@ const stats = ref<LogStats>({
 
 const isLoading = ref<boolean>(false);
 const isExporting = ref<boolean>(false);
+const errorMessage = ref<string | null>(null);
 const isAutoRefreshEnabled = ref<boolean>(true);
 let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -292,7 +329,6 @@ const totalLogs = ref<number>(0);
 const pageSize = ref<number>(50);
 
 const selectedLevel = ref<string>('ALL');
-const selectedSource = ref<string>('ALL');
 const searchQuery = ref<string>('');
 
 const levelOptions = [
@@ -302,17 +338,56 @@ const levelOptions = [
   { label: 'INFO', value: 'INFO' },
 ];
 
+const sourceOptions = [
+  { label: 'AUTH', description: 'Autentikasi & Sesi', value: 'AUTH' },
+  { label: 'AI_SERVICE', description: 'Whisper & Llama', value: 'AI_SERVICE' },
+  { label: 'AUDIO_UPLOAD', description: 'Unggahan Audio', value: 'AUDIO_UPLOAD' },
+  { label: 'SYSTEM', description: 'Server Fastify', value: 'SYSTEM' },
+  { label: 'USER', description: 'Aktivitas Pengguna', value: 'USER' },
+  { label: 'DATABASE', description: 'PostgreSQL DB', value: 'DATABASE' },
+];
+
+const selectedSources = ref<string[]>(sourceOptions.map((s) => s.value));
+
+const isAllSourcesSelected = computed(() => {
+  return selectedSources.value.length === sourceOptions.length;
+});
+
+function toggleAllSources() {
+  if (isAllSourcesSelected.value) {
+    selectedSources.value = [];
+  } else {
+    selectedSources.value = sourceOptions.map((s) => s.value);
+  }
+  fetchLogs(1);
+}
+
+function onSourceChange() {
+  fetchLogs(1);
+}
+
 function setLevelFilter(level: string) {
   selectedLevel.value = level;
   fetchLogs(1);
 }
 
+function getFormattedSourceQuery(): string {
+  if (selectedSources.value.length === 0) {
+    return 'NONE';
+  }
+  if (selectedSources.value.length === sourceOptions.length) {
+    return 'ALL';
+  }
+  return selectedSources.value.join(',');
+}
+
 async function fetchLogs(page = 1) {
   isLoading.value = true;
+  errorMessage.value = null;
   try {
     const data = await adminModel.getLogs({
       level: selectedLevel.value,
-      source: selectedSource.value,
+      source: getFormattedSourceQuery(),
       search: searchQuery.value,
       page,
       limit: pageSize.value,
@@ -327,6 +402,7 @@ async function fetchLogs(page = 1) {
     }
   } catch (err: any) {
     console.error('[AdminLogsView] Gagal mengambil log:', err);
+    errorMessage.value = 'Gagal memuat log sistem. Silakan periksa koneksi atau coba lagi.';
   } finally {
     isLoading.value = false;
   }
@@ -334,15 +410,16 @@ async function fetchLogs(page = 1) {
 
 async function handleExportCsv() {
   isExporting.value = true;
+  errorMessage.value = null;
   try {
     await adminModel.downloadLogsCsv({
       level: selectedLevel.value,
-      source: selectedSource.value,
+      source: getFormattedSourceQuery(),
       search: searchQuery.value,
     });
   } catch (err: any) {
     console.error('[AdminLogsView] Gagal ekspor CSV:', err);
-    alert('Gagal mengunduh berkas CSV log sistem.');
+    errorMessage.value = 'Gagal mengunduh berkas CSV log sistem. Silakan coba sesaat lagi.';
   } finally {
     isExporting.value = false;
   }

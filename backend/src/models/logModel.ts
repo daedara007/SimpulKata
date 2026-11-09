@@ -45,14 +45,43 @@ export class LogModel {
     const values: any[] = [];
     let paramIndex = 1;
 
-    if (level && level.toUpperCase() !== 'ALL') {
-      conditions.push(`level = $${paramIndex++}`);
-      values.push(level.toUpperCase());
+    if (level && level.trim() !== '' && level.toUpperCase() !== 'ALL') {
+      const levels = level
+        .split(',')
+        .map((l) => l.trim().toUpperCase())
+        .filter((l) => ['INFO', 'WARN', 'ERROR'].includes(l));
+
+      if (levels.length === 1) {
+        conditions.push(`level = $${paramIndex++}`);
+        values.push(levels[0]);
+      } else if (levels.length > 1) {
+        conditions.push(`level = ANY($${paramIndex++}::varchar[])`);
+        values.push(levels);
+      } else {
+        conditions.push(`1 = 0`);
+      }
     }
 
     if (source && source.trim() !== '' && source.toUpperCase() !== 'ALL') {
-      conditions.push(`source ILIKE $${paramIndex++}`);
-      values.push(`%${source.trim()}%`);
+      const sources = source
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      if (sources.length === 1) {
+        if (sources[0].toUpperCase() === 'NONE') {
+          conditions.push('1 = 0');
+        } else {
+          conditions.push(`source ILIKE $${paramIndex++}`);
+          values.push(`%${sources[0]}%`);
+        }
+      } else if (sources.length > 1) {
+        const sourceConds = sources.map((s) => {
+          values.push(`%${s}%`);
+          return `source ILIKE $${paramIndex++}`;
+        });
+        conditions.push(`(${sourceConds.join(' OR ')})`);
+      }
     }
 
     if (search && search.trim() !== '') {
@@ -121,14 +150,43 @@ export class LogModel {
     const values: any[] = [];
     let paramIndex = 1;
 
-    if (level && level.toUpperCase() !== 'ALL') {
-      conditions.push(`level = $${paramIndex++}`);
-      values.push(level.toUpperCase());
+    if (level && level.trim() !== '' && level.toUpperCase() !== 'ALL') {
+      const levels = level
+        .split(',')
+        .map((l) => l.trim().toUpperCase())
+        .filter((l) => ['INFO', 'WARN', 'ERROR'].includes(l));
+
+      if (levels.length === 1) {
+        conditions.push(`level = $${paramIndex++}`);
+        values.push(levels[0]);
+      } else if (levels.length > 1) {
+        conditions.push(`level = ANY($${paramIndex++}::varchar[])`);
+        values.push(levels);
+      } else {
+        conditions.push(`1 = 0`);
+      }
     }
 
     if (source && source.trim() !== '' && source.toUpperCase() !== 'ALL') {
-      conditions.push(`source ILIKE $${paramIndex++}`);
-      values.push(`%${source.trim()}%`);
+      const sources = source
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      if (sources.length === 1) {
+        if (sources[0].toUpperCase() === 'NONE') {
+          conditions.push('1 = 0');
+        } else {
+          conditions.push(`source ILIKE $${paramIndex++}`);
+          values.push(`%${sources[0]}%`);
+        }
+      } else if (sources.length > 1) {
+        const sourceConds = sources.map((s) => {
+          values.push(`%${s}%`);
+          return `source ILIKE $${paramIndex++}`;
+        });
+        conditions.push(`(${sourceConds.join(' OR ')})`);
+      }
     }
 
     if (search && search.trim() !== '') {
