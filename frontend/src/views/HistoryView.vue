@@ -178,7 +178,9 @@
       <div
         v-for="item in filteredHistoryList"
         :key="item.id"
-        class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800/90 hover:border-slate-700 shadow-lg backdrop-blur-sm transition-all duration-200 space-y-3.5 group"
+        class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800/90 shadow-lg backdrop-blur-sm transition-all duration-200 space-y-3.5 group"
+        :class="item.status === 'completed' ? 'cursor-pointer hover:border-slate-700 hover:bg-slate-900/90 hover:shadow-indigo-950/20' : ''"
+        @click="item.status === 'completed' && openDetail(item.id)"
       >
         <!-- Baris Atas: Nama Berkas, Status, & Aksi Cepat -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -190,10 +192,8 @@
             </div>
             <div class="truncate">
               <h4
-                class="text-sm font-bold text-white truncate transition-colors"
-                :class="item.status === 'completed' ? 'cursor-pointer hover:text-cyan-300' : ''"
+                class="text-sm font-bold text-white truncate transition-colors group-hover:text-cyan-300"
                 :title="item.original_file_name"
-                @click="item.status === 'completed' && openDetail(item.id)"
               >
                 {{ item.original_file_name }}
               </h4>
@@ -212,28 +212,13 @@
               {{ formatStatusLabel(item.status) }}
             </span>
 
-            <!-- Tombol Lihat Dokumen Detail Halaman Baru -->
-            <button
-              v-if="item.status === 'completed'"
-              type="button"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-cyan-300 hover:text-white bg-cyan-500/10 hover:bg-cyan-600 border border-cyan-500/30 transition-all cursor-pointer shadow-sm shadow-cyan-950/20"
-              title="Buka dokumen rangkuman & transkrip lengkap di halaman baru"
-              @click="openDetail(item.id)"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              <span>Lihat Detail</span>
-            </button>
-
             <!-- Tombol Salin Rangkuman Cepat -->
             <button
               v-if="item.summary_text"
               type="button"
               class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition-colors cursor-pointer"
               title="Salin Rangkuman"
-              @click="copyText(item.summary_text, item.id)"
+              @click.stop="copyText(item.summary_text, item.id)"
             >
               <svg v-if="copiedId !== item.id" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
@@ -246,7 +231,7 @@
               type="button"
               class="p-2 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-colors cursor-pointer"
               title="Hapus riwayat transkripsi ini"
-              @click="confirmDelete(item)"
+              @click.stop="confirmDelete(item)"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -263,7 +248,7 @@
           {{ item.raw_text }}
         </div>
 
-        <!-- Baris Bawah: Statistik (Durasi, Jumlah Kata, Token LLM) -->
+        <!-- Baris Bawah: Statistik (Durasi & Jumlah Kata) -->
         <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-800/60 text-[11px] text-slate-400">
           <span class="flex items-center gap-1 font-mono">
             ⏱️ Durasi: {{ formatDuration(item.duration_seconds || 0) }}
@@ -272,12 +257,6 @@
           <span class="flex items-center gap-1">
             📄 {{ countWords(item.raw_text) }} kata
           </span>
-          <template v-if="item.tokens_used">
-            <span>&bull;</span>
-            <span class="flex items-center gap-1 text-slate-500">
-              ⚡ {{ item.tokens_used }} token AI
-            </span>
-          </template>
         </div>
       </div>
     </div>

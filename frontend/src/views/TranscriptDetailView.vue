@@ -75,10 +75,6 @@
                 <span>{{ formatDateTime(transcriptItem.created_at) }}</span>
                 <span>&bull;</span>
                 <span class="font-mono">⏱️ {{ formatDuration(transcriptItem.duration_seconds || 0) }}</span>
-                <template v-if="transcriptItem.tokens_used">
-                  <span>&bull;</span>
-                  <span>⚡ {{ transcriptItem.tokens_used }} token</span>
-                </template>
               </div>
             </div>
           </div>

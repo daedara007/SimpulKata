@@ -41,43 +41,41 @@
 
     <!-- Main Container Card (Layout Mirip Fathom) -->
     <div class="rounded-2xl bg-slate-900/80 border border-slate-800 shadow-2xl overflow-hidden backdrop-blur-md">
-      <!-- 1. Top Tabs Navigation Bar (SUMMARY / TRANSCRIPT) -->
-      <div class="flex items-center gap-6 px-6 pt-4 border-b border-slate-800 bg-slate-950/60 select-none">
-        <button
-          type="button"
-          class="pb-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all cursor-pointer relative"
-          :class="[
-            activeTab === 'summary'
-              ? 'text-cyan-400 border-b-2 border-cyan-400'
-              : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent'
-          ]"
-          @click="activeTab = 'summary'"
-        >
-          <span class="flex items-center gap-2">
+      <!-- 1. Top Tabs Navigation Bar (RANGKUMAN / TRANSKRIP LENGKAP) -->
+      <div class="px-5 sm:px-6 py-3.5 border-b border-slate-800 bg-slate-950/70 select-none">
+        <div class="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-inner">
+          <button
+            type="button"
+            class="flex items-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer"
+            :class="[
+              activeTab === 'summary'
+                ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            ]"
+            @click="activeTab = 'summary'"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
             <span>Rangkuman</span>
-            <span class="text-[10px] font-mono font-normal px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-              AI Summary
-            </span>
-          </span>
-        </button>
+          </button>
 
-        <button
-          type="button"
-          class="pb-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all cursor-pointer relative"
-          :class="[
-            activeTab === 'transcript'
-              ? 'text-cyan-400 border-b-2 border-cyan-400'
-              : 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent'
-          ]"
-          @click="activeTab = 'transcript'"
-        >
-          <span class="flex items-center gap-2">
+          <button
+            type="button"
+            class="flex items-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer"
+            :class="[
+              activeTab === 'transcript'
+                ? 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            ]"
+            @click="activeTab = 'transcript'"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+            </svg>
             <span>Transkrip Lengkap</span>
-            <span class="text-[10px] font-mono font-normal px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-              Whisper STT
-            </span>
-          </span>
-        </button>
+          </button>
+        </div>
       </div>
 
       <!-- 2. Sub-Toolbar: Metadata & Tombol Aksi Cepat -->
@@ -152,15 +150,6 @@
             Belum ada teks transkripsi yang terdeteksi.
           </div>
         </div>
-      </div>
-
-      <!-- 4. Footer Bar -->
-      <div class="px-6 py-3 bg-slate-950/80 border-t border-slate-800 text-[11px] text-slate-500 flex items-center justify-between">
-        <span class="flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-          <span>Diproses oleh Whisper AI & Llama 3.1</span>
-        </span>
-        <span>SimpulKata Platform</span>
       </div>
     </div>
   </div>
