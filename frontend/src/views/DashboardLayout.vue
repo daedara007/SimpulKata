@@ -35,13 +35,6 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>Riwayat</span>
-          <span
-            v-if="typeof totalHistoryCount === 'number'"
-            class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold"
-            :class="isHistoryActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'"
-          >
-            {{ totalHistoryCount }}
-          </span>
         </RouterLink>
       </div>
     </div>

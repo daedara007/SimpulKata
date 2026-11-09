@@ -42,13 +42,6 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>Riwayat Arsip</span>
-          <span
-            v-if="typeof historyCount === 'number'"
-            class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold transition-colors"
-            :class="isHistoryActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300 border border-slate-700'"
-          >
-            {{ historyCount }}
-          </span>
         </RouterLink>
       </nav>
 
