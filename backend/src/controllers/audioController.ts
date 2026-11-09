@@ -19,6 +19,7 @@ import path from 'path';
 import { pipeline } from 'stream/promises';
 import { userModel, transcriptModel } from '../models';
 import aiService from '../services/aiService';
+import { logService } from '../services/logService';
 
 // Daftar ekstensi audio yang didukung (sesuai SRS UC-07 & UC-08)
 const ALLOWED_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.webm', '.ogg']);
@@ -100,8 +101,9 @@ export async function runTranscriptionPipeline({
       tokensUsed = summaryResult.tokens_used;
     } catch (sumErr: any) {
       console.warn(`[AudioPipeline] Gagal membuat rangkuman teks untuk transcript ${transcriptId}:`, sumErr.message);
+      logService.warn('AI_SERVICE', `Pembuatan rangkuman fallback untuk transkrip ${transcriptId}: ${sumErr.message}`);
       summaryWarning = sumErr.message || 'Layanan rangkuman AI sedang tidak tersedia.';
-      summaryText = `*(Rangkuman otomatis belum tersedia: ${summaryWarning}. Transkripsi lengkap telah berhasil disimpan.)*`;
+      summaryText = `*(Rangkuman otomatis belum tersedia: Layanan perangkuman AI sedang mengalami kendala sementara. Transkripsi lengkap telah berhasil disimpan.)*`;
     }
 
     // 4. Update status transkrip menjadi 'completed' via TranscriptModel
@@ -114,7 +116,7 @@ export async function runTranscriptionPipeline({
 
     // 5. Hapus file audio fisik dari server (sesuai sequence SD-09 step 16 & Rule 3)
     await safeUnlink(savedFilePath);
-    console.log(`[AudioPipeline] Pemrosesan selesai sukses untuk transcript: ${transcriptId}`);
+    logService.info('AI_SERVICE', `Transkripsi & rangkuman berhasil selesai untuk transkrip: ${transcriptId} (${durationSeconds}s, ${tokensUsed} token)`);
 
     return {
       transcript_id: transcriptId,
@@ -126,6 +128,7 @@ export async function runTranscriptionPipeline({
     };
   } catch (error: any) {
     console.error(`[AudioPipeline] Error saat memproses pipeline transcript ${transcriptId}:`, error);
+    logService.error('AI_SERVICE', `Kegagalan pemrosesan AI pada transkrip ${transcriptId}: ${error.message}`, error);
 
     // Bersihkan berkas fisik
     await safeUnlink(savedFilePath);
@@ -134,20 +137,23 @@ export async function runTranscriptionPipeline({
     if (isQuotaReserved && error.code !== 'NO_SPEECH_DETECTED' && userId && durationSeconds > 0) {
       try {
         await userModel.refundBalance(userId, durationSeconds);
-        console.log(`[AudioPipeline] Mengembalikan kuota ${durationSeconds}s ke user ${userId} karena pemrosesan gagal`);
+        logService.info('AI_SERVICE', `Mengembalikan kuota ${durationSeconds}s ke user ${userId} karena pemrosesan transkrip gagal.`);
       } catch (refundErr: any) {
-        console.error('[AudioPipeline] Gagal mengembalikan kuota:', refundErr.message);
+        logService.error('AI_SERVICE', `Gagal mengembalikan kuota ke user ${userId}: ${refundErr.message}`, refundErr);
       }
     }
 
     // Tandai status transcript sebagai 'failed' jika belum
     if (error.code !== 'NO_SPEECH_DETECTED' && transcriptId) {
       try {
+        // Simpan pesan yang ramah pengguna, detail teknis mentah tersimpan di system_logs (UC-15)
+        const userFriendlyFailure =
+          'Pemrosesan audio gagal karena layanan AI sedang mengalami kendala sementara. Kuota Anda telah dikembalikan secara otomatis. Silakan coba unggah kembali beberapa saat lagi.';
         await transcriptModel.updateFailed(transcriptId, {
-          summaryText: `Gagal memproses audio: ${error.message || 'Terjadi kesalahan sistem saat pemrosesan AI'}`,
+          summaryText: userFriendlyFailure,
         });
       } catch (dbErr: any) {
-        console.error('[AudioPipeline] Gagal update status transcript ke failed:', dbErr.message);
+        logService.error('DATABASE', `Gagal update status transcript ke failed: ${dbErr.message}`, dbErr);
       }
     }
 
@@ -586,7 +592,7 @@ export class AudioController {
         await safeUnlink(deletedRecord.file_path);
       }
 
-      console.log(`[AudioController] Riwayat transkripsi berhasil dihapus: ID=${id}, User=${userId}`);
+      logService.info('USER', `Pengguna ${userId} menghapus arsip transkripsi ${id} ('${deletedRecord.original_file_name}')`);
 
       return reply.status(200).send({
         status: 'success',

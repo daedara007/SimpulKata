@@ -154,14 +154,13 @@ export function useAudioController() {
           } else if (item?.status === 'failed') {
             clearInterval(poller);
             if (onProgressUpdate) await onProgressUpdate();
-            const failMsg = item.summary_text || item.raw_text || 'Pemrosesan audio gagal.';
+            const failMsg = item.summary_text || 'Pemrosesan audio gagal karena kendala pada layanan AI. Kuota Anda telah dikembalikan secara otomatis.';
             errorMessage.value = failMsg;
-            alert(`Pemrosesan Gagal: ${failMsg}`);
             resolve();
           } else if (attempts >= maxAttempts) {
             clearInterval(poller);
             if (onProgressUpdate) await onProgressUpdate();
-            alert('Pemrosesan audio membutuhkan waktu lebih lama di latar belakang. Silakan pantau statusnya pada menu Riwayat.');
+            errorMessage.value = 'Pemrosesan audio membutuhkan waktu lebih lama di latar belakang. Proses tetap berlanjut di server dan dapat Anda pantau pada menu Riwayat Arsip.';
             resolve();
           }
         } catch (pollErr) {
@@ -250,12 +249,11 @@ export function useAudioController() {
 
       let errorMsg = 'Terjadi kesalahan saat memproses audio.';
       if (err.response?.status === 413 || err.message?.includes('413')) {
-        errorMsg = 'Unggahan ditolak (HTTP 413): Ukuran berkas melebihi batas maksimal yang diizinkan server (200MB).';
+        errorMsg = 'Unggahan ditolak: Ukuran berkas melebihi batas maksimal yang diizinkan server (200MB).';
+      } else if (err.response?.status === 402) {
+        errorMsg = err.response.data?.message || 'Sisa saldo kuota Anda tidak mencukupi untuk memproses rekaman ini.';
       } else if (err.response?.data?.message) {
         errorMsg = err.response.data.message;
-        if (err.response.data.detail) {
-          errorMsg += ` (${err.response.data.detail})`;
-        }
       } else if (err.message) {
         errorMsg = err.message;
       }

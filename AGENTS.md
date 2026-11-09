@@ -133,6 +133,15 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `tokens_used` | INTEGER | Estimasi token LLM yang digunakan |
 | `created_at` / `updated_at` | TIMESTAMP | Waktu pembuatan & pembaruan |
 
+### Tabel `system_logs`
+| Kolom | Tipe | Deskripsi |
+|---|---|---|
+| `id` | UUID (PK) | Identifier unik entri log (`gen_random_uuid()`) |
+| `level` | VARCHAR(20) | Tingkat keparahan: `'INFO'`, `'WARN'`, `'ERROR'` |
+| `source` | VARCHAR(100) | Sumber modul (`'AUTH'`, `'AI_SERVICE'`, `'AUDIO_UPLOAD'`, `'SYSTEM'`, `'DATABASE'`) |
+| `message` | TEXT | Deskripsi peristiwa atau detail teknis galat sistem |
+| `created_at` | TIMESTAMP | Waktu pencatatan log (Default: `NOW()`) |
+
 ---
 
 ## 5. Daftar Endpoint API
@@ -154,6 +163,8 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `PUT` | `/api/users/change-password` | Protected (JWT) | Mengubah kata sandi pengguna dengan validasi sandi saat ini & revoke seluruh sesi aktif (SRS UC-05 & SD-05) |
 | `POST` | `/api/process-audio` | Protected (JWT) | Mengunggah audio, validasi kuota, transkripsi & rangkuman |
 | `GET` | `/api/history` | Protected (JWT) | Mengambil arsip riwayat pengguna (pagination & filter) |
+| `GET` | `/api/admin/logs` | Admin (JWT) | Mengambil riwayat log sistem dengan filter level/sumber & paginasi (SRS UC-15 & SD-15) |
+| `GET` | `/api/admin/logs/export` | Admin (JWT) | Mengunduh berkas laporan log sistem format CSV (SRS UC-15 & SD-15) |
 | `GET` | `/health` / `/api/health` | Publik | Healthcheck server Fastify |
 | `GET` | `/health/db` | Publik | Healthcheck koneksi PostgreSQL |
 

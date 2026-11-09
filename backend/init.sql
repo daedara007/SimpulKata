@@ -112,6 +112,24 @@ CREATE INDEX IF NOT EXISTS idx_transcripts_user_id ON transcripts (user_id);
 CREATE INDEX IF NOT EXISTS idx_transcripts_status  ON transcripts (status);
 
 -- ----------------------------------------------------------
+-- TABEL: system_logs
+-- Menyimpan log aktivitas sistem, audit error, dan webhook failures
+-- Berdasarkan: referensi/erd.puml dan SRS FR-ADM-02 / UC-15 (SD-15)
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS system_logs (
+    id          UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+    level       VARCHAR(20)     NOT NULL CHECK (level IN ('INFO', 'WARN', 'ERROR')),
+    source      VARCHAR(100)    NOT NULL,
+    message     TEXT            NOT NULL,
+    created_at  TIMESTAMP       NOT NULL DEFAULT NOW()
+);
+
+-- Index untuk mempercepat pencarian log sistem per tanggal, level, dan sumber
+CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_system_logs_level      ON system_logs (level);
+CREATE INDEX IF NOT EXISTS idx_system_logs_source     ON system_logs (source);
+
+-- ----------------------------------------------------------
 -- FUNGSI: auto_update_updated_at()
 -- Trigger function untuk otomatis memperbarui kolom updated_at
 -- setiap kali ada operasi UPDATE pada tabel

@@ -10,6 +10,15 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added
+- **Implementasi Sistem Log Terpusat (SRS UC-15 / SD-15) & Penyempurnaan Error Handler**:
+  - Membuat tabel `system_logs` di PostgreSQL dan modul DAO `logModel.ts` untuk merekam aktivitas autentikasi, unggahan, segmentasi Whisper, inferensi Llama 3.1, dan audit error sistem.
+  - Membangun `logService.ts` terpusat bersifat non-blocking asynchronous fire-and-forget yang terhubung ke Fastify Global Error Handler dan background AI pipeline.
+  - Mengembangkan endpoint API Admin:
+    - `GET /api/admin/logs`: Mengambil riwayat log sistem dengan filter level (`ALL`, `ERROR`, `WARN`, `INFO`), filter sumber modul, pencarian kata kunci, serta paginasi.
+    - `GET /api/admin/logs/export`: Mengunduh berkas laporan riwayat log dalam format `.csv` dengan header escaped.
+  - Membangun halaman antarmuka Administrator baru `AdminLogsView.vue` pada rute `/admin/logs` lengkap dengan widget statistik (Total, Error, Warn, Info), badge status warna, filter interaktif, auto-refresh polling 30 detik (SRS UC-15 step 7), dan tombol ekspor CSV.
+  - Menambahkan tautan navigasi khusus "Log Sistem" pada `DashboardNavbar.vue` yang hanya muncul bagi pengguna berstatus `role === 'admin'`.
+  - Menyempurnakan penanganan galat (*error handler*) end-to-end: menghapus dialog kaku `alert(...)` peramban, menyaring pesan galat teknis internal (*sanitized user-friendly messages*), serta menyediakan kartu status error interaktif dengan tombol "Coba Unggah Ulang" pada `AudioUploadCard.vue`.
 - **Pembaruan Desain Tabbed Preview & Halaman Mandiri Detail Riwayat (`/transcripts/:id`)**:
   - Memperbarui komponen `AudioResultCard.vue` dengan antarmuka Tabbed modern bergaya Fathom AI: tab **Rangkuman (SUMMARY)** dan **Transkrip Lengkap (TRANSCRIPT)** dengan garis indikator aktif cyan dan toolbar aksi cepat (*Salin Rangkuman*, *Salin Transkrip*, dan *Unduh TXT*).
   - Membuat halaman mandiri baru `TranscriptDetailView.vue` pada rute `/transcripts/:id` (alias `/history/:id`) khusus untuk membaca dokumen riwayat secara fokus tanpa terganggu kotak unggah audio.

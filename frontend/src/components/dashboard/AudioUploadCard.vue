@@ -382,11 +382,24 @@
       </div>
       <div class="flex-1 text-sm text-rose-200">
         <p class="font-semibold text-rose-300">Gagal Memproses Audio</p>
-        <p class="mt-0.5 text-xs text-rose-300/80">{{ errorMessage }}</p>
+        <p class="mt-0.5 text-xs text-rose-300/80 leading-relaxed">{{ errorMessage }}</p>
+        <div class="mt-2.5 flex items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 transition-colors cursor-pointer"
+            @click="$emit('clear-error'); $emit('clear-file');"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Coba Unggah Ulang</span>
+          </button>
+        </div>
       </div>
       <button
         type="button"
         class="text-rose-400 hover:text-rose-300 p-1 cursor-pointer"
+        title="Tutup pesan error"
         @click="$emit('clear-error')"
       >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

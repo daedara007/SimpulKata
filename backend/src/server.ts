@@ -26,6 +26,8 @@ import { cleanupExpiredChunks } from './controllers/uploadController';
 import authRoutes from './routes/auth';
 import audioRoutes from './routes/audio';
 import userRoutes from './routes/user';
+import adminRoutes from './routes/admin';
+import { logService } from './services/logService';
 
 const fastify = Fastify({
   logger: {
@@ -137,18 +139,29 @@ fastify.get('/health/db', async (_request: FastifyRequest, reply: FastifyReply) 
 fastify.register(authRoutes, { prefix: '/api/auth' });
 fastify.register(audioRoutes, { prefix: '/api' });
 fastify.register(userRoutes, { prefix: '/api/users' });
+fastify.register(adminRoutes, { prefix: '/api/admin' });
 
 // ----------------------------------------------------------
-// GLOBAL ERROR HANDLER
+// GLOBAL ERROR HANDLER (Sentralisasi Error ke System Logs & Sanitasi Response)
 // ----------------------------------------------------------
-fastify.setErrorHandler((error: any, _request: FastifyRequest, reply: FastifyReply) => {
+fastify.setErrorHandler((error: any, request: FastifyRequest, reply: FastifyReply) => {
   fastify.log.error(error);
+
+  const statusCode = error.statusCode || 500;
+  const endpoint = `${request.method} ${request.url}`;
+
+  // Rekam error secara terstruktur ke tabel system_logs (UC-15)
+  if (statusCode >= 500) {
+    logService.error('SYSTEM', `Internal Server Error pada [${endpoint}]: ${error.message}`, error);
+  } else if (statusCode >= 400) {
+    logService.warn('SYSTEM', `Client Error (${statusCode}) pada [${endpoint}]: ${error.message}`);
+  }
 
   if (error.validation) {
     return reply.status(400).send({
       status: 'error',
       code: 'VALIDATION_ERROR',
-      message: 'Data yang dikirim tidak valid.',
+      message: 'Data masukan yang dikirim tidak valid.',
       details: error.validation,
     });
   }
@@ -157,7 +170,7 @@ fastify.setErrorHandler((error: any, _request: FastifyRequest, reply: FastifyRep
     return reply.status(413).send({
       status: 'error',
       code: 'FILE_TOO_LARGE',
-      message: `Ukuran file melebihi batas maksimal ${MAX_FILE_SIZE_MB}MB.`,
+      message: `Ukuran berkas melebihi batas maksimal ${MAX_FILE_SIZE_MB}MB.`,
     });
   }
 
@@ -165,15 +178,20 @@ fastify.setErrorHandler((error: any, _request: FastifyRequest, reply: FastifyRep
     return reply.status(400).send({
       status: 'error',
       code: 'INVALID_CONTENT_TYPE',
-      message: 'Request harus berupa multipart/form-data dengan field file "audio".',
+      message: 'Permintaan harus berupa multipart/form-data dengan berkas audio.',
     });
   }
 
-  const statusCode = error.statusCode || 500;
+  // Sanitasi pesan internal untuk status 500 demi keamanan dan kejelasan pengguna
+  const clientSafeMessage =
+    statusCode >= 500 && process.env.NODE_ENV === 'production'
+      ? 'Terjadi kendala pada server saat memproses permintaan Anda. Silakan coba kembali beberapa saat lagi.'
+      : error.message || 'Terjadi kesalahan pada server.';
+
   return reply.status(statusCode).send({
     status: 'error',
     code: error.code || 'INTERNAL_SERVER_ERROR',
-    message: error.message || 'Terjadi kesalahan pada server.',
+    message: clientSafeMessage,
   });
 });
 

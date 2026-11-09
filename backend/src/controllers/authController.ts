@@ -14,6 +14,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { userModel, sessionModel, otpModel } from '../models';
 import emailService from '../services/emailService';
+import { logService } from '../services/logService';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BCRYPT_SALT_ROUNDS = 10;
@@ -387,6 +388,7 @@ export class AuthController {
       // 2. Ambil user via UserModel (SD-02 langkah 6 & 7: getUserByEmail)
       const user = await userModel.findByEmail(normalizedEmail);
       if (!user) {
+        logService.warn('AUTH', `Percobaan login gagal: Akun dengan email '${normalizedEmail}' tidak ditemukan.`);
         return reply.status(401).send({
           status: 'error',
           code: 'INVALID_CREDENTIALS',
@@ -397,6 +399,7 @@ export class AuthController {
       // 3. Verifikasi Hash Password (SD-02 langkah 8 & 31: verifikasiHashPassword)
       const isPasswordValid = await bcrypt.compare(password, user.password_hash);
       if (!isPasswordValid) {
+        logService.warn('AUTH', `Percobaan login gagal untuk email '${normalizedEmail}': Kata sandi salah.`);
         return reply.status(401).send({
           status: 'error',
           code: 'INVALID_CREDENTIALS',
@@ -406,6 +409,7 @@ export class AuthController {
 
       // Pengecekan status akun (SD-01 & SD-02): Jika masih PENDING, tolak dan arahkan verifikasi OTP
       if (user.status === 'PENDING') {
+        logService.warn('AUTH', `Percobaan login ditolak untuk email '${normalizedEmail}': Akun belum diverifikasi OTP.`);
         return reply.status(403).send({
           status: 'error',
           code: 'ACCOUNT_NOT_VERIFIED',
@@ -446,6 +450,8 @@ export class AuthController {
         userAgent,
         daysValid: 7,
       });
+
+      logService.info('AUTH', `Pengguna '${user.email}' (Role: ${user.role}) berhasil login dari IP ${ipAddress || 'unknown'}.`);
 
       // 6. Kembalikan data, access token, dan refresh token (SD-02 langkah 12 & 45)
       return reply.status(200).send({

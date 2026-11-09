@@ -47,6 +47,12 @@ const routes: RouteRecordRaw[] = [
         alias: '/history/:id',
         component: () => import('../views/TranscriptDetailView.vue'),
       },
+      {
+        path: '/admin/logs',
+        name: 'admin-logs',
+        component: () => import('../views/AdminLogsView.vue'),
+        meta: { requiresAdmin: true },
+      },
     ],
   },
   // Backward compatibility: redirect anchor-like paths
@@ -78,10 +84,18 @@ export const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const token = authModel.getStoredToken();
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
+  const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin);
   const guestOnly = to.matched.some((record) => record.meta.guestOnly);
 
   if (requiresAuth && !token) {
     return next({ name: 'login', query: { redirect: to.fullPath } });
+  }
+
+  if (requiresAdmin) {
+    const user = authModel.getStoredUser();
+    if (!user || user.role !== 'admin') {
+      return next({ name: 'dashboard' });
+    }
   }
 
   if (guestOnly && token) {
