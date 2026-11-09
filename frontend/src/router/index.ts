@@ -48,6 +48,16 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/TranscriptDetailView.vue'),
       },
       {
+        path: '/admin',
+        redirect: '/admin/users',
+      },
+      {
+        path: '/admin/users',
+        name: 'admin-users',
+        component: () => import('../views/AdminUsersView.vue'),
+        meta: { requiresAdmin: true },
+      },
+      {
         path: '/admin/logs',
         name: 'admin-logs',
         component: () => import('../views/AdminLogsView.vue'),

@@ -9,6 +9,9 @@ import {
   UserSafe,
   CreateUserDTO,
   UpdatePendingUserDTO,
+  UserFilterQuery,
+  UserListResult,
+  UserStats,
 } from '../types';
 
 export class UserModel {
@@ -197,6 +200,137 @@ export class UserModel {
       [seconds, userId]
     );
     return res.rows[0]?.balance ?? 0;
+  }
+
+  /**
+   * Mengambil daftar pengguna dengan paginasi dan filter (SRS UC-16 / SD-16 Langkah 4)
+   */
+  async findUsers({
+    status,
+    search,
+    page = 1,
+    limit = 50,
+  }: UserFilterQuery): Promise<UserListResult> {
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (status && status.toUpperCase() !== 'ALL') {
+      conditions.push(`status = $${paramIndex++}`);
+      values.push(status.toUpperCase());
+    }
+
+    if (search && search.trim() !== '') {
+      conditions.push(`(name ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`);
+      values.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Query total pengguna & statistik secara paralel
+    const [countRes, stats] = await Promise.all([
+      db.query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM users ${whereClause}`,
+        values
+      ),
+      this.getUserStats(),
+    ]);
+
+    const total = parseInt(countRes.rows[0]?.count || '0', 10);
+    const safeLimit = Math.max(1, Math.min(limit, 100));
+    const safePage = Math.max(1, page);
+    const offset = (safePage - 1) * safeLimit;
+    const totalPages = Math.ceil(total / safeLimit) || 1;
+
+    // Ambil data pengguna aman (tanpa password_hash)
+    const dataValues = [...values, safeLimit, offset];
+    const dataRes = await db.query<UserSafe>(
+      `SELECT id, name, email, balance, role, status, avatar_url, created_at, updated_at
+       FROM users
+       ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
+      dataValues
+    );
+
+    return {
+      users: dataRes.rows,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages,
+      stats,
+    };
+  }
+
+  /**
+   * Mengambil data pengguna untuk ekspor berkas CSV (SD-16 Langkah 8-12)
+   */
+  async getUsersForExport({
+    status,
+    search,
+    limit = 5000,
+  }: UserFilterQuery): Promise<UserSafe[]> {
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (status && status.toUpperCase() !== 'ALL') {
+      conditions.push(`status = $${paramIndex++}`);
+      values.push(status.toUpperCase());
+    }
+
+    if (search && search.trim() !== '') {
+      conditions.push(`(name ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`);
+      values.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const safeLimit = Math.max(1, Math.min(limit, 10000));
+    values.push(safeLimit);
+
+    const res = await db.query<UserSafe>(
+      `SELECT id, name, email, balance, role, status, avatar_url, created_at, updated_at
+       FROM users
+       ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT $${paramIndex}`,
+      values
+    );
+
+    return res.rows;
+  }
+
+  /**
+   * Menghitung statistik ringkas pengguna untuk widget dashboard admin
+   */
+  async getUserStats(): Promise<UserStats> {
+    const res = await db.query<{
+      total: string;
+      active: string;
+      pending: string;
+      suspended: string;
+      total_balance: string;
+    }>(
+      `SELECT
+         COUNT(*)::text AS total,
+         COUNT(CASE WHEN status = 'ACTIVE' THEN 1 END)::text AS active,
+         COUNT(CASE WHEN status = 'PENDING' THEN 1 END)::text AS pending,
+         COUNT(CASE WHEN status = 'SUSPENDED' THEN 1 END)::text AS suspended,
+         COALESCE(SUM(balance), 0)::text AS total_balance
+       FROM users`
+    );
+
+    const row = res.rows[0];
+    return {
+      total: parseInt(row?.total || '0', 10),
+      active: parseInt(row?.active || '0', 10),
+      pending: parseInt(row?.pending || '0', 10),
+      suspended: parseInt(row?.suspended || '0', 10),
+      totalBalanceSeconds: parseInt(row?.total_balance || '0', 10),
+    };
   }
 }
 

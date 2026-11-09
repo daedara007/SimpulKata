@@ -70,6 +70,29 @@
       </div>
     </div>
 
+    <!-- Sub-Navigasi Dasbor Admin (Antara Log Sistem & Daftar Pengguna) -->
+    <div class="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 w-fit select-none">
+      <RouterLink
+        to="/admin/logs"
+        class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-600/30"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span>Log Sistem (UC-15)</span>
+      </RouterLink>
+
+      <RouterLink
+        to="/admin/users"
+        class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-800/60"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <span>Daftar Pengguna (UC-16)</span>
+      </RouterLink>
+    </div>
+
     <!-- Ringkasan Statistik Kartu (Stats Widgets) -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
       <!-- Total Logs -->

@@ -10,6 +10,12 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added
+- **Implementasi Panel Kelola Daftar Pengguna (SRS UC-16 / SD-16) & Ekspor CSV**:
+  - Mengembangkan endpoint API Admin:
+    - `GET /api/admin/users`: Mengambil daftar seluruh pengguna dengan filter status (`ACTIVE`, `PENDING`, `SUSPENDED`), pencarian nama/email, paginasi 50 baris per halaman, serta ringkasan statistik (Total Pengguna, Aktif, Pending, Suspended, Total Saldo Kuota).
+    - `GET /api/admin/users/export`: Mengunduh berkas daftar pengguna format `.csv` dengan header escaped dan kutipan aman.
+  - Membangun antarmuka Administrator `AdminUsersView.vue` pada rute `/admin/users` yang diproteksi guard `requiresAdmin: true`.
+  - Dilengkapi 4 kartu widget metrik real-time, tab navigasi admin terpadu (*Daftar Pengguna* & *Log Sistem*), tabel responsif dengan badge status, indikator kuota berwarna, paginasi, dan tombol ekspor CSV.
 - **Implementasi Sistem Log Terpusat (SRS UC-15 / SD-15) & Penyempurnaan Error Handler**:
   - Membuat tabel `system_logs` di PostgreSQL dan modul DAO `logModel.ts` untuk merekam aktivitas autentikasi, unggahan, segmentasi Whisper, inferensi Llama 3.1, dan audit error sistem.
   - Membangun `logService.ts` terpusat bersifat non-blocking asynchronous fire-and-forget yang terhubung ke Fastify Global Error Handler dan background AI pipeline.

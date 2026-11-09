@@ -165,6 +165,8 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `GET` | `/api/history` | Protected (JWT) | Mengambil arsip riwayat pengguna (pagination & filter) |
 | `GET` | `/api/admin/logs` | Admin (JWT) | Mengambil riwayat log sistem dengan filter level/sumber & paginasi (SRS UC-15 & SD-15) |
 | `GET` | `/api/admin/logs/export` | Admin (JWT) | Mengunduh berkas laporan log sistem format CSV (SRS UC-15 & SD-15) |
+| `GET` | `/api/admin/users` | Admin (JWT) | Mengambil daftar seluruh pengguna dengan filter status/pencarian & paginasi (SRS UC-16 & SD-16) |
+| `GET` | `/api/admin/users/export` | Admin (JWT) | Mengunduh berkas daftar pengguna format CSV (SRS UC-16 & SD-16) |
 | `GET` | `/health` / `/api/health` | Publik | Healthcheck server Fastify |
 | `GET` | `/health/db` | Publik | Healthcheck koneksi PostgreSQL |
 

@@ -80,3 +80,27 @@ export interface CreateSessionDTO {
   daysValid?: number;
 }
 
+export interface UserFilterQuery {
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface UserStats {
+  total: number;
+  active: number;
+  pending: number;
+  suspended: number;
+  totalBalanceSeconds: number;
+}
+
+export interface UserListResult {
+  users: UserSafe[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  stats: UserStats;
+}
+

@@ -4,7 +4,7 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { logModel } from '../models';
+import { logModel, userModel } from '../models';
 import { logService } from '../services/logService';
 
 export class AdminController {
@@ -131,6 +131,127 @@ export class AdminController {
         status: 'error',
         code: 'EXPORT_FAILED',
         message: 'Gagal mengekspor berkas CSV log sistem.',
+      });
+    }
+  }
+
+  /**
+   * GET /api/admin/users
+   * Mengambil daftar pengguna terdaftar beserta saldo kuota dan status (SRS UC-16 & SD-16)
+   */
+  async getUsers(request: FastifyRequest, reply: FastifyReply) {
+    if (!this.checkAdminRole(request, reply)) return;
+
+    try {
+      const query = (request.query || {}) as {
+        status?: string;
+        search?: string;
+        page?: string;
+        limit?: string;
+      };
+
+      const page = parseInt(query.page || '1', 10);
+      const limit = parseInt(query.limit || '50', 10);
+
+      const userResult = await userModel.findUsers({
+        status: query.status,
+        search: query.search,
+        page,
+        limit,
+      });
+
+      return reply.status(200).send({
+        status: 'success',
+        data: userResult,
+      });
+    } catch (err: any) {
+      logService.error('SYSTEM', 'Gagal memuat daftar pengguna untuk admin', err);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Gagal memuat daftar pengguna dari basis data.',
+      });
+    }
+  }
+
+  /**
+   * GET /api/admin/users/export
+   * Mengunduh berkas laporan daftar pengguna dalam format CSV (SD-16 Langkah 8-12)
+   */
+  async exportUsers(request: FastifyRequest, reply: FastifyReply) {
+    if (!this.checkAdminRole(request, reply)) return;
+
+    try {
+      const query = (request.query || {}) as {
+        status?: string;
+        search?: string;
+      };
+
+      const users = await userModel.getUsersForExport({
+        status: query.status,
+        search: query.search,
+        limit: 5000,
+      });
+
+      // Helper konversi durasi detik ke format Xm Ys untuk kenyamanan laporan CSV
+      const formatDuration = (totalSeconds: number): string => {
+        const sec = Math.max(0, Math.floor(totalSeconds || 0));
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${m}m ${s}s`;
+      };
+
+      // Header kolom CSV
+      const header = [
+        '"ID"',
+        '"Nama Lengkap"',
+        '"Alamat Email"',
+        '"Peran"',
+        '"Status Akun"',
+        '"Saldo Kuota (Detik)"',
+        '"Saldo Kuota (Format)"',
+        '"Tanggal Bergabung"',
+      ].join(',');
+
+      const rows = users.map((u) => {
+        const escapedId = `"${u.id}"`;
+        const escapedName = `"${u.name.replace(/"/g, '""')}"`;
+        const escapedEmail = `"${u.email.replace(/"/g, '""')}"`;
+        const escapedRole = `"${u.role}"`;
+        const escapedStatus = `"${u.status}"`;
+        const escapedSec = `"${u.balance || 0}"`;
+        const escapedFormatted = `"${formatDuration(u.balance || 0)}"`;
+        const timeStr = typeof u.created_at === 'string'
+          ? u.created_at
+          : new Date(u.created_at).toISOString();
+        const escapedDate = `"${timeStr}"`;
+        return [
+          escapedId,
+          escapedName,
+          escapedEmail,
+          escapedRole,
+          escapedStatus,
+          escapedSec,
+          escapedFormatted,
+          escapedDate,
+        ].join(',');
+      });
+
+      const csvContent = [header, ...rows].join('\r\n');
+      const filename = `simpulkata-users-${Date.now()}.csv`;
+
+      reply
+        .header('Content-Type', 'text/csv; charset=utf-8')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(csvContent);
+
+      logService.info('SYSTEM', `Administrator ${request.user?.id} mengekspor ${users.length} data pengguna ke CSV.`);
+    } catch (err: any) {
+      logService.error('SYSTEM', 'Gagal mengekspor daftar pengguna ke CSV', err);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'EXPORT_FAILED',
+        message: 'Gagal mengekspor data pengguna ke CSV.',
       });
     }
   }
