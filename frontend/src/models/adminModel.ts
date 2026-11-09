@@ -4,7 +4,7 @@
  * Mengikuti aturan arsitektur: Seluruh panggilan API WAJIB menggunakan path relatif (/api/...)
  */
 
-import axios from 'axios';
+import apiClient from '../services/apiClient';
 
 export interface SystemLog {
   id: string;
@@ -87,7 +87,7 @@ export const adminModel = {
    * Mengambil riwayat log sistem dari backend (SD-15 Langkah 2)
    */
   async getLogs(params: LogFilterParams = {}): Promise<GetLogsResponse['data']> {
-    const response = await axios.get<GetLogsResponse>('/api/admin/logs', {
+    const response = await apiClient.get<GetLogsResponse>('/api/admin/logs', {
       params,
     });
     return response.data.data;
@@ -97,7 +97,7 @@ export const adminModel = {
    * Mengunduh berkas laporan CSV log sistem (SD-15 Langkah 9-12)
    */
   async downloadLogsCsv(params: LogFilterParams = {}): Promise<void> {
-    const response = await axios.get('/api/admin/logs/export', {
+    const response = await apiClient.get('/api/admin/logs/export', {
       params,
       responseType: 'blob',
     });
@@ -117,7 +117,7 @@ export const adminModel = {
    * Mengambil daftar seluruh pengguna dari backend (SRS UC-16 / SD-16 Langkah 2)
    */
   async getUsers(params: UserFilterParams = {}): Promise<GetUsersResponse['data']> {
-    const response = await axios.get<GetUsersResponse>('/api/admin/users', {
+    const response = await apiClient.get<GetUsersResponse>('/api/admin/users', {
       params,
     });
     return response.data.data;
@@ -127,7 +127,7 @@ export const adminModel = {
    * Mengunduh berkas laporan CSV daftar pengguna (SD-16 Langkah 8-12)
    */
   async downloadUsersCsv(params: UserFilterParams = {}): Promise<void> {
-    const response = await axios.get('/api/admin/users/export', {
+    const response = await apiClient.get('/api/admin/users/export', {
       params,
       responseType: 'blob',
     });
