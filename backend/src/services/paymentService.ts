@@ -90,7 +90,8 @@ export class PaymentService {
     return (
       Boolean(this.serverKey) &&
       !this.serverKey.includes('your_server_key') &&
-      this.serverKey.startsWith('SB-Mid-server-')
+      this.serverKey.trim() !== '' &&
+      (this.serverKey.startsWith('SB-Mid-server-') || this.serverKey.startsWith('Mid-server-'))
     );
   }
 
