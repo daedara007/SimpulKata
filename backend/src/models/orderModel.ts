@@ -9,6 +9,7 @@ import {
   CreateOrderDTO,
   OrderFilterQuery,
   OrderListResult,
+  RevenueStats,
 } from '../types';
 
 export class OrderModel {
@@ -200,6 +201,107 @@ export class OrderModel {
       limit,
       totalPages,
     };
+  }
+
+  /**
+   * Menghitung total pendapatan dan statistik pesanan (SD-17 Langkah 6-7)
+   */
+  async getRevenueStats(startDate?: string, endDate?: string): Promise<RevenueStats> {
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (startDate && startDate.trim() !== '') {
+      conditions.push(`created_at >= $${paramIndex++}`);
+      values.push(new Date(startDate));
+    }
+
+    if (endDate && endDate.trim() !== '') {
+      conditions.push(`created_at <= $${paramIndex++}`);
+      values.push(new Date(endDate));
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const res = await db.query<{
+      total_revenue: string;
+      completed_count: string;
+      pending_count: string;
+      failed_count: string;
+      total_orders: string;
+    }>(
+      `SELECT
+         COALESCE(SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END), 0)::text AS total_revenue,
+         COUNT(CASE WHEN status = 'completed' THEN 1 END)::text AS completed_count,
+         COUNT(CASE WHEN status = 'pending' THEN 1 END)::text AS pending_count,
+         COUNT(CASE WHEN status IN ('failed', 'cancelled') THEN 1 END)::text AS failed_count,
+         COUNT(*)::text AS total_orders
+       FROM orders
+       ${whereClause}`,
+      values
+    );
+
+    const row = res.rows[0];
+    return {
+      totalRevenue: parseFloat(row?.total_revenue || '0'),
+      completedCount: parseInt(row?.completed_count || '0', 10),
+      pendingCount: parseInt(row?.pending_count || '0', 10),
+      failedCount: parseInt(row?.failed_count || '0', 10),
+      totalOrders: parseInt(row?.total_orders || '0', 10),
+    };
+  }
+
+  /**
+   * Mengambil data seluruh pesanan untuk diekspor ke CSV oleh admin (SD-17 Langkah 8-12)
+   */
+  async getOrdersForExport({
+    status,
+    search,
+    startDate,
+    endDate,
+    limit = 5000,
+  }: OrderFilterQuery): Promise<OrderRow[]> {
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (status && status.trim() !== '' && status.toUpperCase() !== 'ALL') {
+      conditions.push(`o.status = $${paramIndex++}`);
+      values.push(status.toLowerCase());
+    }
+
+    if (search && search.trim() !== '') {
+      conditions.push(`(o.order_number ILIKE $${paramIndex} OR u.name ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex})`);
+      values.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    if (startDate && startDate.trim() !== '') {
+      conditions.push(`o.created_at >= $${paramIndex++}`);
+      values.push(new Date(startDate));
+    }
+
+    if (endDate && endDate.trim() !== '') {
+      conditions.push(`o.created_at <= $${paramIndex++}`);
+      values.push(new Date(endDate));
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    values.push(limit);
+    const limitParam = paramIndex++;
+
+    const res = await db.query<OrderRow>(
+      `SELECT o.*, u.name AS user_name, u.email AS user_email
+       FROM orders o
+       JOIN users u ON o.user_id = u.id
+       ${whereClause}
+       ORDER BY o.created_at DESC
+       LIMIT $${limitParam}`,
+      values
+    );
+
+    return res.rows;
   }
 }
 

@@ -44,6 +44,20 @@
           <span>Riwayat Arsip</span>
         </RouterLink>
 
+        <!-- Menu Riwayat Tagihan / Pembelian Kuota (SRS UC-18 / SD-18) -->
+        <RouterLink
+          to="/transactions"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer"
+          :class="isTransactionsActive
+            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/25'
+            : 'text-slate-400 hover:text-white hover:bg-slate-800/60'"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          </svg>
+          <span>Tagihan</span>
+        </RouterLink>
+
         <!-- Menu Khusus Administrator (UC-15 & UC-16) -->
         <RouterLink
           v-if="userData?.role === 'admin'"
@@ -204,6 +218,10 @@ const isTranscribeActive = computed(() => {
 
 const isHistoryActive = computed(() => {
   return route.path === '/history' || route.path.startsWith('/app/history');
+});
+
+const isTransactionsActive = computed(() => {
+  return route.path === '/transactions' || route.path.startsWith('/app/transactions') || route.path === '/orders';
 });
 
 const isAdminActive = computed(() => {

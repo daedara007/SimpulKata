@@ -10,6 +10,17 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added
+- **Implementasi Riwayat Transaksi Pribadi (SRS UC-18 / SD-18) & Transaksi Global Administrator (SRS UC-17 / SD-17) — Milestone 100% (18/18 Use Case Selesai)**:
+  - **UC-18 (Melihat Transaksi Pribadi - Pengguna Reguler)**:
+    - Menyediakan endpoint API `GET /api/orders/my-orders` dengan filter isolasi data multi-tenant `user_id = id_pengguna_aktif` dan paginasi.
+    - Membangun halaman antarmuka `UserTransactionsView.vue` di rute `/transactions` (alias `/orders`) lengkap dengan kartu metrik sisa kuota, tabel riwayat pesanan (Nomor Order, Paket Kuota, Menit Tambahan, Nominal Rupiah, Status Badge, dan Waktu Transaksi).
+    - Menyediakan alur alternatif A1 (*empty state* informatif saat belum pernah membeli kuota) dengan tombol *Call to Action* buka `TopUpModal`, serta aksi lanjutan *Bayar Sekarang* bagi pesanan berstatus *pending*.
+    - Menambahkan tautan navigasi **"Tagihan"** pada `DashboardNavbar.vue`.
+  - **UC-17 (Melihat Transaksi Global & Total Revenue - Administrator)**:
+    - Menyediakan endpoint API `GET /api/admin/transactions` dan `GET /api/admin/transactions/export` (CSV) dengan proteksi otorisasi peran `role === 'admin'` (kepatuhan SDD TC-05).
+    - Menambahkan kalkulasi analitik agregasi finansial `getRevenueStats`: Total Pendapatan Sukses (Rp), Transaksi Selesai, Menunggu Pembayaran, dan Transaksi Gagal/Dibatalkan.
+    - Membangun halaman antarmuka `AdminTransactionsView.vue` pada rute `/admin/transactions` lengkap dengan 4 widget kartu metrik finansial, filter multi-kriteria (Status, Rentang Tanggal, Pencarian Teks Bebas), tabel transaksi global, dan tombol *Ekspor CSV*.
+    - Memperbarui sub-navigasi panel admin di seluruh halaman manajemen (*Log Sistem*, *Daftar Pengguna*, *Transaksi Global*) menjadi 3 tab terintegrasi dan bersih dari label teknis internal.
 - **Implementasi Sistem Pembayaran & Top Up Kuota Midtrans Sandbox (SRS UC-13 & UC-14 / SD-13 & SD-14)**:
   - Membuat tabel `orders` di basis data PostgreSQL sesuai `referensi/erd.puml` lengkap dengan indeks performa dan trigger `updated_at`.
   - Mengembangkan modul DAO `orderModel.ts` dan layanan `paymentService.ts` dengan dukungan 3 paket kuota resmi:

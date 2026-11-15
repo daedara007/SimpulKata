@@ -170,6 +170,38 @@ export class PaymentController {
       });
     }
   }
+
+  /**
+   * GET /api/orders/my-orders
+   * Mengambil riwayat transaksi pembelian kuota milik user yang sedang login (SRS UC-18 / SD-18)
+   */
+  async getMyOrders(request: FastifyRequest, reply: FastifyReply) {
+    const user = request.user;
+    if (!user) {
+      return reply.status(401).send({
+        status: 'error',
+        message: 'Autentikasi diperlukan.',
+      });
+    }
+
+    try {
+      const query = (request.query || {}) as { page?: string; limit?: string };
+      const page = Math.max(1, parseInt(query.page || '1', 10));
+      const limit = Math.min(100, Math.max(1, parseInt(query.limit || '20', 10)));
+
+      const result = await orderModel.findUserOrders(user.id, page, limit);
+      return reply.status(200).send({
+        status: 'success',
+        data: result,
+      });
+    } catch (err: any) {
+      logService.error('PAYMENT', `Gagal mengambil riwayat transaksi user ${user.id}: ${err.message}`);
+      return reply.status(500).send({
+        status: 'error',
+        message: 'Gagal memuat riwayat transaksi, silakan coba lagi.',
+      });
+    }
+  }
 }
 
 export const paymentController = new PaymentController();

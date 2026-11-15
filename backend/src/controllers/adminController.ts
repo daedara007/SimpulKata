@@ -4,7 +4,7 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { logModel, userModel } from '../models';
+import { logModel, userModel, orderModel } from '../models';
 import { logService } from '../services/logService';
 
 export class AdminController {
@@ -252,6 +252,139 @@ export class AdminController {
         status: 'error',
         code: 'EXPORT_FAILED',
         message: 'Gagal mengekspor data pengguna ke CSV.',
+      });
+    }
+  }
+
+  /**
+   * GET /api/admin/transactions
+   * Mengambil riwayat transaksi global seluruh pengguna beserta statistik pendapatan (SRS UC-17 & SD-17)
+   */
+  async getTransactions(request: FastifyRequest, reply: FastifyReply) {
+    if (!this.checkAdminRole(request, reply)) return;
+
+    try {
+      const query = (request.query || {}) as {
+        status?: string;
+        search?: string;
+        startDate?: string;
+        endDate?: string;
+        page?: string;
+        limit?: string;
+      };
+
+      const page = Math.max(1, parseInt(query.page || '1', 10));
+      const limit = Math.min(100, Math.max(1, parseInt(query.limit || '50', 10)));
+
+      const [orderResult, stats] = await Promise.all([
+        orderModel.findGlobalOrders({
+          status: query.status,
+          search: query.search,
+          startDate: query.startDate,
+          endDate: query.endDate,
+          page,
+          limit,
+        }),
+        orderModel.getRevenueStats(query.startDate, query.endDate),
+      ]);
+
+      return reply.status(200).send({
+        status: 'success',
+        data: {
+          ...orderResult,
+          stats,
+        },
+      });
+    } catch (err: any) {
+      logService.error('SYSTEM', 'Gagal memuat daftar transaksi global untuk admin', err);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Gagal memuat transaksi global dari basis data.',
+      });
+    }
+  }
+
+  /**
+   * GET /api/admin/transactions/export
+   * Mengunduh berkas laporan transaksi global dalam format CSV (SD-17 Langkah 8-12)
+   */
+  async exportTransactions(request: FastifyRequest, reply: FastifyReply) {
+    if (!this.checkAdminRole(request, reply)) return;
+
+    try {
+      const query = (request.query || {}) as {
+        status?: string;
+        search?: string;
+        startDate?: string;
+        endDate?: string;
+      };
+
+      const orders = await orderModel.getOrdersForExport({
+        status: query.status,
+        search: query.search,
+        startDate: query.startDate,
+        endDate: query.endDate,
+        limit: 5000,
+      });
+
+      const header = [
+        '"ID"',
+        '"Nomor Pesanan"',
+        '"Nama Pelanggan"',
+        '"Email Pelanggan"',
+        '"Paket Kuota"',
+        '"Durasi Menit"',
+        '"Nominal (IDR)"',
+        '"Metode Pembayaran"',
+        '"Status"',
+        '"Tanggal Transaksi"',
+      ].join(',');
+
+      const rows = orders.map((o) => {
+        const escapedId = `"${o.id}"`;
+        const escapedOrderNum = `"${o.order_number}"`;
+        const escapedName = `"${(o.user_name || '').replace(/"/g, '""')}"`;
+        const escapedEmail = `"${(o.user_email || '').replace(/"/g, '""')}"`;
+        const escapedPkg = `"${(o.package_name || '').replace(/"/g, '""')}"`;
+        const escapedMin = `"${o.package_minutes || 0}"`;
+        const escapedAmount = `"${o.amount || 0}"`;
+        const escapedType = `"${(o.payment_type || 'snap').replace(/"/g, '""')}"`;
+        const escapedStatus = `"${o.status}"`;
+        const timeStr = typeof o.created_at === 'string'
+          ? o.created_at
+          : new Date(o.created_at).toISOString();
+        const escapedDate = `"${timeStr}"`;
+
+        return [
+          escapedId,
+          escapedOrderNum,
+          escapedName,
+          escapedEmail,
+          escapedPkg,
+          escapedMin,
+          escapedAmount,
+          escapedType,
+          escapedStatus,
+          escapedDate,
+        ].join(',');
+      });
+
+      const csvContent = [header, ...rows].join('\r\n');
+      const filename = `simpulkata-transactions-${Date.now()}.csv`;
+
+      reply
+        .header('Content-Type', 'text/csv; charset=utf-8')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .send(csvContent);
+
+      logService.info('SYSTEM', `Administrator ${request.user?.id} mengekspor ${orders.length} data transaksi ke CSV.`);
+    } catch (err: any) {
+      logService.error('SYSTEM', 'Gagal mengekspor data transaksi ke CSV', err);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'EXPORT_FAILED',
+        message: 'Gagal mengekspor data transaksi ke CSV.',
       });
     }
   }

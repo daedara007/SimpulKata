@@ -182,6 +182,7 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `GET` | `/api/history` | Protected (JWT) | Mengambil arsip riwayat pengguna (pagination & filter) |
 | `GET` | `/api/orders/packages` | Publik | Mengambil daftar paket kuota resmi yang tersedia (SRS UC-13) |
 | `POST` | `/api/orders/checkout` | Protected (JWT) | Inisiasi transaksi checkout pesanan baru & pembuatan Snap Token (SRS UC-13 & SD-13) |
+| `GET` | `/api/orders/my-orders` | Protected (JWT) | Mengambil riwayat transaksi pembelian kuota milik pengguna aktif (SRS UC-18 & SD-18) |
 | `GET` | `/api/orders/:orderNumber` | Protected (JWT) | Mengambil detail status pesanan terkini |
 | `POST` | `/api/webhook/payment` | Publik | Menerima webhook resmi Midtrans, verifikasi signature SHA-512 & pembaruan saldo atomik (SRS UC-14, SD-14, SDD TC-04, TC-08) |
 | `POST` | `/api/orders/:orderNumber/simulate-pay` | Protected (JWT) | Simulator pembayaran sukses instan untuk pengujian & demo sandbox |
@@ -189,6 +190,8 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `GET` | `/api/admin/logs/export` | Admin (JWT) | Mengunduh berkas laporan log sistem format CSV (SRS UC-15 & SD-15) |
 | `GET` | `/api/admin/users` | Admin (JWT) | Mengambil daftar seluruh pengguna dengan filter status/pencarian & paginasi (SRS UC-16 & SD-16) |
 | `GET` | `/api/admin/users/export` | Admin (JWT) | Mengunduh berkas daftar pengguna format CSV (SRS UC-16 & SD-16) |
+| `GET` | `/api/admin/transactions` | Admin (JWT) | Mengambil daftar transaksi pembayaran global & widget total revenue (SRS UC-17, SD-17, SDD TC-05) |
+| `GET` | `/api/admin/transactions/export` | Admin (JWT) | Mengunduh berkas laporan transaksi pembayaran global format CSV (SRS UC-17 & SD-17) |
 | `GET` | `/health` / `/api/health` | Publik | Healthcheck server Fastify |
 | `GET` | `/health/db` | Publik | Healthcheck koneksi PostgreSQL |
 

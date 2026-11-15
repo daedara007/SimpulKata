@@ -114,6 +114,31 @@ export const paymentModel = {
   },
 
   /**
+   * Mengambil riwayat transaksi pembelian kuota milik user yang sedang login (SRS UC-18 / SD-18)
+   */
+  async getMyOrders(page = 1, limit = 20): Promise<{
+    orders: OrderRow[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const response = await apiClient.get<{
+      status: string;
+      data: {
+        orders: OrderRow[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      };
+    }>('/api/orders/my-orders', {
+      params: { page, limit },
+    });
+    return response.data.data;
+  },
+
+  /**
    * Memuat script Midtrans Snap JS Sandbox secara dinamis jika belum ada
    */
   loadSnapScript(clientKey?: string): Promise<boolean> {

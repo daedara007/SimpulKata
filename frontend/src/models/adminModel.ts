@@ -82,6 +82,54 @@ export interface UserFilterParams {
   limit?: number;
 }
 
+export interface AdminTransactionItem {
+  id: string;
+  user_id: string;
+  order_number: string;
+  package_id: string;
+  package_name: string;
+  package_minutes: number;
+  amount: number | string;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  payment_url: string | null;
+  snap_token: string | null;
+  payment_type: string | null;
+  webhook_processed: boolean;
+  created_at: string;
+  updated_at: string;
+  user_name?: string;
+  user_email?: string;
+}
+
+export interface AdminTransactionStats {
+  totalRevenue: number;
+  completedCount: number;
+  pendingCount: number;
+  failedCount: number;
+  totalOrders: number;
+}
+
+export interface GetTransactionsResponse {
+  status: string;
+  data: {
+    orders: AdminTransactionItem[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    stats: AdminTransactionStats;
+  };
+}
+
+export interface TransactionFilterParams {
+  status?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
 export const adminModel = {
   /**
    * Mengambil riwayat log sistem dari backend (SD-15 Langkah 2)
@@ -137,6 +185,36 @@ export const adminModel = {
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', `simpulkata-users-${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+
+  /**
+   * Mengambil riwayat transaksi global seluruh pengguna untuk Administrator (SRS UC-17 / SD-17)
+   */
+  async getTransactions(params: TransactionFilterParams = {}): Promise<GetTransactionsResponse['data']> {
+    const response = await apiClient.get<GetTransactionsResponse>('/api/admin/transactions', {
+      params,
+    });
+    return response.data.data;
+  },
+
+  /**
+   * Mengunduh berkas laporan CSV transaksi global (SD-17 Langkah 8-12)
+   */
+  async downloadTransactionsCsv(params: TransactionFilterParams = {}): Promise<void> {
+    const response = await apiClient.get('/api/admin/transactions/export', {
+      params,
+      responseType: 'blob',
+    });
+
+    const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `simpulkata-transactions-${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

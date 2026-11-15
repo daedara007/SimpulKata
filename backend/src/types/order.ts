@@ -75,3 +75,11 @@ export interface OrderListResult {
   limit: number;
   totalPages: number;
 }
+
+export interface RevenueStats {
+  totalRevenue: number;
+  completedCount: number;
+  pendingCount: number;
+  failedCount: number;
+  totalOrders: number;
+}

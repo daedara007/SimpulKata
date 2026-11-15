@@ -30,6 +30,9 @@ export async function orderRoutes(fastify: FastifyInstance) {
     // Inisiasi checkout pesanan baru
     protectedRoutes.post('/checkout', (request, reply) => paymentController.checkout(request, reply));
 
+    // Riwayat transaksi pesanan milik pengguna aktif (SRS UC-18 / SD-18)
+    protectedRoutes.get('/my-orders', (request, reply) => paymentController.getMyOrders(request, reply));
+
     // Detail status pesanan
     protectedRoutes.get('/:orderNumber', (request, reply) => paymentController.getOrderDetail(request, reply));
 

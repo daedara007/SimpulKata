@@ -48,6 +48,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/TranscriptDetailView.vue'),
       },
       {
+        path: '/transactions',
+        name: 'transactions',
+        alias: '/orders',
+        component: () => import('../views/UserTransactionsView.vue'),
+      },
+      {
         path: '/admin',
         redirect: '/admin/users',
       },
@@ -61,6 +67,12 @@ const routes: RouteRecordRaw[] = [
         path: '/admin/logs',
         name: 'admin-logs',
         component: () => import('../views/AdminLogsView.vue'),
+        meta: { requiresAdmin: true },
+      },
+      {
+        path: '/admin/transactions',
+        name: 'admin-transactions',
+        component: () => import('../views/AdminTransactionsView.vue'),
         meta: { requiresAdmin: true },
       },
     ],

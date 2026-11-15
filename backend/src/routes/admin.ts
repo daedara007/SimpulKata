@@ -21,4 +21,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   // GET /api/admin/users/export - Ekspor daftar pengguna ke CSV (UC-16 / SD-16)
   fastify.get('/users/export', authGuard, adminController.exportUsers.bind(adminController));
+
+  // GET /api/admin/transactions - Riwayat transaksi global & total revenue (UC-17 / SD-17)
+  fastify.get('/transactions', authGuard, adminController.getTransactions.bind(adminController));
+
+  // GET /api/admin/transactions/export - Ekspor transaksi global ke CSV (UC-17 / SD-17)
+  fastify.get('/transactions/export', authGuard, adminController.exportTransactions.bind(adminController));
 }
