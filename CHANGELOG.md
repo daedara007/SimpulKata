@@ -10,6 +10,19 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 ## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added
+- **Implementasi Sistem Pembayaran & Top Up Kuota Midtrans Sandbox (SRS UC-13 & UC-14 / SD-13 & SD-14)**:
+  - Membuat tabel `orders` di basis data PostgreSQL sesuai `referensi/erd.puml` lengkap dengan indeks performa dan trigger `updated_at`.
+  - Mengembangkan modul DAO `orderModel.ts` dan layanan `paymentService.ts` dengan dukungan 3 paket kuota resmi:
+    - *Paket Starter*: 200 Menit (12.000 detik) - Rp50.000
+    - *Paket Edukasi Pro*: 450 Menit (27.000 detik) - Rp100.000
+    - *Paket Enterprise*: 1.200 Menit (72.000 detik) - Rp250.000
+  - Menyediakan endpoint API:
+    - `GET /api/orders/packages`: Mengambil katalog paket kuota.
+    - `POST /api/orders/checkout`: Inisiasi pesanan pending dan request token Snap Midtrans.
+    - `GET /api/orders/:orderNumber`: Pengecekan status transaksi.
+    - `POST /api/webhook/payment`: Webhook notifikasi Midtrans dengan verifikasi Digital Signature SHA-512 (kepatuhan SDD TC-04) dan proteksi Idempotency duplikasi transaksi (kepatuhan SDD TC-08).
+    - `POST /api/orders/:orderNumber/simulate-pay`: Simulator pembayaran sukses sandbox untuk demo dan pengujian lokal tanpa hambatan koneksi.
+  - Membangun komponen antarmuka `TopUpModal.vue` dengan seleksi kartu paket kuota, pemanggilan Midtrans Snap Popup, serta integrasi tombol `⚡ Top Up` di `DashboardNavbar.vue` yang memperbarui saldo secara instan dan reaktif.
 - **Implementasi Panel Kelola Daftar Pengguna (SRS UC-16 / SD-16) & Ekspor CSV**:
   - Mengembangkan endpoint API Admin:
     - `GET /api/admin/users`: Mengambil daftar seluruh pengguna dengan filter status (`ACTIVE`, `PENDING`, `SUSPENDED`), pencarian nama/email, paginasi 50 baris per halaman, serta ringkasan statistik (Total Pengguna, Aktif, Pending, Suspended, Total Saldo Kuota).

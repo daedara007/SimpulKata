@@ -203,6 +203,20 @@ export class UserModel {
   }
 
   /**
+   * Menambahkan saldo kuota pengguna dari top-up sukses (SRS UC-14 / SD-14 Langkah 7-8)
+   */
+  async addBalance(userId: string, seconds: number): Promise<number> {
+    const res = await db.query<{ balance: number }>(
+      `UPDATE users
+       SET balance = balance + $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING balance`,
+      [seconds, userId]
+    );
+    return res.rows[0]?.balance ?? 0;
+  }
+
+  /**
    * Mengambil daftar pengguna dengan paginasi dan filter (SRS UC-16 / SD-16 Langkah 4)
    */
   async findUsers({

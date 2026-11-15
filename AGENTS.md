@@ -138,9 +138,26 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 |---|---|---|
 | `id` | UUID (PK) | Identifier unik entri log (`gen_random_uuid()`) |
 | `level` | VARCHAR(20) | Tingkat keparahan: `'INFO'`, `'WARN'`, `'ERROR'` |
-| `source` | VARCHAR(100) | Sumber modul (`'AUTH'`, `'AI_SERVICE'`, `'AUDIO_UPLOAD'`, `'SYSTEM'`, `'DATABASE'`) |
+| `source` | VARCHAR(100) | Sumber modul (`'AUTH'`, `'AI_SERVICE'`, `'AUDIO_UPLOAD'`, `'SYSTEM'`, `'DATABASE'`, `'PAYMENT'`) |
 | `message` | TEXT | Deskripsi peristiwa atau detail teknis galat sistem |
 | `created_at` | TIMESTAMP | Waktu pencatatan log (Default: `NOW()`) |
+
+### Tabel `orders`
+| Kolom | Tipe | Deskripsi |
+|---|---|---|
+| `id` | UUID (PK) | Identifier unik pesanan (`gen_random_uuid()`) |
+| `user_id` | UUID (FK -> users.id) | Pemilik pesanan (CASCADE on delete) |
+| `order_number` | VARCHAR(100) | Nomor referensi order unik (misal: `ORD-...`) |
+| `package_id` | VARCHAR(50) | ID paket kuota (`'starter_200'`, `'pro_450'`, `'enterprise_1200'`) |
+| `package_name` | VARCHAR(100) | Nama paket kuota |
+| `package_minutes` | INTEGER | Durasi kuota dalam hitungan menit |
+| `amount` | DECIMAL(12,2) | Nominal harga dalam Rupiah |
+| `status` | VARCHAR(50) | Status: `'pending'`, `'completed'`, `'failed'`, `'cancelled'` |
+| `payment_url` | VARCHAR(500) | URL sesi pembayaran / Midtrans Snap redirect |
+| `snap_token` | VARCHAR(255) | Token transaksi Snap Midtrans |
+| `payment_type` | VARCHAR(50) | Tipe metode pembayaran gateway (qris, va, cc) |
+| `webhook_processed` | BOOLEAN | Status pemrosesan notifikasi webhook |
+| `created_at` / `updated_at` | TIMESTAMP | Waktu pembuatan & pembaruan |
 
 ---
 
@@ -163,6 +180,11 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `PUT` | `/api/users/change-password` | Protected (JWT) | Mengubah kata sandi pengguna dengan validasi sandi saat ini & revoke seluruh sesi aktif (SRS UC-05 & SD-05) |
 | `POST` | `/api/process-audio` | Protected (JWT) | Mengunggah audio, validasi kuota, transkripsi & rangkuman |
 | `GET` | `/api/history` | Protected (JWT) | Mengambil arsip riwayat pengguna (pagination & filter) |
+| `GET` | `/api/orders/packages` | Publik | Mengambil daftar paket kuota resmi yang tersedia (SRS UC-13) |
+| `POST` | `/api/orders/checkout` | Protected (JWT) | Inisiasi transaksi checkout pesanan baru & pembuatan Snap Token (SRS UC-13 & SD-13) |
+| `GET` | `/api/orders/:orderNumber` | Protected (JWT) | Mengambil detail status pesanan terkini |
+| `POST` | `/api/webhook/payment` | Publik | Menerima webhook resmi Midtrans, verifikasi signature SHA-512 & pembaruan saldo atomik (SRS UC-14, SD-14, SDD TC-04, TC-08) |
+| `POST` | `/api/orders/:orderNumber/simulate-pay` | Protected (JWT) | Simulator pembayaran sukses instan untuk pengujian & demo sandbox |
 | `GET` | `/api/admin/logs` | Admin (JWT) | Mengambil riwayat log sistem dengan filter level/sumber & paginasi (SRS UC-15 & SD-15) |
 | `GET` | `/api/admin/logs/export` | Admin (JWT) | Mengunduh berkas laporan log sistem format CSV (SRS UC-15 & SD-15) |
 | `GET` | `/api/admin/users` | Admin (JWT) | Mengambil daftar seluruh pengguna dengan filter status/pencarian & paginasi (SRS UC-16 & SD-16) |

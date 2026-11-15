@@ -130,6 +130,35 @@ CREATE INDEX IF NOT EXISTS idx_system_logs_level      ON system_logs (level);
 CREATE INDEX IF NOT EXISTS idx_system_logs_source     ON system_logs (source);
 
 -- ----------------------------------------------------------
+-- TABEL: orders
+-- Menyimpan transaksi pemesanan dan pembelian kuota audio
+-- Berdasarkan referensi/erd.puml dan SRS FR-FIN-03/04 (UC-13/14)
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS orders (
+    id                  UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID            NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    order_number        VARCHAR(100)    NOT NULL UNIQUE,
+    package_id          VARCHAR(50)     NOT NULL,
+    package_name        VARCHAR(100)    NOT NULL,
+    package_minutes     INTEGER         NOT NULL,
+    amount              DECIMAL(12,2)   NOT NULL,
+    status              VARCHAR(50)     NOT NULL DEFAULT 'pending'
+                        CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
+    payment_url         VARCHAR(500),
+    snap_token          VARCHAR(255),
+    payment_type        VARCHAR(50),
+    webhook_processed   BOOLEAN         NOT NULL DEFAULT FALSE,
+    created_at          TIMESTAMP       NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMP       NOT NULL DEFAULT NOW()
+);
+
+-- Index untuk mempercepat lookup order per user dan status pembayaran
+CREATE INDEX IF NOT EXISTS idx_orders_user_id      ON orders (user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_order_number ON orders (order_number);
+CREATE INDEX IF NOT EXISTS idx_orders_status       ON orders (status);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at   ON orders (created_at DESC);
+
+-- ----------------------------------------------------------
 -- FUNGSI: auto_update_updated_at()
 -- Trigger function untuk otomatis memperbarui kolom updated_at
 -- setiap kali ada operasi UPDATE pada tabel
@@ -150,6 +179,11 @@ CREATE OR REPLACE TRIGGER trg_users_updated_at
 -- Pasang trigger pada tabel transcripts
 CREATE OR REPLACE TRIGGER trg_transcripts_updated_at
     BEFORE UPDATE ON transcripts
+    FOR EACH ROW EXECUTE FUNCTION auto_update_updated_at();
+
+-- Pasang trigger pada tabel orders
+CREATE OR REPLACE TRIGGER trg_orders_updated_at
+    BEFORE UPDATE ON orders
     FOR EACH ROW EXECUTE FUNCTION auto_update_updated_at();
 
 -- ----------------------------------------------------------

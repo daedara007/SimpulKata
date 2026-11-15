@@ -3,6 +3,7 @@ import sessionModel from './sessionModel';
 import transcriptModel from './transcriptModel';
 import otpModel from './otpModel';
 import logModel from './logModel';
+import orderModel from './orderModel';
 
 export {
   userModel,
@@ -10,6 +11,7 @@ export {
   transcriptModel,
   otpModel,
   logModel,
+  orderModel,
 };
 
 export default {
@@ -18,5 +20,6 @@ export default {
   transcriptModel,
   otpModel,
   logModel,
+  orderModel,
 };
 

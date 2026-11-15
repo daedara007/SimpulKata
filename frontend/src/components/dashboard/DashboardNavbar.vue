@@ -103,13 +103,16 @@
               {{ userData.name.charAt(0).toUpperCase() }}
             </span>
           </button>
-          <span
-            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-medium border whitespace-nowrap shrink-0"
+          <button
+            type="button"
+            class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium border whitespace-nowrap shrink-0 hover:bg-slate-800 transition-colors cursor-pointer"
             :class="quotaBadgeClass"
-            :title="'Sisa kuota: ' + (userData.balance || 0) + ' detik'"
+            :title="'Sisa kuota: ' + (userData.balance || 0) + ' detik. Klik untuk Top Up'"
+            @click="$emit('open-topup')"
           >
             ⏱️ {{ formatDuration(userData.balance || 0) }}
-          </span>
+            <span class="text-indigo-400 font-bold ml-0.5">+</span>
+          </button>
         </div>
 
         <!-- Info User & Sisa Saldo untuk Layar Desktop (>= 640px) -->
@@ -145,6 +148,17 @@
           >
             ⏱️ {{ formatDuration(userData.balance || 0) }} kuota
           </span>
+
+          <!-- Tombol Top Up Kuota (SRS UC-06 line 426 & UC-13) -->
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 hover:text-white border border-indigo-500/30 hover:border-indigo-400 transition-all cursor-pointer shadow-sm group"
+            title="Tambah Saldo Kuota Audio"
+            @click="$emit('open-topup')"
+          >
+            <span class="group-hover:scale-110 transition-transform">⚡</span>
+            <span>Top Up</span>
+          </button>
         </div>
 
         <!-- Tombol Logout -->
@@ -178,6 +192,7 @@ const props = defineProps<{
 defineEmits<{
   (e: 'navigate', view: string): void;
   (e: 'open-profile'): void;
+  (e: 'open-topup'): void;
   (e: 'logout'): void;
 }>();
 

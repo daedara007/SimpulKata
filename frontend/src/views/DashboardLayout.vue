@@ -5,6 +5,7 @@
       :user-data="currentUser"
       :history-count="totalHistoryCount"
       @open-profile="openProfileModal"
+      @open-topup="openTopUpModal"
       @logout="handleLogout"
     />
 
@@ -69,6 +70,13 @@
       @user-updated="onUserUpdated"
       @logout="handleLogout"
     />
+
+    <!-- Modal Top Up Kuota (SRS UC-13 & UC-14) -->
+    <TopUpModal
+      :is-open="isTopUpModalOpen"
+      @close="closeTopUpModal"
+      @success="onTopUpSuccess"
+    />
   </div>
 </template>
 
@@ -77,6 +85,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import DashboardNavbar from '../components/dashboard/DashboardNavbar.vue';
 import ProfileModal from '../components/dashboard/ProfileModal.vue';
+import TopUpModal from '../components/dashboard/TopUpModal.vue';
 import authModel from '../models/authModel';
 import useCurrentUser from '../composables/useCurrentUser';
 import type { User } from '../types';
@@ -86,6 +95,7 @@ const route = useRoute();
 const { currentUser, totalHistoryCount, refreshUser, setUser } = useCurrentUser();
 
 const isProfileModalOpen = ref<boolean>(false);
+const isTopUpModalOpen = ref<boolean>(false);
 
 const isTranscribeActive = computed(() => {
   return route.path === '/dashboard' || route.path === '/transcribe' || route.path.startsWith('/app/dashboard');
@@ -101,6 +111,18 @@ function openProfileModal() {
 
 function closeProfileModal() {
   isProfileModalOpen.value = false;
+}
+
+function openTopUpModal() {
+  isTopUpModalOpen.value = true;
+}
+
+function closeTopUpModal() {
+  isTopUpModalOpen.value = false;
+}
+
+async function onTopUpSuccess(_newBalance?: number) {
+  await refreshUser();
 }
 
 function onUserUpdated(updatedUser: User) {

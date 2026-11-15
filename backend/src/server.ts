@@ -27,6 +27,8 @@ import authRoutes from './routes/auth';
 import audioRoutes from './routes/audio';
 import userRoutes from './routes/user';
 import adminRoutes from './routes/admin';
+import orderRoutes from './routes/payment';
+import { paymentController } from './controllers/paymentController';
 import { logService } from './services/logService';
 
 const fastify = Fastify({
@@ -140,6 +142,10 @@ fastify.register(authRoutes, { prefix: '/api/auth' });
 fastify.register(audioRoutes, { prefix: '/api' });
 fastify.register(userRoutes, { prefix: '/api/users' });
 fastify.register(adminRoutes, { prefix: '/api/admin' });
+fastify.register(orderRoutes, { prefix: '/api/orders' });
+
+// Webhook resmi Midtrans Payment Gateway (SRS UC-14, Sequence SD-14, SDD TC-04)
+fastify.post('/api/webhook/payment', (request, reply) => paymentController.handleWebhook(request, reply));
 
 // ----------------------------------------------------------
 // GLOBAL ERROR HANDLER (Sentralisasi Error ke System Logs & Sanitasi Response)
