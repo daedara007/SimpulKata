@@ -94,12 +94,63 @@ export class PaymentController {
       });
     }
 
+    // Jika pesanan masih pending, sinkronisasikan status aktif ke Midtrans
+    let currentOrder = order;
+    let newBalance: number | undefined;
+
+    if (currentOrder.status === 'pending') {
+      const syncResult = await paymentService.syncOrderStatus(orderNumber);
+      currentOrder = syncResult.order;
+      newBalance = syncResult.newBalance;
+    }
+
     return reply.status(200).send({
       status: 'success',
       data: {
-        order,
+        order: currentOrder,
+        newBalance,
       },
     });
+  }
+
+  /**
+   * POST /api/orders/:orderNumber/sync
+   * Memicu sinkronisasi status aktif ke gateway Midtrans untuk pesanan tertentu
+   */
+  async syncOrder(request: FastifyRequest, reply: FastifyReply) {
+    const user = request.user;
+    const { orderNumber } = request.params as { orderNumber: string };
+
+    const order = await orderModel.findByOrderNumber(orderNumber);
+    if (!order) {
+      return reply.status(404).send({
+        status: 'error',
+        message: `Pesanan '${orderNumber}' tidak ditemukan.`,
+      });
+    }
+
+    if (order.user_id !== user.id && user.role !== 'admin') {
+      return reply.status(403).send({
+        status: 'error',
+        message: 'Akses ditolak.',
+      });
+    }
+
+    try {
+      const syncResult = await paymentService.syncOrderStatus(orderNumber);
+      return reply.status(200).send({
+        status: 'success',
+        message: syncResult.synced
+          ? `Status pesanan berhasil disinkronisasi menjadi '${syncResult.order.status}'.`
+          : 'Status pesanan belum berubah dari gateway.',
+        data: syncResult,
+      });
+    } catch (err: any) {
+      return reply.status(500).send({
+        status: 'error',
+        message: err.message || 'Gagal sinkronisasi pesanan ke gateway.',
+      });
+    }
   }
 
   /**

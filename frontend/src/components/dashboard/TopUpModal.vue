@@ -225,6 +225,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import paymentModel, { OrderPackage, CheckoutResult, SimulatePayResult } from '../../models/paymentModel';
+import authModel from '../../models/authModel';
 import { formatDuration } from '../../utils';
 
 const props = defineProps<{
@@ -306,16 +307,43 @@ async function handleCheckout() {
       if (window.snap && typeof window.snap.pay === 'function') {
         window.snap.pay(checkoutData.snapToken, {
           onSuccess: async () => {
-            // Verifikasi status order selesai
-            const orderStatus = await paymentModel.getOrderDetail(checkoutData.order.order_number);
-            successResult.value = {
-              success: true,
-              orderNumber: orderStatus.order_number,
-              addedMinutes: orderStatus.package_minutes,
-              newBalance: 0, // Akan direfresh oleh parent
-            };
-            viewState.value = 'success';
-            emit('success', 0);
+            isLoading.value = true;
+            try {
+              // 1. Verifikasi status order dan sinkronisasi aktif ke Midtrans
+              const detailResult = await paymentModel.getOrderDetail(checkoutData.order.order_number);
+
+              // 2. Refresh profil user dari backend agar saldo terkini tersimpan di localStorage dan state
+              let freshBalance = detailResult.newBalance;
+              try {
+                const profile = await authModel.getProfile();
+                if (profile && typeof profile.balance === 'number') {
+                  freshBalance = profile.balance;
+                }
+              } catch (e) {
+                console.warn('[TopUpModal] Gagal ambil profil terkini:', e);
+              }
+
+              successResult.value = {
+                success: true,
+                orderNumber: detailResult.order.order_number,
+                addedMinutes: detailResult.order.package_minutes,
+                newBalance: freshBalance ?? 0,
+              };
+              viewState.value = 'success';
+              emit('success', freshBalance ?? 0);
+            } catch (err) {
+              console.error('[TopUpModal] Gagal verifikasi order:', err);
+              successResult.value = {
+                success: true,
+                orderNumber: checkoutData.order.order_number,
+                addedMinutes: checkoutData.package.minutes,
+                newBalance: 0,
+              };
+              viewState.value = 'success';
+              emit('success', 0);
+            } finally {
+              isLoading.value = false;
+            }
           },
           onPending: () => {
             errorMessage.value = 'Pembayaran Anda sedang diproses oleh bank/gateway.';

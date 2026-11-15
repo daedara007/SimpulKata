@@ -33,8 +33,11 @@ export async function orderRoutes(fastify: FastifyInstance) {
     // Riwayat transaksi pesanan milik pengguna aktif (SRS UC-18 / SD-18)
     protectedRoutes.get('/my-orders', (request, reply) => paymentController.getMyOrders(request, reply));
 
-    // Detail status pesanan
+    // Detail status pesanan (auto-sync jika masih pending)
     protectedRoutes.get('/:orderNumber', (request, reply) => paymentController.getOrderDetail(request, reply));
+
+    // Sinkronisasi status aktif ke Midtrans API
+    protectedRoutes.post('/:orderNumber/sync', (request, reply) => paymentController.syncOrder(request, reply));
 
     // Simulator pembayaran sukses instan
     protectedRoutes.post('/:orderNumber/simulate-pay', (request, reply) =>

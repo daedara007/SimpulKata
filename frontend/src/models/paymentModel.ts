@@ -91,14 +91,26 @@ export const paymentModel = {
   },
 
   /**
-   * Mengambil status pesanan terkini berdasarkan nomor order
+   * Mengambil status pesanan terkini berdasarkan nomor order (auto-sync ke gateway jika pending)
    */
-  async getOrderDetail(orderNumber: string): Promise<OrderRow> {
+  async getOrderDetail(orderNumber: string): Promise<{ order: OrderRow; newBalance?: number }> {
     const response = await apiClient.get<{
       status: string;
-      data: { order: OrderRow };
+      data: { order: OrderRow; newBalance?: number };
     }>(`/api/orders/${orderNumber}`);
-    return response.data.data.order;
+    return response.data.data;
+  },
+
+  /**
+   * Memicu sinkronisasi status aktif ke gateway Midtrans
+   */
+  async syncOrder(orderNumber: string): Promise<{ order: OrderRow; newBalance?: number; synced: boolean }> {
+    const response = await apiClient.post<{
+      status: string;
+      message: string;
+      data: { order: OrderRow; newBalance?: number; synced: boolean };
+    }>(`/api/orders/${orderNumber}/sync`);
+    return response.data.data;
   },
 
   /**

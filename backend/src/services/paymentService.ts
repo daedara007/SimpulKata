@@ -392,6 +392,77 @@ export class PaymentService {
       newBalance,
     };
   }
+
+  /**
+   * Mengecek status pesanan ke Midtrans API secara aktif (Polling / On-Demand Sync)
+   * Menjamin pesanan dan saldo kuota terupdate meskipun webhook Midtrans terhalang firewall/localhost
+   */
+  async syncOrderStatus(orderNumber: string): Promise<{
+    order: OrderRow;
+    newBalance?: number;
+    synced: boolean;
+  }> {
+    const order = await orderModel.findByOrderNumber(orderNumber);
+    if (!order) {
+      throw new Error(`Pesanan '${orderNumber}' tidak ditemukan.`);
+    }
+
+    if (order.status === 'completed' || !this.isMidtransConfigured()) {
+      return { order, synced: false };
+    }
+
+    try {
+      const basicAuth = Buffer.from(`${this.serverKey}:`).toString('base64');
+      const statusUrl = this.isProduction
+        ? `https://api.midtrans.com/v2/${orderNumber}/status`
+        : `https://api.sandbox.midtrans.com/v2/${orderNumber}/status`;
+
+      const response = await fetch(statusUrl, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Basic ${basicAuth}`,
+        },
+      });
+
+      if (!response.ok) {
+        return { order, synced: false };
+      }
+
+      const statusData = (await response.json()) as any;
+      const txStatus = statusData.transaction_status;
+
+      if (txStatus === 'settlement' || txStatus === 'capture') {
+        const paymentType = statusData.payment_type || 'snap';
+        const updatedOrder = await orderModel.markCompleted(orderNumber, paymentType);
+
+        // Tambahkan saldo kuota ke akun pengguna
+        const addedSeconds = order.package_minutes * 60;
+        const newBalance = await userModel.addBalance(order.user_id, addedSeconds);
+
+        logService.info(
+          'PAYMENT',
+          `Pesanan ${orderNumber} berhasil diverifikasi langsung dari Midtrans API (${txStatus}). Saldo pengguna ${order.user_id} ditambah +${addedSeconds}s (Total: ${newBalance}s).`
+        );
+
+        return {
+          order: updatedOrder || order,
+          newBalance: newBalance ?? undefined,
+          synced: true,
+        };
+      } else if (txStatus === 'cancel' || txStatus === 'expire' || txStatus === 'deny') {
+        const updatedOrder = await orderModel.markFailed(orderNumber, 'cancelled');
+        return {
+          order: updatedOrder || order,
+          synced: true,
+        };
+      }
+
+      return { order, synced: false };
+    } catch (err: any) {
+      logService.warn('PAYMENT', `Sinkronisasi aktif Midtrans untuk ${orderNumber} gagal: ${err.message}`);
+      return { order, synced: false };
+    }
+  }
 }
 
 export const paymentService = new PaymentService();

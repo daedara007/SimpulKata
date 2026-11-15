@@ -171,19 +171,33 @@
 
               <!-- Aksi Interaktif -->
               <td class="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
-                <!-- Jika status pending, sediakan opsi bayar ulang / cek -->
-                <button
-                  v-if="order.status === 'pending'"
-                  type="button"
-                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all cursor-pointer"
-                  title="Lanjutkan Pembayaran via Midtrans"
-                  @click="resumePayment(order)"
-                >
-                  <span>Bayar Sekarang</span>
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </button>
+                <!-- Jika status pending, sediakan opsi bayar ulang dan cek status -->
+                <div v-if="order.status === 'pending'" class="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all cursor-pointer"
+                    title="Lanjutkan Pembayaran via Midtrans"
+                    @click="resumePayment(order)"
+                  >
+                    <span>Bayar</span>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all cursor-pointer"
+                    title="Cek Status Pembayaran ke Gateway"
+                    :disabled="isSyncing === order.order_number"
+                    @click="checkStatus(order)"
+                  >
+                    <svg v-if="isSyncing === order.order_number" class="w-3.5 h-3.5 animate-spin text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <span>{{ isSyncing === order.order_number ? 'Mengecek...' : 'Cek Status' }}</span>
+                  </button>
+                </div>
                 <span v-else class="text-[11px] text-slate-500 italic">
                   {{ order.status === 'completed' ? 'Terverifikasi' : 'Tidak aktif' }}
                 </span>
@@ -226,7 +240,7 @@
     <TopUpModal
       :is-open="isTopUpOpen"
       @close="isTopUpOpen = false"
-      @payment-success="handlePaymentSuccess"
+      @success="handlePaymentSuccess"
     />
   </div>
 </template>
@@ -374,14 +388,44 @@ async function resumePayment(order: OrderRow) {
   }
 }
 
+const isSyncing = ref<string | null>(null);
+
+async function checkStatus(order: OrderRow) {
+  isSyncing.value = order.order_number;
+  try {
+    const res = await paymentModel.syncOrder(order.order_number);
+    await fetchOrders(currentPage.value);
+    await refreshUserBalance();
+    if (res.synced) {
+      errorMessage.value = '';
+    }
+  } catch (err: any) {
+    errorMessage.value = err.response?.data?.message || 'Gagal mengecek status pembayaran ke gateway.';
+  } finally {
+    isSyncing.value = null;
+  }
+}
+
 async function refreshUserBalance() {
+  try {
+    const user = await authModel.getProfile();
+    if (user && typeof user.balance === 'number') {
+      currentUserBalance.value = user.balance;
+      return;
+    }
+  } catch {
+    // fallback ke stored user
+  }
   const user = authModel.getStoredUser();
   if (user) {
     currentUserBalance.value = user.balance || 0;
   }
 }
 
-function handlePaymentSuccess() {
+function handlePaymentSuccess(newBalance?: number) {
+  if (typeof newBalance === 'number' && newBalance > 0) {
+    currentUserBalance.value = newBalance;
+  }
   fetchOrders(1);
   refreshUserBalance();
 }
