@@ -156,7 +156,7 @@
             <span>Mulai Merekam</span>
           </button>
           <p class="text-[11px] text-slate-500">
-            Peramban akan meminta izin akses mikrofon secara otomatis saat tombol diklik.
+            Peramban akan meminta izin akses mikrofon dan otomatis menjaga layar tetap aktif saat merekam.
           </p>
         </div>
       </div>
@@ -184,6 +184,12 @@
           <p class="text-[11px] text-slate-400">
             Bicaralah dengan jelas ke arah mikrofon. Klik tombol di bawah setelah selesai.
           </p>
+        </div>
+
+        <!-- Banner Panduan Layar Aktif Mobile -->
+        <div class="max-w-md mx-auto p-2.5 rounded-xl bg-slate-900/80 border border-slate-700/60 flex items-center justify-center gap-2 text-[11px] text-slate-300">
+          <span class="text-amber-400 shrink-0">💡</span>
+          <span>Layar HP dijaga tetap aktif otomatis. Jangan kunci layar atau beralih aplikasi agar rekaman tidak terhenti.</span>
         </div>
 
         <div>
@@ -349,6 +355,10 @@
             {{ formatFileSize(uploadTransferredBytes || 0) }} / {{ formatFileSize(uploadTotalBytes || (selectedFile?.size || 0)) }} ({{ uploadProgressPercent || 0 }}%)
           </span>
         </div>
+        <div class="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 flex items-center gap-2 text-[11px] text-slate-300">
+          <span class="text-indigo-400 shrink-0">📱</span>
+          <span>Layar HP dijaga tetap aktif. Mohon tidak menutup peramban atau berpindah aplikasi hingga proses selesai.</span>
+        </div>
       </div>
 
       <!-- Animated Bar saat Menyatukan atau Memproses AI -->
@@ -412,7 +422,13 @@
 
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue';
-import { formatFileSize, getFileExtension } from '../../utils';
+import {
+  formatFileSize,
+  getFileExtension,
+  wakeLockManager,
+  enablePageExitGuard,
+  disablePageExitGuard,
+} from '../../utils';
 
 defineProps<{
   selectedFile: File | null;
@@ -581,6 +597,20 @@ async function startRecording() {
     // 2. Minta izin akses mikrofon perangkat (SD-08 Langkah 2 & 3)
     mediaStream = await getAudioStream();
 
+    // Pasang proteksi jika track audio terhenti tiba-tiba (misal HP terkunci paksa atau panggilan masuk)
+    mediaStream.getAudioTracks().forEach((track) => {
+      track.onended = () => {
+        console.warn('[AudioUploadCard] Track mikrofon terhenti oleh sistem, mengamankan rekaman...');
+        if (isRecording.value) {
+          stopRecording();
+        }
+      };
+    });
+
+    // Aktifkan Screen Wake Lock & Page Exit Guard agar layar HP tidak padam otomatis
+    wakeLockManager.acquire();
+    enablePageExitGuard();
+
     // 3. Tentukan format audio yang didukung browser (utamakan audio/mp4 agar seekbar dan durasi native sempurna)
     const preferredTypes = [
       'audio/mp4',
@@ -670,6 +700,8 @@ async function startRecording() {
       recordingError.value = err.message || 'Gagal menginisiasi perekaman audio.';
     }
     isRecording.value = false;
+    wakeLockManager.release();
+    disablePageExitGuard();
   }
 }
 
@@ -684,6 +716,8 @@ function stopRecording() {
   }
 
   isRecording.value = false;
+  wakeLockManager.release();
+  disablePageExitGuard();
 }
 
 function resetRecording() {
@@ -706,6 +740,8 @@ function resetRecording() {
 
 onUnmounted(() => {
   stopRecording();
+  wakeLockManager.release();
+  disablePageExitGuard();
   if (audioPlayerRef.value) {
     audioPlayerRef.value.pause();
   }

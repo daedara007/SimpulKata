@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { audioModel } from '../models/audioModel';
 import { getFileExtension, formatFileSize } from '../utils/formatters';
+import { wakeLockManager, enablePageExitGuard, disablePageExitGuard } from '../utils/wakeLock';
 import type { TranscriptItem } from '../types';
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.webm', '.ogg'];
@@ -185,6 +186,10 @@ export function useAudioController() {
     errorMessage.value = '';
     loadingTimer.value = 0;
 
+    // Aktifkan Screen Wake Lock & Page Exit Guard agar HP tidak auto-lock dan tab aman dari navigasi tak sengaja
+    wakeLockManager.acquire();
+    enablePageExitGuard();
+
     uploadProgressPercent.value = 0;
     uploadTransferredBytes.value = 0;
     uploadTotalBytes.value = file.size;
@@ -263,6 +268,8 @@ export function useAudioController() {
       isLoading.value = false;
       uploadPhase.value = 'idle';
       if (timerInterval) clearInterval(timerInterval);
+      wakeLockManager.release();
+      disablePageExitGuard();
     }
   }
 

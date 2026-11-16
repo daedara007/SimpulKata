@@ -56,29 +56,62 @@ export const audioModel = {
 
       uploadId = initRes.data.data.uploadId;
 
-      // 2. Unggah berkas kepingan demi kepingan secara berurutan
+      // 2. Unggah berkas kepingan demi kepingan secara berurutan dengan toleransi retry jaringan mobile
       let loadedBytes = 0;
+      const MAX_CHUNK_RETRIES = 3;
+
       for (let i = 0; i < totalChunks; i++) {
         const start = i * chunkSize;
         const end = Math.min(start + chunkSize, audioFile.size);
         const chunkBlob = audioFile.slice(start, end);
 
-        const formData = new FormData();
-        formData.append('chunk', chunkBlob, `chunk-${i}.part`);
+        let chunkAttempt = 0;
+        let chunkSuccess = false;
+        let lastError: any = null;
 
-        await apiClient.post(
-          `/api/upload/chunk?uploadId=${encodeURIComponent(uploadId)}&chunkIndex=${i}`,
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              'x-upload-id': uploadId,
-              'x-chunk-index': String(i),
-              'x-total-chunks': String(totalChunks),
-            },
-            signal: options.signal,
+        while (chunkAttempt < MAX_CHUNK_RETRIES && !chunkSuccess) {
+          try {
+            const formData = new FormData();
+            formData.append('chunk', chunkBlob, `chunk-${i}.part`);
+
+            await apiClient.post(
+              `/api/upload/chunk?uploadId=${encodeURIComponent(uploadId)}&chunkIndex=${i}`,
+              formData,
+              {
+                headers: {
+                  'Content-Type': 'multipart/form-data',
+                  'x-upload-id': uploadId,
+                  'x-chunk-index': String(i),
+                  'x-total-chunks': String(totalChunks),
+                },
+                signal: options.signal,
+              }
+            );
+
+            chunkSuccess = true;
+          } catch (chunkErr: any) {
+            // Jika dibatalkan sengaja via AbortSignal, jangan retry
+            if (options.signal?.aborted) {
+              throw chunkErr;
+            }
+
+            chunkAttempt++;
+            lastError = chunkErr;
+            console.warn(
+              `[ChunkUpload] Percobaan ke-${chunkAttempt} kepingan ${i + 1}/${totalChunks} terkendala. Mengulang kembali...`,
+              chunkErr
+            );
+
+            if (chunkAttempt < MAX_CHUNK_RETRIES) {
+              // Tunggu sejenak sebelum mencoba kembali (exponential backoff)
+              await new Promise((res) => setTimeout(res, chunkAttempt * 1200));
+            }
           }
-        );
+        }
+
+        if (!chunkSuccess) {
+          throw lastError || new Error(`Gagal mengunggah kepingan audio ke-${i + 1}`);
+        }
 
         loadedBytes = end;
         const percent = Math.min(100, Math.round((loadedBytes / audioFile.size) * 100));
