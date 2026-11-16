@@ -169,7 +169,8 @@ async function transcribeSingleAudio(
         data: audioBlob,
       });
 
-      const text = (result && typeof result.text === 'string') ? result.text.trim() : '';
+      const raw = (result && typeof result.text === 'string') ? result.text.trim() : '';
+      const text = cleanWhisperTranscript(raw);
       return text;
     } catch (err: any) {
       lastError = err;
@@ -289,7 +290,8 @@ export async function transcribeAudio(
         throw error;
       }
 
-      const finalText = transcribedParts.join(' ').replace(/\s+/g, ' ').trim();
+      const rawCombined = transcribedParts.join(' ').replace(/\s+/g, ' ').trim();
+      const finalText = cleanWhisperTranscript(rawCombined);
 
       if (!finalText) {
         console.warn(`[aiService] Seluruh ${files.length} segmen audio tidak menghasilkan ucapan yang terdeteksi.`);
@@ -316,7 +318,8 @@ export async function transcribeAudio(
   }
 
   try {
-    const text = await transcribeSingleAudio(audioToProcess, model, '[Audio Utuh]');
+    const rawText = await transcribeSingleAudio(audioToProcess, model, '[Audio Utuh]');
+    const text = cleanWhisperTranscript(rawText);
     console.log(`[aiService] Transkripsi selesai (${text.length} karakter, durasi ${duration_seconds}s)`);
     return { text, duration_seconds };
   } catch (err: any) {
@@ -329,6 +332,44 @@ export async function transcribeAudio(
       await fs.promises.unlink(convertedFile).catch(() => {});
     }
   }
+}
+
+/**
+ * Membersihkan loop pengulangan kata/frasa berturut-turut dan halusinasi umum dari Whisper
+ * yang kerap muncul akibat jeda hening (silence/hesitation/background noise) pada rekaman perkuliahan.
+ */
+export function cleanWhisperTranscript(text: string): string {
+  if (!text) return '';
+
+  let cleaned = text;
+
+  // 1. Hapus halusinasi outro internet/YouTube umum yang dipicu jeda hening di akhir segmen
+  const hallucinationPatterns = [
+    /terima\s+kasih\s+telah\s+menonton[!.?]?/gi,
+    /sampai\s+jumpa\s+di\s+video\s+selanjutnya[!.?]?/gi,
+    /jangan\s+lupa\s+(?:like|subscribe|komen|comment)[^.!?\n]*[!.?]?/gi,
+    /thanks\s+for\s+watching[!.?]?/gi,
+    /see\s+you\s+in\s+the\s+next\s+video[!.?]?/gi,
+    /subtitles?\s+by\s+the\s+amara\.org\s+community/gi,
+  ];
+
+  for (const pattern of hallucinationPatterns) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  // 2. Bersihkan pengulangan suku kata / kata pendek yang berulang >= 4 kali (misal: "di di di di di", "Hai Hai Hai Hai")
+  cleaned = cleaned.replace(/\b([a-zA-Z\u00C0-\u017F]+)\s+(?:\1\s+){3,}/gi, '$1 ');
+
+  // 3. Bersihkan pengulangan frasa 1 s/d 6 kata yang berulang >= 3 kali berturut-turut (misal: "Sudah. Sudah. Sudah.", "Masyarakat dari situ. Masyarakat dari situ.")
+  for (let phraseLen = 6; phraseLen >= 1; phraseLen--) {
+    const regex = new RegExp(
+      `((?:[\\w\\u00C0-\\u017F-]+[.,!?-]?\\s+){${phraseLen - 1}}[\\w\\u00C0-\\u017F-]+[.,!?-]?)(?:\\s+\\1){2,}`,
+      'gi'
+    );
+    cleaned = cleaned.replace(regex, '$1');
+  }
+
+  return cleaned.replace(/\s{2,}/g, ' ').trim();
 }
 
 /**
