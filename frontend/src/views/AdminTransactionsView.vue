@@ -52,7 +52,7 @@
     </div>
 
     <!-- Sub-Navigasi Dasbor Admin (3 Tab Panel Admin) -->
-    <div class="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 w-fit select-none">
+    <div class="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 w-fit max-w-full overflow-x-auto no-scrollbar select-none">
       <RouterLink
         to="/admin/logs"
         class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-800/60"
