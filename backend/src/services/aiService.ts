@@ -167,6 +167,17 @@ async function transcribeSingleAudio(
       const result = await hf.automaticSpeechRecognition({
         model,
         data: audioBlob,
+        parameters: {
+          generate_kwargs: {
+            language: 'indonesian',
+            task: 'transcribe',
+            condition_on_previous_text: false,
+            compression_ratio_threshold: 2.4,
+            logprob_threshold: -1.0,
+            no_speech_threshold: 0.6,
+            repetition_penalty: 1.2,
+          },
+        },
       });
 
       const raw = (result && typeof result.text === 'string') ? result.text.trim() : '';
