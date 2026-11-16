@@ -164,13 +164,14 @@ async function transcribeSingleAudio(
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       console.log(`[aiService] Mengirim audio ${segmentLabel} (${(audioBlob.size / 1024).toFixed(1)} KB) ke HF Whisper (${model}) - Percobaan ${attempt}...`);
+      const whisperLang = process.env.WHISPER_LANGUAGE || undefined;
       const result = await hf.automaticSpeechRecognition({
         model,
         data: audioBlob,
         parameters: {
           generate_kwargs: {
-            language: 'indonesian',
             task: 'transcribe',
+            ...(whisperLang ? { language: whisperLang } : {}),
             condition_on_previous_text: false,
             compression_ratio_threshold: 2.4,
             logprob_threshold: -1.0,
