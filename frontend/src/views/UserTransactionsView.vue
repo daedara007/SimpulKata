@@ -681,9 +681,9 @@ async function checkStatus(order: OrderRow) {
 
 async function refreshUserBalance() {
   try {
-    const user = await authModel.getProfile();
-    if (user && typeof user.balance === 'number') {
-      currentUserBalance.value = user.balance;
+    const res = await authModel.getProfile();
+    if (res?.data && typeof res.data.balance === 'number') {
+      currentUserBalance.value = res.data.balance;
       return;
     }
   } catch {

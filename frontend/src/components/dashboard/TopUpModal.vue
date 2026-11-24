@@ -315,9 +315,9 @@ async function handleCheckout() {
               // 2. Refresh profil user dari backend agar saldo terkini tersimpan di localStorage dan state
               let freshBalance = detailResult.newBalance;
               try {
-                const profile = await authModel.getProfile();
-                if (profile && typeof profile.balance === 'number') {
-                  freshBalance = profile.balance;
+                const profileRes = await authModel.getProfile();
+                if (profileRes?.data && typeof profileRes.data.balance === 'number') {
+                  freshBalance = profileRes.data.balance;
                 }
               } catch (e) {
                 console.warn('[TopUpModal] Gagal ambil profil terkini:', e);
