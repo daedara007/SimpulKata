@@ -159,6 +159,20 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `webhook_processed` | BOOLEAN | Status pemrosesan notifikasi webhook |
 | `created_at` / `updated_at` | TIMESTAMP | Waktu pembuatan & pembaruan |
 
+### Tabel `quota_mutations`
+| Kolom | Tipe | Deskripsi |
+|---|---|---|
+| `id` | UUID (PK) | Identifier unik mutasi (`gen_random_uuid()`) |
+| `user_id` | UUID (FK -> users.id) | Pemilik mutasi (CASCADE on delete) |
+| `type` | VARCHAR(10) | Jenis mutasi: `'CREDIT'` (kuota masuk) atau `'DEBIT'` (kuota keluar) |
+| `amount_seconds` | INTEGER | Jumlah detik kuota yang bertambah atau berkurang |
+| `balance_before` | INTEGER | Saldo kuota dalam detik sebelum mutasi |
+| `balance_after` | INTEGER | Saldo kuota dalam detik sesudah mutasi |
+| `description` | TEXT | Keterangan aktivitas mutasi manusiawi |
+| `reference_type` | VARCHAR(30) | Tipe referensi: `'TOPUP'`, `'TRANSCRIPTION'`, `'REGISTRATION'`, `'REFUND'` |
+| `reference_id` | VARCHAR(100) | ID referensi pesanan, transkrip, atau registrasi |
+| `created_at` | TIMESTAMP | Waktu pencatatan mutasi (Default: `NOW()`) |
+
 ---
 
 ## 5. Daftar Endpoint API
@@ -178,6 +192,7 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `PUT` | `/api/users/profile` | Protected (JWT) | Memperbarui nama, avatar, & trigger OTP email baru dengan konfirmasi password saat ini (SRS UC-04 & SD-04) |
 | `POST` | `/api/users/verify-email-change` | Protected (JWT) | Memverifikasi OTP 6-digit untuk meresmikan alamat email baru (SRS UC-04 & SD-04) |
 | `PUT` | `/api/users/change-password` | Protected (JWT) | Mengubah kata sandi pengguna dengan validasi sandi saat ini & revoke seluruh sesi aktif (SRS UC-05 & SD-05) |
+| `GET` | `/api/users/quota-mutations` | Protected (JWT) | Mengambil riwayat mutasi saldo kuota masuk/keluar pengguna (Milestone v1.0.0-beta) |
 | `POST` | `/api/process-audio` | Protected (JWT) | Mengunggah audio, validasi kuota, transkripsi & rangkuman |
 | `GET` | `/api/history` | Protected (JWT) | Mengambil arsip riwayat pengguna (pagination & filter) |
 | `GET` | `/api/orders/packages` | Publik | Mengambil daftar paket kuota resmi yang tersedia (SRS UC-13) |

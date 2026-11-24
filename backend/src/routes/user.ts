@@ -12,6 +12,7 @@ const userRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.put('/profile', { preHandler: [fastify.authenticate] }, userController.updateProfile.bind(userController));
   fastify.post('/verify-email-change', { preHandler: [fastify.authenticate] }, userController.verifyEmailChange.bind(userController));
   fastify.put('/change-password', { preHandler: [fastify.authenticate] }, userController.changePassword.bind(userController));
+  fastify.get('/quota-mutations', { preHandler: [fastify.authenticate] }, userController.getQuotaMutations.bind(userController));
 };
 
 export default userRoutes;

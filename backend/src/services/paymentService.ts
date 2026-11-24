@@ -5,7 +5,7 @@
  */
 
 import crypto from 'crypto';
-import { orderModel, userModel } from '../models';
+import { orderModel, userModel, quotaMutationModel } from '../models';
 import { logService } from './logService';
 import {
   OrderPackage,
@@ -313,6 +313,21 @@ export class PaymentService {
       const addedSeconds = order.package_minutes * 60;
       const updatedBalance = await userModel.addBalance(order.user_id, addedSeconds);
 
+      try {
+        await quotaMutationModel.recordMutation({
+          userId: order.user_id,
+          type: 'CREDIT',
+          amountSeconds: addedSeconds,
+          balanceBefore: updatedBalance - addedSeconds,
+          balanceAfter: updatedBalance,
+          description: `Top Up Kuota: ${order.package_name} (+${order.package_minutes} Menit)`,
+          referenceType: 'TOPUP',
+          referenceId: order.order_number,
+        });
+      } catch (mutErr: any) {
+        logService.warn('PAYMENT', `Gagal mencatat mutasi top-up: ${mutErr.message}`);
+      }
+
       logService.info(
         'PAYMENT',
         `Pembayaran sukses untuk order ${order.order_number} (${order.package_name}). Saldo bertambah ${order.package_minutes} menit (${addedSeconds}s). Saldo pengguna kini: ${updatedBalance}s.`
@@ -380,6 +395,21 @@ export class PaymentService {
     const addedSeconds = order.package_minutes * 60;
     const newBalance = await userModel.addBalance(order.user_id, addedSeconds);
 
+    try {
+      await quotaMutationModel.recordMutation({
+        userId: order.user_id,
+        type: 'CREDIT',
+        amountSeconds: addedSeconds,
+        balanceBefore: newBalance - addedSeconds,
+        balanceAfter: newBalance,
+        description: `Top Up Kuota (Simulasi Sandbox): ${order.package_name} (+${order.package_minutes} Menit)`,
+        referenceType: 'TOPUP',
+        referenceId: order.order_number,
+      });
+    } catch (mutErr: any) {
+      logService.warn('PAYMENT', `Gagal mencatat mutasi simulasi pay: ${mutErr.message}`);
+    }
+
     logService.info(
       'PAYMENT',
       `[SIMULASI SANDBOX] Pembayaran sukses untuk order ${order.order_number}. Saldo bertambah ${order.package_minutes} menit (${addedSeconds}s). Saldo pengguna: ${newBalance}s.`
@@ -438,6 +468,21 @@ export class PaymentService {
         // Tambahkan saldo kuota ke akun pengguna
         const addedSeconds = order.package_minutes * 60;
         const newBalance = await userModel.addBalance(order.user_id, addedSeconds);
+
+        try {
+          await quotaMutationModel.recordMutation({
+            userId: order.user_id,
+            type: 'CREDIT',
+            amountSeconds: addedSeconds,
+            balanceBefore: newBalance - addedSeconds,
+            balanceAfter: newBalance,
+            description: `Top Up Kuota (Sync Midtrans): ${order.package_name} (+${order.package_minutes} Menit)`,
+            referenceType: 'TOPUP',
+            referenceId: order.order_number,
+          });
+        } catch (mutErr: any) {
+          logService.warn('PAYMENT', `Gagal mencatat mutasi sync order: ${mutErr.message}`);
+        }
 
         logService.info(
           'PAYMENT',

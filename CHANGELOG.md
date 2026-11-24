@@ -7,6 +7,37 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 
 ---
 
+## [1.0.0-beta] - 2026-11-24 - Milestone Beta IPPL (Full Lifecycle, Quota Mutation Audit, & Polished UX)
+
+### Added
+- **Sistem Audit Log Mutasi Saldo Kuota (*Quota Mutation Ledger*)**:
+  - Menambahkan tabel `quota_mutations` di PostgreSQL dengan indeks performa untuk mencatat riwayat keluar-masuknya detik saldo kuota (`users.balance`).
+  - Mengintegrasikan pencatatan mutasi secara atomik pada 4 skenario operasional:
+    1. **Top Up Kuota (CREDIT)** via webhook Midtrans, simulasi sandbox, dan on-demand sync.
+    2. **Transkripsi Audio (DEBIT)** saat reservasi kuota audio berhasil dipotong.
+    3. **Pengembalian Kuota / Refund (CREDIT)** saat terjadi kegagalan pemrosesan AI atau deteksi audio hening tanpa ucapan.
+    4. **Registrasi Akun Baru (CREDIT)** sebagai kuota sambutan awal 30 menit (1.800 detik).
+  - Menyediakan endpoint API `GET /api/users/quota-mutations` dengan filter jenis mutasi (`ALL`, `CREDIT`, `DEBIT`) dan paginasi data.
+  - Memperbarui antarmuka pengguna `UserTransactionsView.vue` pada menu **Tagihan** dengan sub-tab terintegrasi:
+    - Tab 1: `[💳 Riwayat Pembelian (Top Up)]` — Menampilkan invoice Midtrans dan status pesanan finansial.
+    - Tab 2: `[⏱️ Mutasi Saldo Kuota]` — Menampilkan tabel audit keluar-masuknya durasi audio dengan badge penambahan hijau (`+`) dan pemotongan merah (`-`), durasi waktu manusiawi, serta sisa kuota akhir.
+- **Ketahanan Rekaman & Unggahan Mobile (*Screen Wake Lock & Exit Guards*)**:
+  - Mengintegrasikan Screen Wake Lock API (`navigator.wakeLock`) selama proses perekaman audio langsung dan chunked upload agar layar ponsel tidak mati atau terkunci secara otomatis.
+  - Menambahkan pengaman `beforeunload` untuk mencegah pengguna tidak sengaja menutup peramban saat upload sedang berlangsung.
+  - Menambahkan mekanisme *chunk retry 3x* dengan *exponential backoff* pada kegagalan jaringan seluler.
+- **Pembersih Halusinasi & Pengulangan Whisper (*Repetition Loop Cleaner*)**:
+  - Mengembangkan sanitasi teks cerdas `cleanWhisperTranscript()` di backend untuk memangkas pengulangan kata patologis Whisper (misal ratusan repetisi kalimat pada audio hening/musik latar) dan membuang halusinasi outro video YouTube.
+  - Menyetel parameter inferensi Whisper: `condition_on_previous_text: false`, `compression_ratio_threshold: 2.4`, `repetition_penalty: 1.2`, serta bahasa bawaan otomatis (*Auto-Detect*).
+
+### Changed
+- **Penyederhanaan Navbar Responsif (*Single-Row Layout*)**:
+  - Mengompakkan tombol tab navigasi utama (`Transkripsi`, `Riwayat`, `Tagihan`, `Admin`) menjadi satu baris bersih dan menyatukan widget sisa kuota dengan tombol top-up.
+  - Mengisolasi sub-navbar bawah khusus layar ponsel kecil (`< 640px`) sehingga tampilan desktop dan tablet tetap lega dan proporsional.
+- **Kenaikan Versi Sistem ke `v1.0.0-beta`**:
+  - Memperbarui versi pada `backend/package.json`, `frontend/package.json`, endpoint healthcheck Fastify `/health`, serta badge footer `DashboardLayout.vue` dan `HomeFooter.vue`.
+
+---
+
 ## [0.5.0-alpha] - 2026-11-03 - Milestone 50% IPPL (Core MVP & Live Audio Intelligence)
 
 ### Added

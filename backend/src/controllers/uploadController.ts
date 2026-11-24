@@ -14,7 +14,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import fs from 'fs';
 import path from 'path';
 import { pipeline } from 'stream/promises';
-import { userModel, transcriptModel } from '../models';
+import { userModel, transcriptModel, quotaMutationModel, formatDurationDisplay } from '../models';
 import aiService from '../services/aiService';
 import { safeUnlink, runTranscriptionPipeline } from './audioController';
 
@@ -468,6 +468,22 @@ export class UploadController {
 
       transcriptId = newTranscript.id;
 
+      // Catat mutasi DEBIT pengurangan kuota audio
+      try {
+        await quotaMutationModel.recordMutation({
+          userId: user.id,
+          type: 'DEBIT',
+          amountSeconds: durationSeconds,
+          balanceBefore: remainingBalance + durationSeconds,
+          balanceAfter: remainingBalance,
+          description: `Transkripsi Audio: ${meta.fileName} (-${formatDurationDisplay(durationSeconds)})`,
+          referenceType: 'TRANSCRIPTION',
+          referenceId: transcriptId,
+        });
+      } catch (mutErr: any) {
+        console.warn('[UploadController] Gagal mencatat mutasi transkripsi chunked:', mutErr.message);
+      }
+
       const isSync = (request.query as { sync?: string } | undefined)?.sync === 'true';
 
       if (isSync) {
@@ -517,7 +533,21 @@ export class UploadController {
 
       if (isQuotaReserved && userId && durationSeconds > 0) {
         try {
-          await userModel.refundBalance(userId, durationSeconds);
+          const newBal = await userModel.refundBalance(userId, durationSeconds);
+          try {
+            await quotaMutationModel.recordMutation({
+              userId,
+              type: 'CREDIT',
+              amountSeconds: durationSeconds,
+              balanceBefore: newBal - durationSeconds,
+              balanceAfter: newBal,
+              description: `Pengembalian Kuota (Upload Gagal) (+${formatDurationDisplay(durationSeconds)})`,
+              referenceType: 'REFUND',
+              referenceId: transcriptId || undefined,
+            });
+          } catch (mErr: any) {
+            console.warn('[UploadController] Gagal mencatat mutasi refund:', mErr.message);
+          }
           console.log(`[UploadController] Mengembalikan kuota ${durationSeconds}s ke user ${userId} karena complete gagal`);
         } catch (refundErr: any) {
           console.error('[UploadController] Gagal mengembalikan kuota:', refundErr.message);

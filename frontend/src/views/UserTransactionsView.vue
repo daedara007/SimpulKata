@@ -9,10 +9,10 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
             </svg>
           </span>
-          <span>Riwayat Tagihan & Pembelian Kuota</span>
+          <span>Riwayat Tagihan & Mutasi Kuota</span>
         </h2>
         <p class="text-xs sm:text-sm text-slate-400 mt-1">
-          Pantau riwayat top up kuota audio transkripsi dan status pembayaran akun Anda.
+          Pantau riwayat top up kuota, audit mutasi keluar-masuk saldo audio, dan status transaksi akun Anda.
         </p>
       </div>
 
@@ -22,10 +22,10 @@
         <button
           type="button"
           class="p-2.5 rounded-xl text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-colors cursor-pointer"
-          :class="isLoading ? 'animate-spin text-indigo-400' : ''"
-          title="Segarkan Riwayat Pesanan"
-          :disabled="isLoading"
-          @click="fetchOrders(currentPage)"
+          :class="(isLoading || isMutationsLoading) ? 'animate-spin text-indigo-400' : ''"
+          title="Segarkan Riwayat Data"
+          :disabled="isLoading || isMutationsLoading"
+          @click="handleRefresh"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -40,6 +40,67 @@
         >
           <span class="group-hover:scale-110 transition-transform">⚡</span>
           <span>Top Up Kuota</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sub-Tab Switcher: Riwayat Pembelian vs Mutasi Kuota -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-1.5 p-1 bg-slate-900/90 border border-slate-800/80 rounded-2xl">
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          :class="activeSubTab === 'orders'
+            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/30'
+            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'"
+          @click="switchSubTab('orders')"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          </svg>
+          <span>Riwayat Pembelian (Top Up)</span>
+        </button>
+
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          :class="activeSubTab === 'mutations'
+            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/30'
+            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'"
+          @click="switchSubTab('mutations')"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Mutasi Saldo Kuota</span>
+        </button>
+      </div>
+
+      <!-- Filter Kategori Khusus Mutasi Saldo -->
+      <div v-if="activeSubTab === 'mutations'" class="flex items-center gap-1.5 p-1 bg-slate-900/60 border border-slate-800/80 rounded-xl text-[11px]">
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer"
+          :class="mutationTypeFilter === 'ALL' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+          @click="changeMutationFilter('ALL')"
+        >
+          Semua
+        </button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer"
+          :class="mutationTypeFilter === 'CREDIT' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+          @click="changeMutationFilter('CREDIT')"
+        >
+          + Kuota Masuk
+        </button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer"
+          :class="mutationTypeFilter === 'DEBIT' ? 'bg-rose-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+          @click="changeMutationFilter('DEBIT')"
+        >
+          - Kuota Keluar
         </button>
       </div>
     </div>
@@ -64,8 +125,8 @@
       </button>
     </div>
 
-    <!-- Ringkasan Statistik Singkat -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+    <!-- Ringkasan Statistik Singkat (Dinamis Sesuai Tab) -->
+    <div v-if="activeSubTab === 'orders'" class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
       <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm">
         <p class="text-[11px] font-medium text-slate-400">Total Transaksi</p>
         <p class="text-xl sm:text-2xl font-black text-white mt-1">{{ totalOrders }}</p>
@@ -84,8 +145,27 @@
       </div>
     </div>
 
-    <!-- Konten Utama: Daftar Riwayat Transaksi -->
-    <div class="rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-xl overflow-hidden">
+    <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm">
+        <p class="text-[11px] font-medium text-slate-400">Total Mutasi Tercatat</p>
+        <p class="text-xl sm:text-2xl font-black text-white mt-1">{{ totalMutations }}</p>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm">
+        <p class="text-[11px] font-medium text-slate-400">Status Saldo</p>
+        <p class="text-xl sm:text-2xl font-black text-emerald-400 mt-1">Aktif & Sinkron</p>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm col-span-2 sm:col-span-1">
+        <p class="text-[11px] font-medium text-slate-400">Sisa Kuota Terkini</p>
+        <p class="text-xl sm:text-2xl font-black font-mono text-indigo-300 mt-1">
+          ⏱️ {{ formatDuration(currentUserBalance) }}
+        </p>
+      </div>
+    </div>
+
+    <!-- KONTEN TAB 1: DAFTAR RIWAYAT TRANSAKSI PEMBELIAN -->
+    <div v-if="activeSubTab === 'orders'" class="rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-xl overflow-hidden">
       <!-- Loading Skeleton -->
       <div v-if="isLoading" class="p-8 space-y-4">
         <div v-for="i in 3" :key="i" class="h-14 bg-slate-800/50 rounded-2xl animate-pulse"></div>
@@ -103,7 +183,7 @@
         </div>
         <h3 class="text-base sm:text-lg font-bold text-white">Anda belum pernah melakukan pembelian kuota</h3>
         <p class="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
-          Setiap pembelian kuota audio untuk kebutuhan transkripsi rapat dan wawancara akan tercatat secara otomatis di sini.
+          Setiap pembelian paket kuota audio untuk kebutuhan transkripsi rapat dan wawancara akan tercatat secara otomatis di sini.
         </p>
         <div class="pt-2">
           <button
@@ -207,7 +287,7 @@
         </table>
       </div>
 
-      <!-- Footer Paginasi -->
+      <!-- Footer Paginasi Orders -->
       <div
         v-if="totalPages > 1"
         class="p-4 sm:p-5 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400"
@@ -218,7 +298,7 @@
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             :disabled="currentPage <= 1 || isLoading"
             @click="fetchOrders(currentPage - 1)"
           >
@@ -226,9 +306,130 @@
           </button>
           <button
             type="button"
-            class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             :disabled="currentPage >= totalPages || isLoading"
             @click="fetchOrders(currentPage + 1)"
+          >
+            Selanjutnya
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KONTEN TAB 2: DAFTAR MUTASI SALDO KUOTA (Milestone v1.0.0-beta) -->
+    <div v-else class="rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-xl overflow-hidden">
+      <!-- Loading Skeleton -->
+      <div v-if="isMutationsLoading" class="p-8 space-y-4">
+        <div v-for="i in 3" :key="i" class="h-14 bg-slate-800/50 rounded-2xl animate-pulse"></div>
+      </div>
+
+      <!-- State Kosong Mutasi -->
+      <div
+        v-else-if="mutations.length === 0"
+        class="p-12 text-center space-y-4"
+      >
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-slate-800/80 border border-slate-700/80 text-slate-400 mb-2">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h3 class="text-base sm:text-lg font-bold text-white">Belum ada riwayat mutasi kuota</h3>
+        <p class="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
+          Setiap penambahan saldo (dari top-up Midtrans atau bonus registrasi) dan pemotongan durasi transkripsi audio akan tercatat secara otomatis di sini.
+        </p>
+      </div>
+
+      <!-- Tabel Riwayat Mutasi Saldo Kuota -->
+      <div v-else class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800/80 bg-slate-950/40 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <th class="py-4 px-4 sm:px-6">Waktu Mutasi</th>
+              <th class="py-4 px-4">Jenis</th>
+              <th class="py-4 px-4">Keterangan Aktivitas</th>
+              <th class="py-4 px-4">Perubahan Saldo</th>
+              <th class="py-4 px-4 sm:px-6 text-right">Saldo Sesudah</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60 text-xs">
+            <tr
+              v-for="mut in mutations"
+              :key="mut.id"
+              class="hover:bg-slate-800/30 transition-colors"
+            >
+              <!-- Waktu -->
+              <td class="py-4 px-4 sm:px-6 text-slate-400 text-[11px] whitespace-nowrap font-mono">
+                {{ formatDateTime(mut.created_at) }}
+              </td>
+
+              <!-- Jenis (Badge + Masuk / - Keluar) -->
+              <td class="py-4 px-4 whitespace-nowrap">
+                <span
+                  v-if="mut.type === 'CREDIT'"
+                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                >
+                  <span>+</span>
+                  <span>Kuota Masuk</span>
+                </span>
+                <span
+                  v-else
+                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30"
+                >
+                  <span>-</span>
+                  <span>Kuota Keluar</span>
+                </span>
+              </td>
+
+              <!-- Keterangan & Referensi -->
+              <td class="py-4 px-4">
+                <div class="font-medium text-slate-100">{{ mut.description }}</div>
+                <div class="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
+                  <span class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-semibold">{{ mut.reference_type }}</span>
+                  <span v-if="mut.reference_id">Ref: {{ mut.reference_id }}</span>
+                </div>
+              </td>
+
+              <!-- Perubahan Saldo -->
+              <td class="py-4 px-4 whitespace-nowrap font-mono font-bold">
+                <span v-if="mut.type === 'CREDIT'" class="text-emerald-400">
+                  +{{ formatDuration(mut.amount_seconds) }}
+                </span>
+                <span v-else class="text-rose-400">
+                  -{{ formatDuration(mut.amount_seconds) }}
+                </span>
+              </td>
+
+              <!-- Saldo Sesudah -->
+              <td class="py-4 px-4 sm:px-6 text-right whitespace-nowrap font-mono font-semibold text-slate-300">
+                ⏱️ {{ formatDuration(mut.balance_after) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer Paginasi Mutasi -->
+      <div
+        v-if="totalMutationPages > 1"
+        class="p-4 sm:p-5 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400"
+      >
+        <div>
+          Menampilkan halaman <span class="font-bold text-white">{{ mutationPage }}</span> dari <span class="font-bold text-white">{{ totalMutationPages }}</span> (Total {{ totalMutations }} mutasi)
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            :disabled="mutationPage <= 1 || isMutationsLoading"
+            @click="fetchMutations(mutationPage - 1)"
+          >
+            Sebelumnya
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            :disabled="mutationPage >= totalMutationPages || isMutationsLoading"
+            @click="fetchMutations(mutationPage + 1)"
           >
             Selanjutnya
           </button>
@@ -247,20 +448,37 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { paymentModel, type OrderRow } from '../models/paymentModel';
+import {
+  paymentModel,
+  type OrderRow,
+  type QuotaMutation,
+} from '../models/paymentModel';
 import { authModel } from '../models/authModel';
 import TopUpModal from '../components/dashboard/TopUpModal.vue';
 import { formatDuration } from '../utils';
 
+// State Tab Aktif ('orders' = Pembelian/Topup, 'mutations' = Mutasi Saldo)
+const activeSubTab = ref<'orders' | 'mutations'>('orders');
+
+// State Riwayat Pembelian (Orders)
 const orders = ref<OrderRow[]>([]);
 const totalOrders = ref(0);
 const currentPage = ref(1);
 const totalPages = ref(1);
 const isLoading = ref(false);
+
+// State Mutasi Saldo Kuota
+const mutations = ref<QuotaMutation[]>([]);
+const totalMutations = ref(0);
+const mutationPage = ref(1);
+const totalMutationPages = ref(1);
+const isMutationsLoading = ref(false);
+const mutationTypeFilter = ref<'ALL' | 'CREDIT' | 'DEBIT'>('ALL');
+
 const errorMessage = ref('');
 const isTopUpOpen = ref(false);
-
 const currentUserBalance = ref(0);
+const isSyncing = ref<string | null>(null);
 
 // Hitung transaksi berstatus completed di halaman saat ini / riwayat
 const completedOrdersCount = computed(() => {
@@ -290,7 +508,7 @@ function formatDateTime(dateStr: string): string {
   });
 }
 
-// Status badge styling
+// Status badge styling untuk order
 function statusBadgeClass(status: string): string {
   switch (status) {
     case 'completed':
@@ -352,6 +570,54 @@ async function fetchOrders(page = 1) {
   }
 }
 
+// Memuat riwayat mutasi kuota (Milestone v1.0.0-beta)
+async function fetchMutations(page = 1) {
+  isMutationsLoading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const data = await paymentModel.getQuotaMutations({
+      page,
+      limit: 20,
+      type: mutationTypeFilter.value,
+    });
+    mutations.value = data.mutations || [];
+    totalMutations.value = data.total || 0;
+    mutationPage.value = data.page || 1;
+    totalMutationPages.value = data.totalPages || 1;
+  } catch (err: any) {
+    errorMessage.value = err.response?.data?.message || 'Gagal memuat riwayat mutasi kuota.';
+  } finally {
+    isMutationsLoading.value = false;
+  }
+}
+
+// Penggantian sub-tab
+function switchSubTab(tab: 'orders' | 'mutations') {
+  activeSubTab.value = tab;
+  if (tab === 'mutations' && mutations.value.length === 0) {
+    fetchMutations(1);
+  } else if (tab === 'orders' && orders.value.length === 0) {
+    fetchOrders(1);
+  }
+}
+
+// Penggantian filter mutasi
+function changeMutationFilter(type: 'ALL' | 'CREDIT' | 'DEBIT') {
+  mutationTypeFilter.value = type;
+  fetchMutations(1);
+}
+
+// Tombol refresh umum
+function handleRefresh() {
+  refreshUserBalance();
+  if (activeSubTab.value === 'orders') {
+    fetchOrders(currentPage.value);
+  } else {
+    fetchMutations(mutationPage.value);
+  }
+}
+
 // Lanjutkan pembayaran untuk order pending
 async function resumePayment(order: OrderRow) {
   if (order.snap_token) {
@@ -361,6 +627,9 @@ async function resumePayment(order: OrderRow) {
         onSuccess: async () => {
           await fetchOrders(currentPage.value);
           await refreshUserBalance();
+          if (activeSubTab.value === 'mutations') {
+            await fetchMutations(1);
+          }
         },
         onPending: async () => {
           await fetchOrders(currentPage.value);
@@ -382,13 +651,14 @@ async function resumePayment(order: OrderRow) {
       await paymentModel.simulatePay(order.order_number);
       await fetchOrders(currentPage.value);
       await refreshUserBalance();
+      if (activeSubTab.value === 'mutations') {
+        await fetchMutations(1);
+      }
     } catch {
       errorMessage.value = 'Tidak dapat memproses pembayaran pesanan ini.';
     }
   }
 }
-
-const isSyncing = ref<string | null>(null);
 
 async function checkStatus(order: OrderRow) {
   isSyncing.value = order.order_number;
@@ -398,6 +668,9 @@ async function checkStatus(order: OrderRow) {
     await refreshUserBalance();
     if (res.synced) {
       errorMessage.value = '';
+      if (activeSubTab.value === 'mutations') {
+        await fetchMutations(1);
+      }
     }
   } catch (err: any) {
     errorMessage.value = err.response?.data?.message || 'Gagal mengecek status pembayaran ke gateway.';
@@ -427,6 +700,7 @@ function handlePaymentSuccess(newBalance?: number) {
     currentUserBalance.value = newBalance;
   }
   fetchOrders(1);
+  fetchMutations(1);
   refreshUserBalance();
 }
 

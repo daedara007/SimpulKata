@@ -13,7 +13,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import { userModel, otpModel, sessionModel } from '../models';
+import { userModel, otpModel, sessionModel, quotaMutationModel } from '../models';
 import emailService from '../services/emailService';
 import { ChangePasswordDTO } from '../types';
 
@@ -465,6 +465,51 @@ export class UserController {
         status: 'error',
         code: 'CHANGE_PASSWORD_ERROR',
         message: 'Terjadi kesalahan pada server saat mengubah kata sandi.',
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/quota-mutations
+   * Mengambil riwayat mutasi saldo kuota milik pengguna login (Milestone v1.0.0-beta)
+   */
+  async getQuotaMutations(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const userId = request.user?.id;
+      if (!userId) {
+        return reply.status(401).send({
+          status: 'error',
+          code: 'UNAUTHORIZED',
+          message: 'Akses ditolak. Silakan login terlebih dahulu.',
+        });
+      }
+
+      const query = (request.query || {}) as {
+        page?: string;
+        limit?: string;
+        type?: 'ALL' | 'CREDIT' | 'DEBIT';
+      };
+
+      const page = parseInt(query.page || '1', 10) || 1;
+      const limit = parseInt(query.limit || '15', 10) || 15;
+      const type = query.type;
+
+      const result = await quotaMutationModel.getUserMutations(userId, {
+        page,
+        limit,
+        type,
+      });
+
+      return reply.status(200).send({
+        status: 'success',
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('[UserController] Error saat getQuotaMutations:', error);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'GET_QUOTA_MUTATIONS_ERROR',
+        message: 'Gagal mengambil riwayat mutasi kuota.',
       });
     }
   }

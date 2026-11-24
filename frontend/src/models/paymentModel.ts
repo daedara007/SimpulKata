@@ -48,6 +48,28 @@ export interface SimulatePayResult {
   newBalance: number;
 }
 
+export interface QuotaMutation {
+  id: string;
+  user_id: string;
+  type: 'CREDIT' | 'DEBIT';
+  amount_seconds: number;
+  balance_before: number;
+  balance_after: number;
+  description: string;
+  reference_type: 'TOPUP' | 'TRANSCRIPTION' | 'REGISTRATION' | 'REFUND' | 'MANUAL_ADJUSTMENT';
+  reference_id: string | null;
+  created_at: string;
+}
+
+export interface QuotaMutationsResult {
+  mutations: QuotaMutation[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+
 declare global {
   interface Window {
     snap?: {
@@ -147,6 +169,22 @@ export const paymentModel = {
     }>('/api/orders/my-orders', {
       params: { page, limit },
     });
+    return response.data.data;
+  },
+
+  /**
+   * Mengambil riwayat mutasi kuota pengguna aktif (Milestone v1.0.0-beta)
+   * GET /api/users/quota-mutations
+   */
+  async getQuotaMutations(params: {
+    page?: number;
+    limit?: number;
+    type?: 'ALL' | 'CREDIT' | 'DEBIT';
+  } = {}): Promise<QuotaMutationsResult> {
+    const response = await apiClient.get<{ status: string; data: QuotaMutationsResult }>(
+      '/api/users/quota-mutations',
+      { params }
+    );
     return response.data.data;
   },
 

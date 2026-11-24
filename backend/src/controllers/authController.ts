@@ -12,7 +12,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import { userModel, sessionModel, otpModel } from '../models';
+import { userModel, sessionModel, otpModel, quotaMutationModel } from '../models';
 import emailService from '../services/emailService';
 import { logService } from '../services/logService';
 
@@ -249,6 +249,25 @@ export class AuthController {
         userAgent,
         daysValid: 7,
       });
+
+      // Catat mutasi awal saldo kuota pengguna jika belum ada
+      try {
+        const existingMutations = await quotaMutationModel.getUserMutations(activatedUser.id, { limit: 1 });
+        if (existingMutations.total === 0 && activatedUser.balance > 0) {
+          await quotaMutationModel.recordMutation({
+            userId: activatedUser.id,
+            type: 'CREDIT',
+            amountSeconds: activatedUser.balance,
+            balanceBefore: 0,
+            balanceAfter: activatedUser.balance,
+            description: 'Bonus Pengguna Baru: Kuota Sambutan (+30 Menit)',
+            referenceType: 'REGISTRATION',
+            referenceId: activatedUser.id,
+          });
+        }
+      } catch (mutationErr: any) {
+        console.warn('[AuthController] Gagal mencatat mutasi registrasi:', mutationErr.message);
+      }
 
       return reply.status(200).send({
         status: 'success',

@@ -4,6 +4,7 @@ import transcriptModel from './transcriptModel';
 import otpModel from './otpModel';
 import logModel from './logModel';
 import orderModel from './orderModel';
+import { quotaMutationModel, formatDurationDisplay } from './quotaMutationModel';
 
 export {
   userModel,
@@ -12,6 +13,8 @@ export {
   otpModel,
   logModel,
   orderModel,
+  quotaMutationModel,
+  formatDurationDisplay,
 };
 
 export default {
@@ -21,5 +24,6 @@ export default {
   otpModel,
   logModel,
   orderModel,
+  quotaMutationModel,
 };
 

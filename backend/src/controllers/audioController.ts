@@ -17,7 +17,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import fs from 'fs';
 import path from 'path';
 import { pipeline } from 'stream/promises';
-import { userModel, transcriptModel } from '../models';
+import { userModel, transcriptModel, quotaMutationModel, formatDurationDisplay } from '../models';
 import aiService from '../services/aiService';
 import { logService } from '../services/logService';
 
@@ -70,8 +70,22 @@ export async function runTranscriptionPipeline({
 
       // Kembalikan kuota karena tidak ada ucapan terdeteksi
       if (userId && durationSeconds > 0) {
-        await userModel.refundBalance(userId, durationSeconds);
+        const newBal = await userModel.refundBalance(userId, durationSeconds);
         isQuotaReserved = false;
+        try {
+          await quotaMutationModel.recordMutation({
+            userId,
+            type: 'CREDIT',
+            amountSeconds: durationSeconds,
+            balanceBefore: newBal - durationSeconds,
+            balanceAfter: newBal,
+            description: `Pengembalian Kuota (Audio Hening / Tanpa Ucapan) (+${formatDurationDisplay(durationSeconds)})`,
+            referenceType: 'REFUND',
+            referenceId: transcriptId,
+          });
+        } catch (mErr: any) {
+          console.warn('[AudioPipeline] Gagal mencatat mutasi refund:', mErr.message);
+        }
         console.log(`[AudioPipeline] Kuota dikembalikan karena audio hening (tidak ada ucapan)`);
       }
 
@@ -136,7 +150,21 @@ export async function runTranscriptionPipeline({
     // Kembalikan reservasi kuota jika pemrosesan gagal (CR-03 Refund)
     if (isQuotaReserved && error.code !== 'NO_SPEECH_DETECTED' && userId && durationSeconds > 0) {
       try {
-        await userModel.refundBalance(userId, durationSeconds);
+        const newBal = await userModel.refundBalance(userId, durationSeconds);
+        try {
+          await quotaMutationModel.recordMutation({
+            userId,
+            type: 'CREDIT',
+            amountSeconds: durationSeconds,
+            balanceBefore: newBal - durationSeconds,
+            balanceAfter: newBal,
+            description: `Pengembalian Kuota (Transkripsi Gagal) (+${formatDurationDisplay(durationSeconds)})`,
+            referenceType: 'REFUND',
+            referenceId: transcriptId,
+          });
+        } catch (mErr: any) {
+          console.warn('[AudioPipeline] Gagal mencatat mutasi refund:', mErr.message);
+        }
         logService.info('AI_SERVICE', `Mengembalikan kuota ${durationSeconds}s ke user ${userId} karena pemrosesan transkrip gagal.`);
       } catch (refundErr: any) {
         logService.error('AI_SERVICE', `Gagal mengembalikan kuota ke user ${userId}: ${refundErr.message}`, refundErr);
@@ -297,6 +325,22 @@ export class AudioController {
       transcriptId = newTranscript.id;
       console.log(`[AudioController] Record transcript dibuat: ${transcriptId} (status: processing, durasi: ${durationSeconds}s)`);
 
+      // Catat mutasi DEBIT pengurangan kuota audio
+      try {
+        await quotaMutationModel.recordMutation({
+          userId: user.id,
+          type: 'DEBIT',
+          amountSeconds: durationSeconds,
+          balanceBefore: remainingBalance + durationSeconds,
+          balanceAfter: remainingBalance,
+          description: `Transkripsi Audio: ${originalFileName} (-${formatDurationDisplay(durationSeconds)})`,
+          referenceType: 'TRANSCRIPTION',
+          referenceId: transcriptId,
+        });
+      } catch (mutErr: any) {
+        console.warn('[AudioController] Gagal mencatat mutasi transkripsi:', mutErr.message);
+      }
+
       const isSync = (request.query as { sync?: string } | undefined)?.sync === 'true';
 
       if (isSync) {
@@ -347,7 +391,21 @@ export class AudioController {
       // Kembalikan reservasi kuota jika pemrosesan gagal di controller (CR-03 Refund)
       if (isQuotaReserved && userId && durationSeconds > 0) {
         try {
-          await userModel.refundBalance(userId, durationSeconds);
+          const newBal = await userModel.refundBalance(userId, durationSeconds);
+          try {
+            await quotaMutationModel.recordMutation({
+              userId,
+              type: 'CREDIT',
+              amountSeconds: durationSeconds,
+              balanceBefore: newBal - durationSeconds,
+              balanceAfter: newBal,
+              description: `Pengembalian Kuota (Transkripsi Gagal) (+${formatDurationDisplay(durationSeconds)})`,
+              referenceType: 'REFUND',
+              referenceId: transcriptId || undefined,
+            });
+          } catch (mErr: any) {
+            console.warn('[AudioController] Gagal mencatat mutasi refund:', mErr.message);
+          }
           console.log(`[AudioController] Mengembalikan kuota ${durationSeconds}s ke user ${userId} karena pemrosesan gagal`);
         } catch (refundErr: any) {
           console.error('[AudioController] Gagal mengembalikan kuota:', refundErr.message);

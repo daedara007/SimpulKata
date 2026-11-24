@@ -159,6 +159,29 @@ CREATE INDEX IF NOT EXISTS idx_orders_status       ON orders (status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at   ON orders (created_at DESC);
 
 -- ----------------------------------------------------------
+-- TABEL: quota_mutations
+-- Menyimpan riwayat audit mutasi saldo kuota (debit / kredit)
+-- Berdasarkan: Milestone v1.0.0-beta Quota Balance Audit Ledger
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS quota_mutations (
+    id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID            NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type            VARCHAR(10)     NOT NULL CHECK (type IN ('CREDIT', 'DEBIT')),
+    amount_seconds  INTEGER         NOT NULL CHECK (amount_seconds > 0),
+    balance_before  INTEGER         NOT NULL,
+    balance_after   INTEGER         NOT NULL,
+    description     TEXT            NOT NULL,
+    reference_type  VARCHAR(30)     NOT NULL 
+                    CHECK (reference_type IN ('TOPUP', 'TRANSCRIPTION', 'REGISTRATION', 'REFUND', 'MANUAL_ADJUSTMENT')),
+    reference_id    VARCHAR(100),
+    created_at      TIMESTAMP       NOT NULL DEFAULT NOW()
+);
+
+-- Index untuk mempercepat lookup riwayat mutasi per pengguna
+CREATE INDEX IF NOT EXISTS idx_quota_mutations_user_created ON quota_mutations (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_quota_mutations_type ON quota_mutations (type);
+
+-- ----------------------------------------------------------
 -- FUNGSI: auto_update_updated_at()
 -- Trigger function untuk otomatis memperbarui kolom updated_at
 -- setiap kali ada operasi UPDATE pada tabel

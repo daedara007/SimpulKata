@@ -80,11 +80,26 @@ entity "system_logs" {
   * created_at : TIMESTAMP
 }
 
+entity "quota_mutations" {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * type : VARCHAR(10)
+  * amount_seconds : INTEGER
+  * balance_before : INTEGER
+  * balance_after : INTEGER
+  * description : TEXT
+  * reference_type : VARCHAR(30)
+  reference_id : VARCHAR(100)
+  * created_at : TIMESTAMP
+}
+
 ' --- RELASI ---
 
 users ||--o{ user_sessions : "memiliki (1:N)"
 users ||--o{ otp_requests : "melakukan (1:N)"
 users ||--o{ transcripts : "memiliki (1:N)"
 users ||--o{ orders : "melakukan (1:N)"
+users ||--o{ quota_mutations : "memiliki (1:N)"
 
 @enduml
