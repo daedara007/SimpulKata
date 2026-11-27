@@ -5,7 +5,8 @@
 **Mata Kuliah**: Implementasi dan Pengujian Perangkat Lunak (IPPL)  
 **Pengembang / Penguji**: Kevin Jonathan Wijaya (NIM: 11241040)  
 **Tanggal Pengujian**: 27 November 2026  
-**Framework Uji Otomatis**: `Vitest v5.1.2` + `@vitest/coverage-v8` (`npm --prefix backend run test:coverage`)
+**Framework Uji Otomatis**: `Vitest v5.1.2` + `@vitest/coverage-v8` (`npm --prefix backend run test:coverage`)  
+**Lampiran Output Verbatim**: [referensi/TESTING_WHITEBOX_OUTPUT.md](./TESTING_WHITEBOX_OUTPUT.md)
 
 ---
 
