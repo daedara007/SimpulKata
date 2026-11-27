@@ -50,7 +50,7 @@
     <!-- Toolbar: Filter Status & Pencarian -->
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm backdrop-blur-sm">
       <!-- Filter Segmented Tabs -->
-      <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-950/80 border border-slate-800 text-xs overflow-x-auto no-scrollbar max-w-full">
+      <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-950/80 border border-slate-800 text-xs w-fit self-start sm:self-auto overflow-x-auto no-scrollbar max-w-full">
         <button
           type="button"
           class="px-3.5 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5"
