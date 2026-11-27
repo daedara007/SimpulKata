@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import adminController from '../src/controllers/adminController';
 import userModel from '../src/models/userModel';
 import sessionModel from '../src/models/sessionModel';
+import quotaMutationModel from '../src/models/quotaMutationModel';
 
 vi.mock('../src/models/userModel', () => {
   const mock = {
@@ -14,6 +15,15 @@ vi.mock('../src/models/userModel', () => {
 vi.mock('../src/models/sessionModel', () => {
   const mock = { deleteByUserId: vi.fn() };
   return { default: mock, sessionModel: mock };
+});
+vi.mock('../src/models/quotaMutationModel', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/models/quotaMutationModel')>();
+  const mock = { getUserMutations: vi.fn() };
+  return {
+    ...actual,
+    default: mock,
+    quotaMutationModel: mock,
+  };
 });
 vi.mock('../src/services/logService', () => {
   const mock = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
@@ -147,5 +157,71 @@ describe('White-Box: adminController.addUserQuota & updateUserStatus', () => {
     await adminController.updateUserStatus(req, reply);
     expect(reply.statusCode).toBe(200);
     expect(sessionModel.deleteByUserId).toHaveBeenCalledWith(VALID_UUID);
+  });
+
+  it('WB-ADM-08: menyamarkan nama berkas audio & reference_id pada getUserQuotaMutations demi privasi', async () => {
+    vi.mocked(userModel.findById).mockResolvedValue({ id: VALID_UUID, name: 'Budi' } as any);
+    vi.mocked(quotaMutationModel.getUserMutations).mockResolvedValue({
+      mutations: [
+        {
+          id: 'm1',
+          type: 'DEBIT',
+          amount_seconds: 120,
+          description: 'Transkripsi Audio: rahasia_perusahaan.mp3 (-2m)',
+          reference_type: 'TRANSCRIPTION',
+          reference_id: 'tr-secret-uuid',
+        },
+        {
+          id: 'm2',
+          type: 'CREDIT',
+          amount_seconds: 120,
+          description: 'Pengembalian Kuota: rahasia_perusahaan.mp3 (+2m)',
+          reference_type: 'REFUND',
+          reference_id: 'tr-secret-uuid',
+        },
+        {
+          id: 'm3',
+          type: 'CREDIT',
+          amount_seconds: 12000,
+          description: 'Top Up Kuota: Paket Starter (+200 Menit)',
+          reference_type: 'TOPUP',
+          reference_id: 'ORD-123',
+        },
+      ],
+      total: 3,
+      page: 1,
+      limit: 15,
+      totalPages: 1,
+    } as any);
+
+    const req: any = {
+      user: { id: ADMIN_UUID, role: 'admin' },
+      params: { userId: VALID_UUID },
+      query: { page: '1', limit: '15', type: 'ALL' },
+    };
+    const reply = createMockReply();
+
+    await adminController.getUserQuotaMutations(req, reply);
+    expect(reply.statusCode).toBe(200);
+    const [m1, m2, m3] = reply.payload.data.mutations;
+    expect(m1.description).not.toContain('rahasia_perusahaan.mp3');
+    expect(m1.reference_id).toBeNull();
+    expect(m2.description).not.toContain('rahasia_perusahaan.mp3');
+    expect(m2.reference_id).toBeNull();
+    expect(m3.reference_id).toBe('ORD-123');
+  });
+
+  it('WB-ADM-09: menolak getUserQuotaMutations jika userId tidak ditemukan (404)', async () => {
+    vi.mocked(userModel.findById).mockResolvedValue(null);
+    const req: any = {
+      user: { id: ADMIN_UUID, role: 'admin' },
+      params: { userId: VALID_UUID },
+      query: {},
+    };
+    const reply = createMockReply();
+
+    await adminController.getUserQuotaMutations(req, reply);
+    expect(reply.statusCode).toBe(404);
+    expect(reply.payload.code).toBe('USER_NOT_FOUND');
   });
 });
