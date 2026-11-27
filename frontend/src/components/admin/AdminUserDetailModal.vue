@@ -81,15 +81,18 @@
         <!-- Bar Konfirmasi Penangguhan Akun -->
         <div
           v-if="confirmSuspend && displayUser.status === 'ACTIVE'"
-          class="mt-3 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
+          class="mt-5 mb-1 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-rose-950/40 via-rose-900/20 to-rose-950/40 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg shadow-rose-950/25 transition-all"
         >
-          <p class="text-rose-200">
-            Tangguhkan akun <strong class="text-white">{{ displayUser.name }}</strong>? Sesi login aktifnya akan langsung dicabut.
-          </p>
-          <div class="flex items-center gap-2 shrink-0">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-2 h-2 rounded-full bg-rose-500 shrink-0 animate-pulse"></span>
+            <p class="text-rose-200 text-xs leading-relaxed">
+              Tangguhkan akun <strong class="text-white font-semibold">{{ displayUser.name }}</strong>? Sesi login aktifnya akan langsung dicabut.
+            </p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
             <button
               type="button"
-              class="px-3 py-1.5 rounded-xl text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 cursor-pointer"
+              class="px-3.5 py-1.5 rounded-xl text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800/90 hover:bg-slate-700 border border-slate-700/60 transition-colors cursor-pointer"
               :disabled="isUpdatingStatus"
               @click="confirmSuspend = false"
             >
@@ -97,7 +100,7 @@
             </button>
             <button
               type="button"
-              class="px-3 py-1.5 rounded-xl text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-500 cursor-pointer disabled:opacity-40"
+              class="px-3.5 py-1.5 rounded-xl text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-40"
               :disabled="isUpdatingStatus"
               @click="handleUpdateStatus('SUSPENDED')"
             >
