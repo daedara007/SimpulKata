@@ -7,6 +7,31 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 
 ---
 
+## [1.0.1-beta] - 2026-11-27 - Admin User Controls, Midtrans Auto-Sync, & Gemma 4 Summarizer
+
+### Added
+- **Kontrol Detail Pengguna & Manajemen Kuota oleh Admin (`AdminUserDetailModal.vue`)**:
+  - Menambahkan modal detail pengguna pada halaman Daftar Pengguna Admin untuk melihat riwayat mutasi kuota per pengguna (`GET /api/admin/users/:userId/quota-mutations`) dengan penyamaran detail berkas transkrip demi menjaga privasi pengguna.
+  - Menambahkan fitur penambahan kuota manual langsung oleh administrator (`POST /api/admin/users/:userId/quota`, tercatat sebagai `MANUAL_ADJUSTMENT` di ledger mutasi & log `PAYMENT`).
+  - Menambahkan fitur penangguhan (`SUSPENDED`) dan pengaktifan kembali (`ACTIVE`) akun pengguna (`PATCH /api/admin/users/:userId/status`) yang langsung mencabut sesi refresh token aktif dan memblokir akses login/JWT/reset password.
+- **Sinkronisasi Otomatis Pembayaran Midtrans (`POST /api/orders/:orderNumber/sync`)**:
+  - Menambahkan auto-sync status pesanan *pending* ke Midtrans API beserta penanganan status kedaluwarsa (*expired*) dan pembaruan saldo kuota secara reaktif di Navbar.
+- **Filter Sumber Log `PAYMENT` di Panel Log Sistem**:
+  - Menambahkan opsi filter sumber modul `PAYMENT` pada halaman Log Sistem Admin (`AdminLogsView.vue`).
+
+### Changed
+- **Pembaruan Model AI Summarizer**:
+  - Mengganti model rangkuman utama menjadi `google/gemma-4-31B-it` melalui Hugging Face Inference API dengan mekanisme *fallback* otomatis ke `nvidia/nemotron-3-ultra-550b-a55b:free` via OpenRouter.
+- **Penyempurnaan Antarmuka Admin & Tagihan**:
+  - Memindahkan modal detail pengguna ke `<body>` via `<Teleport>` agar *backdrop blur* menutupi seluruh viewport termasuk navbar.
+  - Menghapus label kode teknis internal (seperti `SRS UC-16`) dan banner/kartu redundan pada daftar pengguna dan tab mutasi saldo kuota.
+  - Memperbaiki *spacing* dan tampilan card konfirmasi penangguhan akun di modal detail pengguna.
+- **Kenaikan Versi & Dokumentasi API**:
+  - Memperbarui versi aplikasi ke `v1.0.1-beta` pada `backend/package.json`, `frontend/package.json`, `backend/src/server.ts`, `DashboardLayout.vue`, dan `HomeFooter.vue`.
+  - Memperbarui daftar endpoint API terbaru pada `README.md`.
+
+---
+
 ## [1.0.0-beta] - 2026-11-24 - Milestone Beta IPPL (Full Lifecycle, Quota Mutation Audit, & Polished UX)
 
 ### Added

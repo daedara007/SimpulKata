@@ -228,27 +228,99 @@ Konfigurasi backend disimpan di berkas `backend/.env`. Variabel yang tersedia:
 
 ## 📡 Daftar Endpoint API
 
-Semua rute API diawali dengan `/api`. Endpoint yang memerlukan otentikasi wajib menyertakan header `Authorization: Bearer <token_jwt>`.
+Semua rute API utama diawali dengan `/api` (kecuali root healthcheck). Endpoint bertanda *(Protected)* wajib menyertakan header `Authorization: Bearer <token_jwt>`, dan endpoint *(Admin)* khusus untuk pengguna dengan peran `admin`.
 
-### 1. Autentikasi (`/api/auth`)
+### 1. Health & Sistem
+- **`GET /health`** & **`GET /api/health`**
+  - Mengecek status server Fastify, lingkungan aktif, dan versi layanan (`1.0.1-beta`).
+- **`GET /health/db`**
+  - Mengecek status koneksi ke database PostgreSQL.
+
+### 2. Autentikasi (`/api/auth`)
 - **`POST /api/auth/register`**
-  - Mendaftarkan pengguna baru dengan saldo awal 30 menit kuota.
-  - Body: `{ "name": "Nama User", "email": "user@example.com", "password": "password123" }`
+  - Mendaftarkan akun baru (status `PENDING`) dan mengirim kode OTP 6-digit ke email.
+- **`POST /api/auth/verify-otp`**
+  - Memverifikasi kode OTP, mengaktifkan akun (`ACTIVE`) dengan bonus kuota awal 30 menit, dan mengembalikan token login.
+- **`POST /api/auth/resend-otp`**
+  - Mengirim ulang kode OTP baru (dilengkapi proteksi *cooldown* 60 detik).
+- **`POST /api/auth/forgot-password`**
+  - Mengirim kode OTP pemulihan kata sandi ke email pengguna.
+- **`POST /api/auth/reset-password`**
+  - Memverifikasi OTP pemulihan dan menyetel kata sandi baru.
 - **`POST /api/auth/login`**
-  - Verifikasi email dan kata sandi, mengembalikan token JWT dan data profil.
-  - Body: `{ "email": "user@example.com", "password": "password123" }`
+  - Verifikasi email dan kata sandi, memeriksa status akun, dan mengembalikan Access Token JWT serta Refresh Token.
+- **`POST /api/auth/refresh`**
+  - Memperbarui Access Token menggunakan Refresh Token (*Refresh Token Rotation*).
+- **`POST /api/auth/logout`**
+  - Mencabut sesi Refresh Token dari database.
 - **`GET /api/auth/me`** *(Protected)*
-  - Mengambil data profil dan saldo kuota terkini dari pengguna yang sedang login.
+  - Mengambil data profil dan sisa saldo kuota terkini pengguna yang sedang login.
 
-### 2. Audio & Transkrip (`/api`)
+### 3. Profil & Mutasi Kuota Pengguna (`/api/users`)
+- **`GET /api/users/profile`** *(Protected)*
+  - Mengambil data profil lengkap pengguna aktif.
+- **`PUT /api/users/profile`** *(Protected)*
+  - Memperbarui nama, avatar, dan memicu verifikasi OTP untuk perubahan email (memerlukan konfirmasi kata sandi saat ini).
+- **`POST /api/users/verify-email-change`** *(Protected)*
+  - Memverifikasi kode OTP 6-digit untuk meresmikan alamat email baru.
+- **`PUT /api/users/change-password`** *(Protected)*
+  - Mengubah kata sandi dengan validasi kata sandi saat ini dan mencabut seluruh sesi aktif.
+- **`GET /api/users/quota-mutations`** *(Protected)*
+  - Mengambil riwayat mutasi keluar-masuk saldo kuota pengguna (filter: `ALL`, `CREDIT`, `DEBIT`, & paginasi).
+
+### 4. Audio, Chunked Upload & Transkrip (`/api`)
 - **`POST /api/process-audio`** *(Protected)*
-  - Mengunggah berkas audio (`multipart/form-data`, field: `audio`).
-  - Memeriksa durasi lokal, memvalidasi sisa kuota pengguna, melakukan transkripsi via Whisper, membuat rangkuman terstruktur via LLM, dan memotong saldo kuota.
+  - Mengunggah berkas audio (`multipart/form-data`, field: `audio`), memeriksa durasi lokal, memvalidasi kuota, memproses transkripsi STT & rangkuman AI, dan memotong saldo kuota.
+- **`POST /api/upload/init`** *(Protected)*
+  - Menginisiasi sesi *chunked upload* untuk berkas audio besar (hingga 200MB) dan validasi kuota awal.
+- **`POST /api/upload/chunk`** *(Protected)*
+  - Mengunggah kepingan (*chunk*) berkas audio secara bertahap.
+- **`POST /api/upload/complete`** *(Protected)*
+  - Menggabungkan seluruh kepingan berkas, memvalidasi durasi & kuota secara atomik, dan memulai pemrosesan AI di latar belakang.
+- **`POST /api/upload/abort`** *(Protected)*
+  - Membatalkan sesi upload dan membersihkan kepingan sementara di server.
+- **`GET /api/transcripts/:id`** *(Protected)*
+  - Mengambil detail dan status pemrosesan satu data transkrip milik pengguna.
 - **`GET /api/history`** *(Protected)*
-  - Mengambil daftar riwayat transkrip milik pengguna terautentikasi.
-  - Query parameter: `page` (default: 1), `limit` (default: 10), `search` (filter nama file/teks).
-- **`GET /api/health`**
-  - Mengecek status kesehatan server dan koneksi database.
+  - Mengambil daftar riwayat transkrip milik pengguna (`page`, `limit`, `search`, `status`).
+- **`DELETE /api/history/:id`** *(Protected)*
+  - Menghapus satu item riwayat transkrip milik pengguna.
+
+### 5. Paket Kuota, Checkout & Pembayaran Midtrans (`/api/orders` & `/api/webhook`)
+- **`GET /api/orders/packages`**
+  - Mengambil daftar katalog paket kuota resmi yang tersedia.
+- **`POST /api/orders/checkout`** *(Protected)*
+  - Menginisiasi transaksi pesanan baru dan membuat Snap Token Midtrans.
+- **`GET /api/orders/my-orders`** *(Protected)*
+  - Mengambil riwayat transaksi pembelian kuota milik pengguna aktif.
+- **`GET /api/orders/:orderNumber`** *(Protected)*
+  - Mengambil detail status pesanan berdasarkan nomor order.
+- **`POST /api/orders/:orderNumber/sync`** *(Protected)*
+  - Menyinkronkan status pesanan *pending* langsung dengan Midtrans API (termasuk deteksi kedaluwarsa & penambahan kuota otomatis jika sudah terbayar).
+- **`POST /api/orders/:orderNumber/simulate-pay`** *(Protected)*
+  - Simulator pembayaran sukses instan untuk keperluan pengujian sandbox.
+- **`POST /api/orders/webhook`** & **`POST /api/webhook/payment`**
+  - Endpoint webhook resmi Midtrans untuk verifikasi signature SHA-512 dan pembaruan saldo kuota secara atomik.
+
+### 6. Panel Administrator (`/api/admin`)
+- **`GET /api/admin/logs`** *(Admin)*
+  - Mengambil riwayat log sistem dengan filter level (`ERROR`, `WARN`, `INFO`), sumber modul (`AUTH`, `AI_SERVICE`, `AUDIO_UPLOAD`, `SYSTEM`, `USER`, `DATABASE`, `PAYMENT`), pencarian, dan paginasi.
+- **`GET /api/admin/logs/export`** *(Admin)*
+  - Mengunduh laporan log sistem dalam format `.csv`.
+- **`GET /api/admin/users`** *(Admin)*
+  - Mengambil daftar seluruh pengguna terdaftar beserta statistik ringkasan, filter status, pencarian, dan paginasi.
+- **`GET /api/admin/users/export`** *(Admin)*
+  - Mengunduh daftar pengguna terdaftar dalam format `.csv`.
+- **`GET /api/admin/users/:userId/quota-mutations`** *(Admin)*
+  - Mengambil riwayat mutasi kuota milik pengguna tertentu dengan keterangan transkrip yang disamarkan demi menjaga privasi.
+- **`POST /api/admin/users/:userId/quota`** *(Admin)*
+  - Menambahkan saldo kuota manual langsung ke akun pengguna (`MANUAL_ADJUSTMENT`).
+- **`PATCH /api/admin/users/:userId/status`** *(Admin)*
+  - Menangguhkan (`SUSPENDED`) atau mengaktifkan kembali (`ACTIVE`) akun pengguna beserta pencabutan sesi aktifnya.
+- **`GET /api/admin/transactions`** *(Admin)*
+  - Mengambil daftar seluruh transaksi pembayaran global dan ringkasan total pendapatan (*revenue stats*).
+- **`GET /api/admin/transactions/export`** *(Admin)*
+  - Mengunduh laporan transaksi pembayaran global dalam format `.csv`.
 
 ---
 
