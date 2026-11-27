@@ -192,6 +192,7 @@
               <th class="py-3 px-3">Sisa Kuota</th>
               <th class="py-3 px-3">Status</th>
               <th class="py-3 px-4">Terdaftar</th>
+              <th class="py-3 px-4 text-right">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-800/60 font-sans">
@@ -258,6 +259,21 @@
               <td class="py-3 px-4 text-slate-400 font-mono whitespace-nowrap text-[11px]">
                 {{ formatDateTime(user.created_at) }}
               </td>
+
+              <!-- Aksi Detail Pengguna (Mutasi & Tambah Kuota) -->
+              <td class="py-3 px-4 text-right whitespace-nowrap">
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 transition-all cursor-pointer"
+                  @click="openUserDetail(user)"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  <span>Detail</span>
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -288,12 +304,21 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal Detail Pengguna: Riwayat Mutasi Kuota (Privacy-Masked) & Tambah Kuota Manual -->
+    <AdminUserDetailModal
+      :is-open="isDetailModalOpen"
+      :user="selectedUserForDetail"
+      @close="closeUserDetail"
+      @quota-updated="handleUserQuotaUpdated"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import adminModel, { AdminUserItem, AdminUserStats } from '../models/adminModel';
+import AdminUserDetailModal from '../components/admin/AdminUserDetailModal.vue';
 import { formatDuration } from '../utils';
 
 const users = ref<AdminUserItem[]>([]);
@@ -316,6 +341,32 @@ const pageSize = ref<number>(50);
 
 const selectedStatus = ref<string>('ALL');
 const searchQuery = ref<string>('');
+
+const isDetailModalOpen = ref<boolean>(false);
+const selectedUserForDetail = ref<AdminUserItem | null>(null);
+
+function openUserDetail(user: AdminUserItem) {
+  selectedUserForDetail.value = user;
+  isDetailModalOpen.value = true;
+}
+
+function closeUserDetail() {
+  isDetailModalOpen.value = false;
+  selectedUserForDetail.value = null;
+}
+
+function handleUserQuotaUpdated(updatedUser: AdminUserItem) {
+  const idx = users.value.findIndex((u) => u.id === updatedUser.id);
+  if (idx !== -1) {
+    const prevBalance = users.value[idx].balance || 0;
+    const diff = (updatedUser.balance || 0) - prevBalance;
+    users.value[idx] = { ...users.value[idx], ...updatedUser };
+    stats.value.totalBalanceSeconds = Math.max(0, (stats.value.totalBalanceSeconds || 0) + diff);
+  }
+  if (selectedUserForDetail.value?.id === updatedUser.id) {
+    selectedUserForDetail.value = { ...selectedUserForDetail.value, ...updatedUser };
+  }
+}
 
 const statusOptions = [
   { label: 'Semua Status', value: 'ALL' },

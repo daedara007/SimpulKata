@@ -384,8 +384,10 @@
               <td class="py-4 px-4">
                 <div class="font-medium text-slate-100">{{ mut.description }}</div>
                 <div class="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
-                  <span class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-semibold">{{ mut.reference_type }}</span>
-                  <span v-if="mut.reference_id">Ref: {{ mut.reference_id }}</span>
+                  <span class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-semibold">
+                    {{ mut.reference_type === 'MANUAL_ADJUSTMENT' ? 'PENAMBAHAN ADMIN' : mut.reference_type }}
+                  </span>
+                  <span v-if="mut.reference_id && mut.reference_type !== 'MANUAL_ADJUSTMENT'">Ref: {{ mut.reference_id }}</span>
                 </div>
               </td>
 

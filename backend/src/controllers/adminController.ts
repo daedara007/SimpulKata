@@ -4,9 +4,12 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { logModel, userModel, orderModel } from '../models';
+import { logModel, userModel, orderModel, quotaMutationModel, formatDurationDisplay } from '../models';
+import { QuotaMutation } from '../types';
 import { logService } from '../services/logService';
 import { paymentService } from '../services/paymentService';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class AdminController {
   /**
@@ -416,6 +419,202 @@ export class AdminController {
         status: 'error',
         code: 'EXPORT_FAILED',
         message: 'Gagal mengekspor data transaksi ke CSV.',
+      });
+    }
+  }
+
+  /**
+   * Mensanitasi entri mutasi kuota sebelum dikirim ke Administrator agar nama file audio
+   * dan ID transkrip pengguna tidak bocor (privacy-preserving ledger)
+   */
+  private sanitizeMutationForAdmin(mutation: QuotaMutation): QuotaMutation {
+    const durationLabel = formatDurationDisplay(mutation.amount_seconds);
+
+    switch (mutation.reference_type) {
+      case 'TRANSCRIPTION':
+        return {
+          ...mutation,
+          description: `Pemakaian Transkripsi Audio (-${durationLabel})`,
+          reference_id: null,
+        };
+      case 'REFUND':
+        return {
+          ...mutation,
+          description: `Pengembalian Kuota Otomatis (+${durationLabel})`,
+          reference_id: null,
+        };
+      case 'REGISTRATION':
+        return {
+          ...mutation,
+          description: `Bonus Kuota Pengguna Baru (+${durationLabel})`,
+          reference_id: null,
+        };
+      case 'MANUAL_ADJUSTMENT':
+        return {
+          ...mutation,
+          reference_id: null,
+        };
+      case 'TOPUP':
+      default:
+        return mutation;
+    }
+  }
+
+  /**
+   * GET /api/admin/users/:userId/quota-mutations
+   * Mengambil riwayat mutasi kuota milik pengguna tertentu dengan keterangan tersanitasi privasi
+   */
+  async getUserQuotaMutations(request: FastifyRequest, reply: FastifyReply) {
+    if (!this.checkAdminRole(request, reply)) return;
+
+    const { userId } = request.params as { userId: string };
+    if (!userId || !UUID_REGEX.test(userId)) {
+      return reply.status(400).send({
+        status: 'error',
+        code: 'INVALID_USER_ID',
+        message: 'Format ID pengguna tidak valid.',
+      });
+    }
+
+    try {
+      const targetUser = await userModel.findById(userId);
+      if (!targetUser) {
+        return reply.status(404).send({
+          status: 'error',
+          code: 'USER_NOT_FOUND',
+          message: 'Pengguna tidak ditemukan.',
+        });
+      }
+
+      const query = (request.query || {}) as {
+        page?: string;
+        limit?: string;
+        type?: string;
+      };
+
+      const page = Math.max(1, parseInt(query.page || '1', 10) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(query.limit || '15', 10) || 15));
+      const rawType = (query.type || 'ALL').toUpperCase();
+      const filterType = (rawType === 'CREDIT' || rawType === 'DEBIT') ? rawType : 'ALL';
+
+      const result = await quotaMutationModel.getUserMutations(userId, {
+        page,
+        limit,
+        type: filterType,
+      });
+
+      const sanitizedMutations = result.mutations.map((m) => this.sanitizeMutationForAdmin(m));
+
+      return reply.status(200).send({
+        status: 'success',
+        data: {
+          user: targetUser,
+          mutations: sanitizedMutations,
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        },
+      });
+    } catch (err: any) {
+      logService.error('SYSTEM', `Gagal memuat mutasi kuota user ${userId} untuk admin`, err);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Gagal memuat riwayat mutasi kuota pengguna.',
+      });
+    }
+  }
+
+  /**
+   * POST /api/admin/users/:userId/quota
+   * Menambahkan saldo kuota langsung ke pengguna tertentu oleh Administrator (MANUAL_ADJUSTMENT)
+   */
+  async addUserQuota(request: FastifyRequest, reply: FastifyReply) {
+    if (!this.checkAdminRole(request, reply)) return;
+
+    const { userId } = request.params as { userId: string };
+    if (!userId || !UUID_REGEX.test(userId)) {
+      return reply.status(400).send({
+        status: 'error',
+        code: 'INVALID_USER_ID',
+        message: 'Format ID pengguna tidak valid.',
+      });
+    }
+
+    const body = (request.body || {}) as { minutes?: unknown; note?: unknown };
+    const minutes = typeof body.minutes === 'number' ? body.minutes : Number(body.minutes);
+
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 10000) {
+      return reply.status(400).send({
+        status: 'error',
+        code: 'INVALID_QUOTA_AMOUNT',
+        message: 'Jumlah tambahan kuota harus berupa bilangan bulat antara 1 hingga 10.000 menit.',
+      });
+    }
+
+    const cleanNote = typeof body.note === 'string'
+      ? body.note.replace(/\s+/g, ' ').trim().slice(0, 180)
+      : '';
+
+    try {
+      const targetUser = await userModel.findById(userId);
+      if (!targetUser) {
+        return reply.status(404).send({
+          status: 'error',
+          code: 'USER_NOT_FOUND',
+          message: 'Pengguna tidak ditemukan.',
+        });
+      }
+
+      if (targetUser.status === 'PENDING') {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'USER_PENDING_VERIFICATION',
+          message: 'Akun pengguna masih berstatus PENDING (belum verifikasi OTP). Penambahan kuota hanya dapat dilakukan setelah akun aktif.',
+        });
+      }
+
+      const addedSeconds = minutes * 60;
+      const durationLabel = formatDurationDisplay(addedSeconds);
+      const description = cleanNote
+        ? `Penambahan Kuota Admin: ${cleanNote} (+${durationLabel})`
+        : `Penambahan Kuota Manual oleh Admin (+${durationLabel})`;
+
+      const adjustmentResult = await userModel.addQuotaManualWithMutation({
+        userId,
+        addedSeconds,
+        description,
+        adminId: request.user!.id,
+      });
+
+      if (!adjustmentResult) {
+        return reply.status(404).send({
+          status: 'error',
+          code: 'USER_NOT_FOUND',
+          message: 'Pengguna tidak ditemukan.',
+        });
+      }
+
+      logService.info(
+        'PAYMENT',
+        `Administrator ${request.user?.id} menambahkan kuota manual +${minutes} menit (${addedSeconds}s) ke ${targetUser.email} (${userId}). Saldo kini: ${adjustmentResult.user.balance}s.${cleanNote ? ` Catatan: ${cleanNote}` : ''}`
+      );
+
+      return reply.status(200).send({
+        status: 'success',
+        message: `Berhasil menambahkan +${minutes} menit kuota ke akun ${targetUser.name}.`,
+        data: {
+          user: adjustmentResult.user,
+          mutation: this.sanitizeMutationForAdmin(adjustmentResult.mutation),
+        },
+      });
+    } catch (err: any) {
+      logService.error('PAYMENT', `Gagal menambahkan kuota manual ke user ${userId}`, err);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Gagal menambahkan saldo kuota pengguna.',
       });
     }
   }

@@ -4,6 +4,7 @@
  */
 
 import db from '../db';
+import { quotaMutationModel } from './quotaMutationModel';
 import {
   UserRow,
   UserSafe,
@@ -12,6 +13,7 @@ import {
   UserFilterQuery,
   UserListResult,
   UserStats,
+  QuotaMutation,
 } from '../types';
 
 export class UserModel {
@@ -214,6 +216,61 @@ export class UserModel {
       [seconds, userId]
     );
     return res.rows[0]?.balance ?? 0;
+  }
+
+  /**
+   * Menambahkan saldo kuota secara manual oleh Administrator dalam transaksi SQL atomik
+   * sekaligus mencatat jejak audit ke tabel quota_mutations
+   */
+  async addQuotaManualWithMutation(params: {
+    userId: string;
+    addedSeconds: number;
+    description: string;
+    adminId: string;
+  }): Promise<{ user: UserSafe; mutation: QuotaMutation } | null> {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const updateRes = await client.query<UserSafe>(
+        `UPDATE users
+         SET balance = balance + $1, updated_at = NOW()
+         WHERE id = $2
+         RETURNING id, name, email, balance, role, status, avatar_url, created_at, updated_at`,
+        [params.addedSeconds, params.userId]
+      );
+
+      const updatedUser = updateRes.rows[0];
+      if (!updatedUser) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+
+      const balanceAfter = updatedUser.balance;
+      const balanceBefore = balanceAfter - params.addedSeconds;
+
+      const mutation = await quotaMutationModel.recordMutation(
+        {
+          userId: params.userId,
+          type: 'CREDIT',
+          amountSeconds: params.addedSeconds,
+          balanceBefore,
+          balanceAfter,
+          description: params.description,
+          referenceType: 'MANUAL_ADJUSTMENT',
+          referenceId: params.adminId,
+        },
+        client
+      );
+
+      await client.query('COMMIT');
+      return { user: updatedUser, mutation };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   /**

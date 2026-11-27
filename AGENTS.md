@@ -207,6 +207,8 @@ Database: PostgreSQL 15 (`simpulkata_db`). Skrip inisialisasi: `backend/init.sql
 | `GET` | `/api/admin/logs/export` | Admin (JWT) | Mengunduh berkas laporan log sistem format CSV (SRS UC-15 & SD-15) |
 | `GET` | `/api/admin/users` | Admin (JWT) | Mengambil daftar seluruh pengguna dengan filter status/pencarian & paginasi (SRS UC-16 & SD-16) |
 | `GET` | `/api/admin/users/export` | Admin (JWT) | Mengunduh berkas daftar pengguna format CSV (SRS UC-16 & SD-16) |
+| `GET` | `/api/admin/users/:userId/quota-mutations` | Admin (JWT) | Mengambil riwayat mutasi kuota per pengguna dengan keterangan tersanitasi privasi |
+| `POST` | `/api/admin/users/:userId/quota` | Admin (JWT) | Menambahkan saldo kuota manual langsung ke pengguna (`MANUAL_ADJUSTMENT`) |
 | `GET` | `/api/admin/transactions` | Admin (JWT) | Mengambil daftar transaksi pembayaran global & widget total revenue (SRS UC-17, SD-17, SDD TC-05) |
 | `GET` | `/api/admin/transactions/export` | Admin (JWT) | Mengunduh berkas laporan transaksi pembayaran global format CSV (SRS UC-17 & SD-17) |
 | `GET` | `/health` / `/api/health` | Publik | Healthcheck server Fastify |

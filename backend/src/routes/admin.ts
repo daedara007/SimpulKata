@@ -22,6 +22,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   // GET /api/admin/users/export - Ekspor daftar pengguna ke CSV (UC-16 / SD-16)
   fastify.get('/users/export', authGuard, adminController.exportUsers.bind(adminController));
 
+  // GET /api/admin/users/:userId/quota-mutations - Riwayat mutasi kuota per pengguna (privacy-masked)
+  fastify.get('/users/:userId/quota-mutations', authGuard, adminController.getUserQuotaMutations.bind(adminController));
+
+  // POST /api/admin/users/:userId/quota - Tambah kuota manual langsung oleh Administrator
+  fastify.post('/users/:userId/quota', authGuard, adminController.addUserQuota.bind(adminController));
+
   // GET /api/admin/transactions - Riwayat transaksi global & total revenue (UC-17 / SD-17)
   fastify.get('/transactions', authGuard, adminController.getTransactions.bind(adminController));
 

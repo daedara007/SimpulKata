@@ -5,6 +5,7 @@
  */
 
 import apiClient from '../services/apiClient';
+import type { QuotaMutation } from './paymentModel';
 
 export interface SystemLog {
   id: string;
@@ -130,6 +131,38 @@ export interface TransactionFilterParams {
   limit?: number;
 }
 
+export interface AdminUserMutationsFilter {
+  page?: number;
+  limit?: number;
+  type?: 'ALL' | 'CREDIT' | 'DEBIT';
+}
+
+export interface GetAdminUserMutationsResponse {
+  status: string;
+  data: {
+    user: AdminUserItem;
+    mutations: QuotaMutation[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface AddUserQuotaPayload {
+  minutes: number;
+  note?: string;
+}
+
+export interface AddUserQuotaResponse {
+  status: string;
+  message: string;
+  data: {
+    user: AdminUserItem;
+    mutation: QuotaMutation;
+  };
+}
+
 export const adminModel = {
   /**
    * Mengambil riwayat log sistem dari backend (SD-15 Langkah 2)
@@ -219,6 +252,38 @@ export const adminModel = {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
+  },
+
+  /**
+   * Mengambil riwayat mutasi kuota milik pengguna tertentu untuk Administrator (keterangan tersanitasi privasi)
+   */
+  async getUserQuotaMutations(
+    userId: string,
+    params: AdminUserMutationsFilter = {}
+  ): Promise<GetAdminUserMutationsResponse['data']> {
+    const response = await apiClient.get<GetAdminUserMutationsResponse>(
+      `/api/admin/users/${userId}/quota-mutations`,
+      { params }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Menambahkan saldo kuota langsung ke pengguna tertentu oleh Administrator (MANUAL_ADJUSTMENT)
+   */
+  async addUserQuota(
+    userId: string,
+    payload: AddUserQuotaPayload
+  ): Promise<{ message: string; user: AdminUserItem; mutation: QuotaMutation }> {
+    const response = await apiClient.post<AddUserQuotaResponse>(
+      `/api/admin/users/${userId}/quota`,
+      payload
+    );
+    return {
+      message: response.data.message,
+      user: response.data.data.user,
+      mutation: response.data.data.mutation,
+    };
   },
 };
 
