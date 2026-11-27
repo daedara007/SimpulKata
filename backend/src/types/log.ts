@@ -9,6 +9,7 @@ export type LogSource =
   | 'AUTH'
   | 'AI_SERVICE'
   | 'AUDIO_UPLOAD'
+  | 'PAYMENT'
   | 'SYSTEM'
   | 'DATABASE'
   | 'USER'

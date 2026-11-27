@@ -350,8 +350,9 @@ const levelOptions = [
 
 const sourceOptions = [
   { label: 'AUTH', description: 'Autentikasi & Sesi', value: 'AUTH' },
-  { label: 'AI_SERVICE', description: 'Whisper & Llama', value: 'AI_SERVICE' },
+  { label: 'AI_SERVICE', description: 'Pemrosesan AI', value: 'AI_SERVICE' },
   { label: 'AUDIO_UPLOAD', description: 'Unggahan Audio', value: 'AUDIO_UPLOAD' },
+  { label: 'PAYMENT', description: 'Pembayaran & Kuota', value: 'PAYMENT' },
   { label: 'SYSTEM', description: 'Server Fastify', value: 'SYSTEM' },
   { label: 'USER', description: 'Aktivitas Pengguna', value: 'USER' },
   { label: 'DATABASE', description: 'PostgreSQL DB', value: 'DATABASE' },

@@ -1,9 +1,10 @@
 <template>
-  <div
-    v-if="isOpen && displayUser"
-    class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150"
-    @click.self="handleClose"
-  >
+  <Teleport to="body">
+    <div
+      v-if="isOpen && displayUser"
+      class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150"
+      @click.self="handleClose"
+    >
     <div
       class="relative w-full max-w-3xl max-h-[92vh] rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden flex flex-col"
     >
@@ -141,13 +142,6 @@
             >
               <span>+ Tambah Kuota Manual</span>
             </button>
-          </div>
-
-          <div class="px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 text-[11px] text-slate-400 flex items-center gap-2">
-            <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            <span>Nama berkas audio dan detail transkrip pengguna disamarkan otomatis untuk menjaga privasi.</span>
           </div>
 
           <!-- Loading Skeleton -->
@@ -371,7 +365,8 @@
         </template>
       </div>
     </div>
-  </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
