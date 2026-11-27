@@ -12,7 +12,7 @@
           <span>Daftar Pengguna Platform</span>
         </h2>
         <p class="text-xs text-slate-400 mt-1">
-          Pantau seluruh pengguna terdaftar, status verifikasi akun, dan sisa saldo kuota audio (SRS UC-16).
+          Pantau seluruh pengguna terdaftar, status verifikasi akun, dan sisa saldo kuota audio.
         </p>
       </div>
 
@@ -311,6 +311,7 @@
       :user="selectedUserForDetail"
       @close="closeUserDetail"
       @quota-updated="handleUserQuotaUpdated"
+      @status-updated="handleUserStatusUpdated"
     />
   </div>
 </template>
@@ -362,6 +363,23 @@ function handleUserQuotaUpdated(updatedUser: AdminUserItem) {
     const diff = (updatedUser.balance || 0) - prevBalance;
     users.value[idx] = { ...users.value[idx], ...updatedUser };
     stats.value.totalBalanceSeconds = Math.max(0, (stats.value.totalBalanceSeconds || 0) + diff);
+  }
+  if (selectedUserForDetail.value?.id === updatedUser.id) {
+    selectedUserForDetail.value = { ...selectedUserForDetail.value, ...updatedUser };
+  }
+}
+
+function handleUserStatusUpdated(updatedUser: AdminUserItem) {
+  const idx = users.value.findIndex((u) => u.id === updatedUser.id);
+  if (idx !== -1) {
+    const prevStatus = users.value[idx].status;
+    users.value[idx] = { ...users.value[idx], ...updatedUser };
+    if (prevStatus !== updatedUser.status) {
+      if (prevStatus === 'ACTIVE') stats.value.active = Math.max(0, stats.value.active - 1);
+      if (prevStatus === 'SUSPENDED') stats.value.suspended = Math.max(0, stats.value.suspended - 1);
+      if (updatedUser.status === 'ACTIVE') stats.value.active += 1;
+      if (updatedUser.status === 'SUSPENDED') stats.value.suspended += 1;
+    }
   }
   if (selectedUserForDetail.value?.id === updatedUser.id) {
     selectedUserForDetail.value = { ...selectedUserForDetail.value, ...updatedUser };

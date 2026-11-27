@@ -164,6 +164,31 @@ export class UserModel {
   }
 
   /**
+   * Mengambil status akun pengguna terkini berdasarkan ID
+   */
+  async getStatusById(userId: string): Promise<string | null> {
+    const res = await db.query<{ status: string }>(
+      `SELECT status FROM users WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+    return res.rows[0]?.status ?? null;
+  }
+
+  /**
+   * Memperbarui status akun pengguna ('ACTIVE' atau 'SUSPENDED') oleh Administrator
+   */
+  async updateStatus(userId: string, status: 'ACTIVE' | 'SUSPENDED'): Promise<UserSafe | null> {
+    const res = await db.query<UserSafe>(
+      `UPDATE users
+       SET status = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, name, email, balance, role, status, avatar_url, created_at, updated_at`,
+      [status, userId]
+    );
+    return res.rows[0] || null;
+  }
+
+  /**
    * Mengambil saldo sisa kuota pengguna saat ini
    */
   async getBalance(userId: string): Promise<number> {

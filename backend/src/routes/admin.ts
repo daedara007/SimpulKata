@@ -28,6 +28,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   // POST /api/admin/users/:userId/quota - Tambah kuota manual langsung oleh Administrator
   fastify.post('/users/:userId/quota', authGuard, adminController.addUserQuota.bind(adminController));
 
+  // PATCH /api/admin/users/:userId/status - Tangguhkan atau aktifkan kembali akun pengguna
+  fastify.patch('/users/:userId/status', authGuard, adminController.updateUserStatus.bind(adminController));
+
   // GET /api/admin/transactions - Riwayat transaksi global & total revenue (UC-17 / SD-17)
   fastify.get('/transactions', authGuard, adminController.getTransactions.bind(adminController));
 

@@ -4,7 +4,7 @@
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { logModel, userModel, orderModel, quotaMutationModel, formatDurationDisplay } from '../models';
+import { logModel, userModel, orderModel, quotaMutationModel, sessionModel, formatDurationDisplay } from '../models';
 import { QuotaMutation } from '../types';
 import { logService } from '../services/logService';
 import { paymentService } from '../services/paymentService';
@@ -615,6 +615,100 @@ export class AdminController {
         status: 'error',
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Gagal menambahkan saldo kuota pengguna.',
+      });
+    }
+  }
+
+  /**
+   * PATCH /api/admin/users/:userId/status
+   * Menangguhkan ('SUSPENDED') atau mengaktifkan kembali ('ACTIVE') akun pengguna
+   */
+  async updateUserStatus(request: FastifyRequest, reply: FastifyReply) {
+    if (!this.checkAdminRole(request, reply)) return;
+
+    const { userId } = request.params as { userId: string };
+    if (!userId || !UUID_REGEX.test(userId)) {
+      return reply.status(400).send({
+        status: 'error',
+        code: 'INVALID_USER_ID',
+        message: 'Format ID pengguna tidak valid.',
+      });
+    }
+
+    const body = (request.body || {}) as { status?: unknown };
+    const nextStatus = typeof body.status === 'string' ? body.status.toUpperCase().trim() : '';
+
+    if (nextStatus !== 'ACTIVE' && nextStatus !== 'SUSPENDED') {
+      return reply.status(400).send({
+        status: 'error',
+        code: 'INVALID_STATUS',
+        message: "Status target harus bernilai 'ACTIVE' atau 'SUSPENDED'.",
+      });
+    }
+
+    try {
+      const targetUser = await userModel.findById(userId);
+      if (!targetUser) {
+        return reply.status(404).send({
+          status: 'error',
+          code: 'USER_NOT_FOUND',
+          message: 'Pengguna tidak ditemukan.',
+        });
+      }
+
+      if (targetUser.role === 'admin' || targetUser.id === request.user?.id) {
+        return reply.status(403).send({
+          status: 'error',
+          code: 'CANNOT_MODIFY_ADMIN_STATUS',
+          message: 'Tidak dapat menangguhkan atau mengubah status akun Administrator.',
+        });
+      }
+
+      if (targetUser.status === 'PENDING') {
+        return reply.status(400).send({
+          status: 'error',
+          code: 'USER_PENDING_VERIFICATION',
+          message: 'Akun masih berstatus PENDING (belum verifikasi OTP).',
+        });
+      }
+
+      if (targetUser.status === nextStatus) {
+        return reply.status(200).send({
+          status: 'success',
+          message: `Status akun sudah ${nextStatus}.`,
+          data: { user: targetUser },
+        });
+      }
+
+      const updatedUser = await userModel.updateStatus(userId, nextStatus);
+      if (!updatedUser) {
+        return reply.status(404).send({
+          status: 'error',
+          code: 'USER_NOT_FOUND',
+          message: 'Pengguna tidak ditemukan.',
+        });
+      }
+
+      if (nextStatus === 'SUSPENDED') {
+        await sessionModel.deleteByUserId(userId);
+        logService.warn('AUTH', `Administrator ${request.user?.id} menangguhkan akun ${targetUser.email} (${userId}) dan mencabut seluruh sesi aktifnya.`);
+      } else {
+        logService.info('AUTH', `Administrator ${request.user?.id} mengaktifkan kembali akun ${targetUser.email} (${userId}).`);
+      }
+
+      return reply.status(200).send({
+        status: 'success',
+        message: nextStatus === 'SUSPENDED'
+          ? `Akun ${targetUser.name} berhasil ditangguhkan.`
+          : `Akun ${targetUser.name} berhasil diaktifkan kembali.`,
+        data: { user: updatedUser },
+      });
+    } catch (err: any) {
+      logService.error('AUTH', `Gagal mengubah status akun user ${userId}`, err);
+      return reply.status(500).send({
+        status: 'error',
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Gagal memperbarui status akun pengguna.',
       });
     }
   }

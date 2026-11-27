@@ -21,7 +21,7 @@ import multipart from '@fastify/multipart';
 import jwt from '@fastify/jwt';
 
 import db from './db';
-import { transcriptModel, sessionModel, otpModel, orderModel } from './models';
+import { transcriptModel, sessionModel, otpModel, orderModel, userModel } from './models';
 import { cleanupExpiredChunks } from './controllers/uploadController';
 import authRoutes from './routes/auth';
 import audioRoutes from './routes/audio';
@@ -92,6 +92,15 @@ fastify.decorate('authenticate', async function (request: FastifyRequest, reply:
       status: 'error',
       code: 'UNAUTHORIZED',
       message: 'Akses ditolak. Token autentikasi tidak valid atau telah kedaluwarsa. Silakan login kembali.',
+    });
+  }
+
+  const accountStatus = await userModel.getStatusById(request.user.id);
+  if (!accountStatus || accountStatus === 'SUSPENDED') {
+    return reply.status(401).send({
+      status: 'error',
+      code: 'ACCOUNT_SUSPENDED',
+      message: 'Akun Anda sedang ditangguhkan oleh Administrator. Silakan hubungi tim dukungan.',
     });
   }
 });

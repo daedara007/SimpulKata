@@ -285,6 +285,24 @@ export const adminModel = {
       mutation: response.data.data.mutation,
     };
   },
+
+  /**
+   * Menangguhkan ('SUSPENDED') atau mengaktifkan kembali ('ACTIVE') akun pengguna
+   */
+  async updateUserStatus(
+    userId: string,
+    status: 'ACTIVE' | 'SUSPENDED'
+  ): Promise<{ message: string; user: AdminUserItem }> {
+    const response = await apiClient.patch<{
+      status: string;
+      message: string;
+      data: { user: AdminUserItem };
+    }>(`/api/admin/users/${userId}/status`, { status });
+    return {
+      message: response.data.message,
+      user: response.data.data.user,
+    };
+  },
 };
 
 export default adminModel;

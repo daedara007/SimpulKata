@@ -48,14 +48,62 @@
             </div>
           </div>
 
-          <button
-            type="button"
-            class="w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer disabled:opacity-40"
-            :disabled="isSubmittingQuota"
-            @click="handleClose"
-          >
-            ✕
-          </button>
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              v-if="displayUser.role !== 'admin' && displayUser.status === 'ACTIVE' && !confirmSuspend"
+              type="button"
+              class="px-3 py-1.5 rounded-xl text-[11px] font-bold text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer disabled:opacity-40"
+              :disabled="isUpdatingStatus || isSubmittingQuota"
+              @click="confirmSuspend = true"
+            >
+              Tangguhkan Akun
+            </button>
+            <button
+              v-else-if="displayUser.role !== 'admin' && displayUser.status === 'SUSPENDED'"
+              type="button"
+              class="px-3 py-1.5 rounded-xl text-[11px] font-bold text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-colors cursor-pointer disabled:opacity-40"
+              :disabled="isUpdatingStatus || isSubmittingQuota"
+              @click="handleUpdateStatus('ACTIVE')"
+            >
+              {{ isUpdatingStatus ? 'Memproses...' : 'Aktifkan Kembali' }}
+            </button>
+            <button
+              type="button"
+              class="w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer disabled:opacity-40"
+              :disabled="isSubmittingQuota || isUpdatingStatus"
+              @click="handleClose"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Bar Konfirmasi Penangguhan Akun -->
+        <div
+          v-if="confirmSuspend && displayUser.status === 'ACTIVE'"
+          class="mt-3 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs"
+        >
+          <p class="text-rose-200">
+            Tangguhkan akun <strong class="text-white">{{ displayUser.name }}</strong>? Sesi login aktifnya akan langsung dicabut.
+          </p>
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              class="px-3 py-1.5 rounded-xl text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 cursor-pointer"
+              :disabled="isUpdatingStatus"
+              @click="confirmSuspend = false"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              class="px-3 py-1.5 rounded-xl text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-500 cursor-pointer disabled:opacity-40"
+              :disabled="isUpdatingStatus"
+              @click="handleUpdateStatus('SUSPENDED')"
+            >
+              {{ isUpdatingStatus ? 'Menangguhkan...' : 'Ya, Tangguhkan' }}
+            </button>
+          </div>
         </div>
 
         <!-- Ringkasan Saldo & Sub-Tab Navigasi -->
@@ -384,6 +432,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'quota-updated', updatedUser: AdminUserItem): void;
+  (e: 'status-updated', updatedUser: AdminUserItem): void;
 }>();
 
 const { currentUser, refreshUser } = useCurrentUser();
@@ -411,6 +460,8 @@ const quotaPresets = [15, 30, 60, 200];
 const quotaMinutes = ref<number>(30);
 const quotaNote = ref<string>('');
 const isSubmittingQuota = ref(false);
+const isUpdatingStatus = ref(false);
+const confirmSuspend = ref(false);
 
 const errorMessage = ref<string | null>(null);
 const successMessage = ref<string | null>(null);
@@ -497,8 +548,30 @@ async function handleSubmitAddQuota() {
 }
 
 function handleClose() {
-  if (isSubmittingQuota.value) return;
+  if (isSubmittingQuota.value || isUpdatingStatus.value) return;
+  confirmSuspend.value = false;
   emit('close');
+}
+
+async function handleUpdateStatus(nextStatus: 'ACTIVE' | 'SUSPENDED') {
+  const target = displayUser.value;
+  if (!target) return;
+
+  isUpdatingStatus.value = true;
+  errorMessage.value = null;
+  successMessage.value = null;
+
+  try {
+    const res = await adminModel.updateUserStatus(target.id, nextStatus);
+    localUser.value = res.user;
+    confirmSuspend.value = false;
+    successMessage.value = res.message;
+    emit('status-updated', res.user);
+  } catch (err: any) {
+    errorMessage.value = err.response?.data?.message || 'Gagal memperbarui status akun pengguna.';
+  } finally {
+    isUpdatingStatus.value = false;
+  }
 }
 
 function formatReferenceLabel(refType: string): string {
@@ -560,6 +633,7 @@ watch(
       mutationFilter.value = 'ALL';
       quotaMinutes.value = 30;
       quotaNote.value = '';
+      confirmSuspend.value = false;
       errorMessage.value = null;
       successMessage.value = null;
       fetchMutations(1);

@@ -145,18 +145,13 @@
       </div>
     </div>
 
-    <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+    <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
       <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm">
         <p class="text-[11px] font-medium text-slate-400">Total Mutasi Tercatat</p>
         <p class="text-xl sm:text-2xl font-black text-white mt-1">{{ totalMutations }}</p>
       </div>
 
       <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm">
-        <p class="text-[11px] font-medium text-slate-400">Status Saldo</p>
-        <p class="text-xl sm:text-2xl font-black text-emerald-400 mt-1">Aktif & Sinkron</p>
-      </div>
-
-      <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm col-span-2 sm:col-span-1">
         <p class="text-[11px] font-medium text-slate-400">Sisa Kuota Terkini</p>
         <p class="text-xl sm:text-2xl font-black font-mono text-indigo-300 mt-1">
           ⏱️ {{ formatDuration(currentUserBalance) }}

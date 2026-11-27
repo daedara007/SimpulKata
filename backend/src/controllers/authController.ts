@@ -440,6 +440,15 @@ export class AuthController {
         });
       }
 
+      if (user.status === 'SUSPENDED') {
+        logService.warn('AUTH', `Percobaan login ditolak untuk email '${normalizedEmail}': Akun ditangguhkan (SUSPENDED).`);
+        return reply.status(403).send({
+          status: 'error',
+          code: 'ACCOUNT_SUSPENDED',
+          message: 'Akun Anda sedang ditangguhkan oleh Administrator. Silakan hubungi tim dukungan.',
+        });
+      }
+
       // 4. Generate JWT Access Token 15 menit (SD-02 langkah 9 & 36)
       const tokenPayload = {
         id: user.id,
@@ -535,6 +544,17 @@ export class AuthController {
           status: 'error',
           code: 'SESSION_EXPIRED',
           message: 'Sesi login telah kedaluwarsa. Silakan masuk kembali.',
+        });
+      }
+
+      // 2b. Periksa apakah akun sedang ditangguhkan
+      const currentStatus = await userModel.getStatusById(session.user_pk);
+      if (currentStatus === 'SUSPENDED') {
+        await sessionModel.deleteByUserId(session.user_pk);
+        return reply.status(403).send({
+          status: 'error',
+          code: 'ACCOUNT_SUSPENDED',
+          message: 'Akun Anda sedang ditangguhkan oleh Administrator. Silakan hubungi tim dukungan.',
         });
       }
 
@@ -692,6 +712,14 @@ export class AuthController {
         });
       }
 
+      if (user.status === 'SUSPENDED') {
+        return reply.status(403).send({
+          status: 'error',
+          code: 'ACCOUNT_SUSPENDED',
+          message: 'Akun Anda sedang ditangguhkan oleh Administrator. Pemulihan kata sandi tidak tersedia.',
+        });
+      }
+
       // 3. Cek Jeda Cooldown 60 detik untuk mencegah spam pengiriman OTP
       const cooldown = await otpModel.getCooldown(user.id, 'password_reset', 60);
       if (cooldown.onCooldown) {
@@ -803,6 +831,14 @@ export class AuthController {
           status: 'error',
           code: 'EMAIL_NOT_FOUND',
           message: 'Email tidak ditemukan dalam database.',
+        });
+      }
+
+      if (user.status === 'SUSPENDED') {
+        return reply.status(403).send({
+          status: 'error',
+          code: 'ACCOUNT_SUSPENDED',
+          message: 'Akun Anda sedang ditangguhkan oleh Administrator. Pemulihan kata sandi tidak tersedia.',
         });
       }
 
