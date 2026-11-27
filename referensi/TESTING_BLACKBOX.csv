@@ -1,0 +1,57 @@
+ID,Use Case,Skenario Pengujian,Tipe,Data Uji / Langkah,Expected Result,Actual Result,Status,Bukti / Screenshot
+BB-01,UC-01,Registrasi akun baru dengan data valid,Happy,"Nama: Budi Santoso, Email: budi@example.com, Pass: Rahasia123",Status PENDING & OTP 6-digit terkirim,"201 Created, OTP terkirim",Pass,[Screenshot: Form Register -> OTP]
+BB-02,UC-01,Registrasi dengan email sudah terdaftar,Bad,Email duplikat di database,Ditolak 409 Conflict dengan pesan ramah,409 Conflict tampil di form,Pass,[Screenshot: Alert Email Duplikat]
+BB-03,UC-01,Verifikasi OTP 6-digit valid,Happy,Input 6-digit OTP dari email,Status ACTIVE + bonus 1800s (30m) + login otomatis,"Status ACTIVE, kuota 30 mnt, masuk dashboard",Pass,[Screenshot: Dashboard Kuota 30 mnt]
+BB-04,UC-01,Verifikasi OTP salah atau kedaluwarsa,Bad,OTP 000000 atau >5 menit,Ditolak 400 Bad Request,Ditolak 400 status tetap PENDING,Pass,[Screenshot: Pesan OTP Salah]
+BB-05,UC-01,Cooldown kirim ulang OTP <60 detik,Edge,Klik Kirim Ulang sebelum 60s,Tombol nonaktif / 429 Too Many Requests,Tombol disabled & cooldown aktif,Pass,[Screenshot: Cooldown Resend OTP]
+BB-06,UC-02,Login kredensial valid (ACTIVE),Happy,Email & password valid di /login,Access Token (15m) & Refresh Token diterbitkan,"200 OK, masuk /dashboard",Pass,[Screenshot: Login Sukses]
+BB-07,UC-02,Login password salah / email tidak ada,Bad,"POST /api/auth/login (notfound@example.com)",401 INVALID_CREDENTIALS pesan generik,"[API Verified] HTTP 401 INVALID_CREDENTIALS",Pass,Output API curl
+BB-08,UC-02,Login payload tipe non-string,Bad,"POST /api/auth/login {email:123}",400 VALIDATION_ERROR bukan 500,"[API Verified] HTTP 400 VALIDATION_ERROR",Pass,Output API curl
+BB-09,UC-02,Login akun berstatus SUSPENDED,Bad,Login memakai akun yang ditangguhkan Admin,403 ACCOUNT_SUSPENDED,HTTP 403 pesan penangguhan tampil,Pass,[Screenshot: Error Akun Suspended]
+BB-10,UC-02,Refresh Token Rotation & Logout,Happy,POST /api/auth/refresh lalu /logout,Token baru terbit & sesi dihapus saat logout,Token diperbarui & sesi dicabut,Pass,[Screenshot: Network / Logout]
+BB-11,UC-03,Lupa kata sandi & reset dengan OTP valid,Happy,Email terdaftar -> OTP reset -> password baru min 8 char,Password berubah & sesi lama dicabut,200 OK login sukses password baru,Pass,[Screenshot: Form Reset Password]
+BB-12,UC-03,Reset kata sandi akun SUSPENDED,Bad,Request reset password akun SUSPENDED,Ditolak 403 ACCOUNT_SUSPENDED,Ditolak 403 password tidak berubah,Pass,Log & respons API
+BB-13,UC-04,Ubah nama & avatar profil,Happy,Ubah nama & avatar di modal Profil,Profil langsung terupdate di DB & Navbar,Profil terupdate reaktif,Pass,[Screenshot: Modal Profil]
+BB-14,UC-04,Ubah email dengan konfirmasi password & OTP,Happy,Input email baru + password + OTP 6-digit,Email resmi berubah setelah OTP valid,Email terupdate setelah verifikasi,Pass,[Screenshot: Verifikasi Email Baru]
+BB-15,UC-05,Ubah kata sandi dengan password lama benar,Happy,Password lama benar + password baru sama,Password diperbarui & sesi lain dicabut,200 OK pesan sukses tampil,Pass,[Screenshot: Tab Keamanan Profil]
+BB-16,UC-05,Ubah kata sandi dengan password lama salah,Bad,Password lama salah,Ditolak 401 kata sandi tidak cocok,401 tampil di modal,Pass,[Screenshot: Error Password Lama]
+BB-17,UC-06,Tampilan sisa kuota di Desktop & Mobile Navbar,Happy,Cek header pada lebar 1280px dan 375px,Sisa kuota format menit tampil di keduanya,Kuota tampil jelas di desktop & mobile,Pass,[Screenshot: Navbar Mobile & Desktop]
+BB-18,UC-06,Akses /api/history tanpa token JWT,Bad,GET /api/history tanpa Authorization header,401 UNAUTHORIZED,"[API Verified] HTTP 401 UNAUTHORIZED",Pass,Output API curl
+BB-19,UC-07,Unggah audio valid (.mp3/.wav/.m4a) <200MB,Happy,File rapat.mp3 120s dengan saldo 1800s,Kuota terpotong atomik -120s & file disk dihapus,Transkrip selesai saldo berkurang 2 mnt,Pass,[Screenshot: Hasil Transkrip & Rangkuman]
+BB-20,UC-07,Unggah format tidak didukung (.txt/.pdf),Bad,Pilih file catatan.txt,Ditolak 400 INVALID_FORMAT sebelum AI,Pesan format tidak didukung tampil,Pass,[Screenshot: Error Format Tidak Valid]
+BB-21,UC-07,Unggah file kosong 0 bytes / audio rusak,Bad,File rusak.mp3 (0 bytes / header rusak),Ditolak 400 & kuota tidak terpotong,Ditolak 400 saldo utuh,Pass,Log backend & UI error card
+BB-22,UC-07,Batas ukuran file maksimal >200MB (BVA),Edge,Pilih file berukuran 201 MB,Ditolak dengan peringatan batas 200 MB,Upload diblokir pesan batas 200MB,Pass,[Screenshot: Validasi Batas 200MB]
+BB-23,UC-07,Chunked Upload berkas besar (>100MB),Happy,Upload file 110MB via /upload/init..complete,File dipecah 5MB & diproses asinkron,Progress 0-100% & file terproses,Pass,[Screenshot: Progress Chunked Upload]
+BB-24,UC-08,Rekam suara langsung lewat mikrofon web,Happy,Rekam audio 10 detik via microphone,Wake Lock aktif & rekaman .webm diproses,Rekaman terproses menjadi transkrip,Pass,[Screenshot: Mode Rekam Langsung]
+BB-25,UC-09,Pre-check kuota tidak cukup (BVA),Bad,Saldo 30s upload audio 120s,Ditolak 402 INSUFFICIENT_QUOTA tanpa panggil AI,402 tampil ramah & saldo tetap 30s,Pass,[Screenshot: Alert Kuota Kurang]
+BB-26,UC-09,Refund kuota saat audio hening / gagal AI,Edge,Upload audio hening total,Status failed & kuota dikembalikan (REFUND),Kuota kembali utuh di ledger mutasi,Pass,[Screenshot: Mutasi Refund Kuota]
+BB-27,UC-10,Rendering rangkuman terstruktur & sanitasi XSS,Happy,Buka tab Rangkuman hasil LLM,Terformat rapi tanpa sintaks ** mentah atau XSS,Tampil rapi & aman dari XSS,Pass,[Screenshot: Tab Rangkuman & Salin]
+BB-28,UC-10,Salin teks & unduh hasil .txt,Happy,Klik Salin Rangkuman / Unduh TXT,Tersalin ke clipboard & file .txt terunduh,Clipboard terisi & .txt terunduh,Pass,[Screenshot: Toast Salin Berhasil]
+BB-29,UC-11,Filter status & pencarian di Riwayat,Happy,Filter Semua/Selesai/Gagal & search di /history,Data terfilter akurat & tabs mobile w-fit rapi,Filter akurat & UI mobile pas,Pass,[Screenshot: Halaman Riwayat Mobile/Desktop]
+BB-30,UC-11,Membuka detail dokumen riwayat mandiri,Happy,Klik kartu riwayat menuju /transcripts/:id,Halaman detail fokus tampil tanpa kotak upload,Halaman /transcripts/:id tampil fokus,Pass,[Screenshot: Halaman Detail Transkrip]
+BB-31,UC-11,Isolasi data multi-tenant antar user,Edge,User A akses /api/transcripts/:id milik User B,Ditolak 404/403 tidak bocor data,Akses ditolak data User B aman,Pass,Respons API
+BB-32,UC-11,Query pagination non-numerik (?page=abc),Bad,GET /api/history?page=abc,Fallback aman ke page 1 (bukan 500),Mengembalikan 200 OK halaman 1,Pass,Respons API
+BB-33,UC-12,Menghapus item riwayat transkripsi,Happy,Klik Hapus & konfirmasi,DELETE /api/history/:id menghapus permanen,Item hilang dari daftar riwayat,Pass,[Screenshot: Konfirmasi Hapus Riwayat]
+BB-34,UC-13,Katalog paket kuota resmi,Happy,GET /api/orders/packages,Mengembalikan 3 paket kuota resmi,[API Verified] HTTP 200 3 paket,Pass,Output API curl
+BB-35,UC-13,Inisiasi checkout pembelian paket kuota,Happy,Pilih Paket Starter & klik Lanjut Pembayaran,Order pending dibuat & Snap Token terbit,Modal Midtrans Snap / Simulator terbuka,Pass,[Screenshot: TopUpModal & Snap]
+BB-36,UC-14,Simulasi pembayaran sukses sandbox,Happy,Klik Simulasikan Pembayaran Sukses,Order completed & saldo +200 mnt di Navbar & ledger,Saldo Navbar naik instan +200 mnt,Pass,[Screenshot: Saldo Bertambah di Navbar]
+BB-37,UC-14,Webhook Midtrans valid vs signature palsu,Edge,POST /api/webhook/payment payload kosong / sig salah,Payload {} -> 400; sig salah -> 401,"[API Verified] HTTP 400; 401 via Unit Test",Pass,Output API curl & Vitest
+BB-38,UC-14,Proteksi Idempotency webhook duplikat,Edge,Kirim ulang webhook untuk order completed,Diabaikan aman tanpa menambah saldo 2x,Saldo tidak bertambah ganda,Pass,Vitest WB-PAY-04
+BB-39,UC-14,Auto-Sync pesanan pending & expired,Happy,Buka /transactions saat ada order pending,Status tersinkron otomatis ke completed/failed,Status & saldo tersinkron otomatis,Pass,[Screenshot: Halaman Tagihan]
+BB-40,UC-18,Riwayat pembelian pribadi (/transactions),Happy,Buka Tab Riwayat Pembelian,Hanya menampilkan invoice milik user login,Daftar invoice tampil sesuai akun,Pass,[Screenshot: Tab Riwayat Pembelian]
+BB-41,UC-18,Mutasi Saldo Kuota & filter masuk/keluar,Happy,Buka Tab Mutasi Saldo Kuota & uji filter,Menampilkan mutasi CREDIT & DEBIT akurat,Tabel mutasi & filter tampil akurat,Pass,[Screenshot: Tab Mutasi Saldo Kuota]
+BB-42,UC-18,Akses halaman Tagihan tanpa login,Bad,Buka /transactions di Incognito,Redirect ke /login,Diarahkan ke /login,Pass,[Screenshot: Redirect Login]
+BB-43,Security,Akses /api/admin/* tanpa token / role user,Bad,GET /api/admin/users tanpa token & role user,401 tanpa token; 403 untuk role user,"[API Verified] HTTP 401; 403 via Unit Test",Pass,Output API curl
+BB-44,UC-15,Log Sistem & filter sumber modul PAYMENT,Happy,Filter level INFO & sumber PAYMENT di /admin/logs,Menampilkan entri log payment & top-up manual,Filter PAYMENT berfungsi akurat,Pass,[Screenshot: Log Sistem Filter PAYMENT]
+BB-45,UC-15,Ekspor Log Sistem ke CSV,Happy,Klik Ekspor CSV di halaman Log Sistem,Berkas .csv terunduh rapi,File .csv terunduh & terbaca,Pass,[Screenshot: File CSV Log]
+BB-46,UC-16,Daftar Pengguna & modal Detail Pengguna,Happy,Klik Detail pada user di /admin/users,Modal terbuka blur penuh (Teleport) & tampil profil,Modal tampil rapi menutupi viewport,Pass,[Screenshot: Modal Detail Pengguna]
+BB-47,v1.0.1-beta,Penyamaran privasi mutasi transkrip di Admin,Edge,Lihat tab Riwayat Mutasi di modal detail user,Nama file audio user disamarkan untuk privasi,Nama file audio tersamarkan generik,Pass,[Screenshot: Mutasi Tersamarkan]
+BB-48,v1.0.1-beta,Tambah kuota manual Admin (BVA 1..10000),Happy,Tambah 30 menit & uji input 0 menit,30m sukses & tercatat log PAYMENT; 0m ditolak 400,30m sukses; 0m ditolak 400,Pass,[Screenshot: Form Tambah Kuota Admin]
+BB-49,v1.0.1-beta,Penangguhan (SUSPENDED) & Aktifkan kembali,Happy,Klik Tangguhkan Akun -> Ya -> Aktifkan Kembali,Status SUSPENDED & sesi dicabut; aktif kembali ACTIVE,Status berubah & sesi user dicabut,Pass,[Screenshot: Konfirmasi Tangguhkan]
+BB-50,v1.0.1-beta,Larangan suspend sesama akun Admin,Edge,Admin suspend akun ber-role admin,Ditolak 403 CANNOT_MODIFY_ADMIN_STATUS,Ditolak 403 (Vitest WB-ADM-06),Pass,Vitest WB-ADM-06
+BB-51,UC-17,Transaksi Global & statistik revenue Admin,Happy,Buka /admin/transactions,4 widget revenue & daftar transaksi global tampil,Widget & tabel transaksi akurat,Pass,[Screenshot: Transaksi Global Admin]
+BB-52,UC-17,Ekspor Transaksi Global ke CSV,Happy,Klik Ekspor CSV di Transaksi Global,Berkas .csv laporan transaksi terunduh,File .csv terunduh lengkap,Pass,[Screenshot: File CSV Transaksi]
+BB-53,Health,Healthcheck backend API & versi,Happy,GET /api/health,200 OK version 1.0.1-beta,"[API Verified] HTTP 200 v1.0.1-beta",Pass,Output API curl
+BB-54,Health,Healthcheck koneksi PostgreSQL,Happy,GET /health/db,200 OK database connected,"[API Verified] HTTP 200 PostgreSQL 15.19",Pass,Output API curl
+BB-55,Mobile UI,Responsivitas Dashboard & Riwayat (375px),Happy,Buka /dashboard & /history di 375x812,Tabs riwayat w-fit rapi tanpa horizontal overflow,Tata letak rapi & responsif,Pass,[Screenshot: Tampilan Mobile 375px]
+BB-56,Proxy/Tunnel,Akses via Reverse Proxy / Cloudflare HTTPS,Happy,Login & muat riwayat lewat HTTPS tunnel,Request relatif /api/* tanpa Mixed Content Error,Berjalan normal di HTTPS tunnel,Pass,[Screenshot: Akses HTTPS]
