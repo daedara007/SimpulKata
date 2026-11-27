@@ -61,7 +61,9 @@
 
 ### 2.3. Model Kecerdasan Buatan (AI)
 - **Speech-to-Text (STT)**: `openai/whisper-large-v3` via Hugging Face Inference API. Whisper menghasilkan teks transkripsi kontinu tuturan alami (tanpa *speaker diarization*).
-- **Summarizer (LLM)**: `meta-llama/Llama-3.1-8B-Instruct` via Hugging Face Serverless Chat Completion API.
+- **Summarizer (LLM)**:
+  - **Primary**: `google/gemma-4-31B-it` via Hugging Face Serverless Chat Completion API.
+  - **Fallback**: `nvidia/nemotron-3-ultra-550b-a55b:free` via OpenRouter Chat Completion API (otomatis aktif jika layanan utama terkendala).
 
 ---
 

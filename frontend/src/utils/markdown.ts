@@ -15,7 +15,7 @@ export function sanitizeAndRenderMarkdown(markdownText?: string | null): string 
 
   // Bersihkan teks pembuka/pengantar percakapan yang biasa dikeluarkan LLM (Rule 4)
   const cleanText = markdownText
-    .replace(/^(Berikut (ini )?adalah (hasil )?rangkuman.*?:?\s*\n+)+/i, '')
+    .replace(/^(Berikut (ini )?adalah (notula (dan )?)?(hasil )?(rangkuman|ringkasan).*?:?\s*\n+)+/i, '')
     .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
     .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
     .replace(/^(Ringkasan (dari )?transkripsi.*?:?\s*\n+)+/i, '')

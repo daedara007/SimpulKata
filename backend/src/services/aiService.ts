@@ -419,7 +419,136 @@ export function removeRepetitiveLoops(text: string): string {
 }
 
 /**
+ * Membersihkan kalimat pengantar basa-basi & loop pengulangan pada output rangkuman LLM
+ */
+function cleanSummaryOutput(rawSummary: string): string {
+  const withoutIntro = rawSummary
+    .replace(/^(Berikut (ini )?adalah (notula (dan )?)?(hasil )?(rangkuman|ringkasan).*?:?\s*\n+)+/i, '')
+    .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
+    .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
+    .replace(/^(Ringkasan (dari )?transkripsi.*?:?\s*\n+)+/i, '')
+    .trim();
+
+  return removeRepetitiveLoops(withoutIntro);
+}
+
+/**
+ * Memanggil Hugging Face Serverless Router untuk membuat rangkuman (Primary: google/gemma-4-31B-it)
+ */
+async function summarizeWithHuggingFace(
+  systemInstruction: string,
+  textToSummarize: string,
+  model: string
+): Promise<{ rawSummary: string; totalTokens?: number }> {
+  const prompt = `<s>[INST] ${systemInstruction}\n\n${textToSummarize} [/INST]`;
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      console.log(`[aiService] Mengirim teks ke HF LLM (${model}) - Percobaan ${attempt}...`);
+      let summaryText = '';
+      let totalTokens: number | undefined;
+
+      try {
+        const chatRes = await hf.chatCompletion({
+          model,
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: textToSummarize },
+          ],
+          max_tokens: 4096,
+          temperature: 0.2,
+        });
+        summaryText = (chatRes.choices[0]?.message?.content || '').trim();
+        totalTokens = chatRes.usage?.total_tokens;
+      } catch (chatErr: any) {
+        console.warn('[aiService] HF chatCompletion fallback ke textGeneration:', chatErr.message);
+        const genRes = await hf.textGeneration({
+          model,
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: 4096,
+            temperature: 0.2,
+            repetition_penalty: 1.2,
+            return_full_text: false,
+          },
+        });
+        summaryText = (genRes && genRes.generated_text ? genRes.generated_text : '').trim();
+      }
+
+      if (!summaryText) {
+        throw new Error(`Model Hugging Face (${model}) mengembalikan rangkuman kosong.`);
+      }
+
+      return { rawSummary: summaryText, totalTokens };
+    } catch (err: any) {
+      lastError = err;
+      const is503 = err.status === 503 || (err.message && err.message.toLowerCase().includes('loading'));
+      if (is503 && attempt === 1) {
+        console.warn('[aiService] Model HF sedang loading (cold start). Menunggu 15 detik sebelum retry...');
+        await sleep(15000);
+        continue;
+      }
+      break;
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Memanggil OpenRouter API sebagai Fallback Summarizer (Default: nvidia/nemotron-3-ultra-550b-a55b:free)
+ */
+async function summarizeWithOpenRouter(
+  systemInstruction: string,
+  textToSummarize: string,
+  model: string,
+  apiKey: string
+): Promise<{ rawSummary: string; totalTokens?: number }> {
+  console.log(`[aiService] Mengirim teks ke OpenRouter Fallback LLM (${model})...`);
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': process.env.FRONTEND_URL || 'https://simpulkata.fragpoint.my.id',
+      'X-Title': 'SimpulKata AI Summarizer',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: textToSummarize },
+      ],
+      temperature: 0.2,
+      max_tokens: 8192,
+      reasoning: { effort: 'low' },
+    }),
+    signal: AbortSignal.timeout(150000),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    throw new Error(`OpenRouter HTTP ${response.status}: ${errText || response.statusText}`);
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { total_tokens?: number };
+  };
+
+  const summaryText = (data.choices?.[0]?.message?.content || '').trim();
+  if (!summaryText) {
+    throw new Error(`OpenRouter (${model}) mengembalikan rangkuman kosong.`);
+  }
+
+  return { rawSummary: summaryText, totalTokens: data.usage?.total_tokens };
+}
+
+/**
  * Membuat rangkuman terstruktur dari teks transkripsi menggunakan LLM.
+ * Primary: Hugging Face (google/gemma-4-31B-it)
+ * Fallback: OpenRouter (nvidia/nemotron-3-ultra-550b-a55b:free)
  */
 export async function summarizeText(
   text: string
@@ -431,7 +560,7 @@ export async function summarizeText(
   }
 
   // Batasan konteks cerdas: jika teks transkripsi sangat panjang (>120.000 karakter),
-  // ambil bagian utama untuk dirangkum agar tidak melebihi jendela konteks LLM
+  // ambil bagian utama untuk dirangkum agar tetap aman di seluruh provider LLM
   let textToSummarize = text.trim();
   if (textToSummarize.length > 120000) {
     console.log(`[aiService] Transkripsi sangat panjang (${textToSummarize.length} karakter). Memotong ke 120.000 karakter untuk rangkuman LLM.`);
@@ -440,86 +569,64 @@ export async function summarizeText(
 
   const systemInstruction =
     'Anda adalah asisten AI cerdas pembuat notula dan rangkuman rapat/kuliah profesional.\n' +
-    'TUGAS: Susun rangkuman terstruktur HANYA dalam 3 bagian berikut:\n' +
+    'Teks berasal dari transkripsi suara (Speech-to-Text) Bahasa Indonesia/Inggris dan mungkin mengandung kesalahan eja fonetik ' +
+    "(misal 'deploat' = deploy, 'green code' = clean code, 'tersebiliti' = traceability). Tafsirkan istilah sesuai konteks pembicara tanpa mengarang.\n\n" +
+    'TUGAS: Susun rangkuman terstruktur yang mendalam dan akurat HANYA berdasarkan fakta dalam transkrip:\n' +
     '### 📌 Topik Utama\n' +
     '(Jelaskan inti pembahasan secara padat dalam 1-2 paragraf)\n\n' +
     '### 💡 Poin-Poin Penting\n' +
-    '- (Daftar poin kunci dan argumen penting)\n\n' +
+    '(Kelompokkan pembahasan secara tematik menggunakan sub-judul bila topiknya beragam, sertakan poin kunci, perbandingan konsep, serta rincian argumen/ide yang benar-benar disebut pembicara)\n\n' +
     '### 🎯 Tindak Lanjut & Kesimpulan\n' +
-    '(Simpulan akhir dan poin aksi atau rekomendasi)\n\n' +
+    '(Simpulan akhir dan poin aksi/tenggat waktu yang disebut pembicara)\n\n' +
     'ATURAN KETAT:\n' +
-    '1. DILARANG KERAS mengulang kalimat, poin, atau judul yang sama.\n' +
-    '2. DILARANG membuat perulangan siklus. Setelah bagian Tindak Lanjut & Kesimpulan selesai, SEGERA HENTIKAN pembuatan teks.\n' +
+    '1. DILARANG KERAS mengarang konsep, teknologi, saran pribadi AI, atau topik yang tidak dibahas di transkrip.\n' +
+    '2. DILARANG KERAS mengulang kalimat, poin, atau judul secara berulang-ulang. Setelah bagian Tindak Lanjut & Kesimpulan selesai, SEGERA HENTIKAN penulisan.\n' +
     '3. Jangan sertakan kalimat basa-basi pengantar (misal: "Berikut adalah rangkuman..."), langsung mulai dari judul "### 📌 Topik Utama".';
 
-  const prompt = `<s>[INST] ${systemInstruction}\n\n${textToSummarize} [/INST]`;
-  const model = process.env.HF_SUMMARY_MODEL || 'meta-llama/Llama-3.1-8B-Instruct';
+  const hfModel = process.env.HF_SUMMARY_MODEL || 'google/gemma-4-31B-it';
+  const openRouterKey = process.env.OPENROUTER_API_KEY?.trim();
+  const openRouterModel = process.env.OPENROUTER_SUMMARY_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b:free';
 
-  let lastError: any;
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  let providerResult: { rawSummary: string; totalTokens?: number } | null = null;
+  let primaryError: any = null;
+
+  // Prioritas 1: Hugging Face LLM (Gemma 4 31B)
+  try {
+    providerResult = await summarizeWithHuggingFace(systemInstruction, textToSummarize, hfModel);
+  } catch (hfErr: any) {
+    primaryError = hfErr;
+    console.warn(`[aiService] Primary HF Summarizer (${hfModel}) gagal: ${hfErr?.message || hfErr}`);
+  }
+
+  // Prioritas 2 (Fallback): OpenRouter LLM (Nemotron 3 Ultra Free)
+  if (!providerResult && openRouterKey) {
     try {
-      console.log(`[aiService] Mengirim teks ke HF LLM (${model}) - Percobaan ${attempt}...`);
-      let summaryText = '';
-
-      // Prioritas 1: Gunakan chatCompletion (standar conversational HF router)
-      try {
-        const chatRes = await hf.chatCompletion({
-          model,
-          messages: [
-            { role: 'system', content: systemInstruction },
-            { role: 'user', content: textToSummarize },
-          ],
-          max_tokens: 2048,
-          temperature: 0.6,
-        });
-        summaryText = (chatRes.choices[0]?.message?.content || '').trim();
-      } catch (chatErr: any) {
-        console.warn('[aiService] chatCompletion fallback ke textGeneration dengan format [INST]:', chatErr.message);
-        // Prioritas 2: Fallback ke textGeneration dengan format prompt [INST]
-        const genRes = await hf.textGeneration({
-          model,
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 2048,
-            temperature: 0.6,
-            repetition_penalty: 1.2,
-            return_full_text: false,
-          },
-        });
-        summaryText = (genRes && genRes.generated_text ? genRes.generated_text : '').trim();
-      }
-
-      // Bersihkan kalimat pengantar jika masih dihasilkan model
-      summaryText = summaryText
-        .replace(/^(Berikut (ini )?adalah (hasil )?rangkuman.*?:?\s*\n+)+/i, '')
-        .replace(/^(Tentu,? berikut.*?:?\s*\n+)+/i, '')
-        .replace(/^(Rangkuman (dari )?transkripsi.*?:?\s*\n+)+/i, '')
-        .trim();
-
-      // Hapus perulangan loop jika model sempat masuk ke jebakan siklus berulang
-      summaryText = removeRepetitiveLoops(summaryText);
-
-      // Estimasi token kasar: ~4 karakter per token
-      const tokens_used = Math.ceil((prompt.length + summaryText.length) / 4);
-
-      console.log(`[aiService] Rangkuman selesai (${summaryText.length} karakter, est. tokens: ${tokens_used})`);
-      return { summary: summaryText, tokens_used };
-    } catch (err: any) {
-      lastError = err;
-      const is503 = err.status === 503 || (err.message && err.message.toLowerCase().includes('loading'));
-      if (is503 && attempt === 1) {
-        console.warn('[aiService] Model sedang loading (cold start). Menunggu 15 detik sebelum retry...');
-        await sleep(15000);
-        continue;
-      }
-      break;
+      providerResult = await summarizeWithOpenRouter(systemInstruction, textToSummarize, openRouterModel, openRouterKey);
+    } catch (orErr: any) {
+      console.error(`[aiService] Fallback OpenRouter (${openRouterModel}) juga gagal: ${orErr?.message || orErr}`);
+      const combinedError: any = new Error(
+        `Gagal membuat rangkuman. Primary (${hfModel}): ${primaryError?.message || 'Error'} | Fallback (${openRouterModel}): ${orErr?.message || 'Error'}`
+      );
+      combinedError.code = 'AI_SERVICE_ERROR';
+      combinedError.originalError = orErr;
+      throw combinedError;
     }
   }
 
-  const error: any = new Error(`Gagal membuat rangkuman via Hugging Face: ${lastError?.message || 'Unknown error'}`);
-  error.code = 'AI_SERVICE_ERROR';
-  error.originalError = lastError;
-  throw error;
+  if (!providerResult) {
+    const error: any = new Error(`Gagal membuat rangkuman via Hugging Face: ${primaryError?.message || 'Unknown error'}`);
+    error.code = 'AI_SERVICE_ERROR';
+    error.originalError = primaryError;
+    throw error;
+  }
+
+  const summaryText = cleanSummaryOutput(providerResult.rawSummary);
+  // Estimasi token kasar (~4 karakter per token) jika provider tidak mengembalikan usage
+  const estimatedTokens = Math.ceil((systemInstruction.length + textToSummarize.length + summaryText.length) / 4);
+  const tokens_used = providerResult.totalTokens || estimatedTokens;
+
+  console.log(`[aiService] Rangkuman selesai (${summaryText.length} karakter, tokens: ${tokens_used})`);
+  return { summary: summaryText, tokens_used };
 }
 
 export default {
