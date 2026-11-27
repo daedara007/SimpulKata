@@ -4,6 +4,7 @@ import type { User } from '../types';
 
 const currentUser = ref<User | null>(authModel.getStoredUser());
 const totalHistoryCount = ref<number>(0);
+const transactionsVersion = ref<number>(0);
 
 export function useCurrentUser() {
   async function refreshUser(): Promise<User | null> {
@@ -31,12 +32,18 @@ export function useCurrentUser() {
     totalHistoryCount.value = count;
   }
 
+  function notifyTransactionsUpdated() {
+    transactionsVersion.value++;
+  }
+
   return {
     currentUser,
     totalHistoryCount,
+    transactionsVersion,
     refreshUser,
     setUser,
     setHistoryCount,
+    notifyTransactionsUpdated,
   };
 }
 

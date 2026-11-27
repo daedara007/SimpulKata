@@ -84,6 +84,13 @@ export class PaymentService {
   }
 
   /**
+   * Mengambil Client Key Midtrans aktif untuk Snap JS frontend
+   */
+  getClientKey(): string {
+    return this.clientKey;
+  }
+
+  /**
    * Mengecek apakah kredensial Midtrans Sandbox telah diisi dan valid
    */
   private isMidtransConfigured(): boolean {
@@ -100,7 +107,8 @@ export class PaymentService {
    */
   async createCheckout(
     user: { id: string; name: string; email: string },
-    packageId: string
+    packageId: string,
+    finishUrl?: string
   ): Promise<{
     order: OrderRow;
     package: OrderPackage;
@@ -143,6 +151,10 @@ export class PaymentService {
 
         const basicAuth = Buffer.from(`${this.serverKey}:`).toString('base64');
 
+        const resolvedFinishUrl =
+          finishUrl ||
+          `${(process.env.FRONTEND_URL || 'http://localhost:8080').replace(/\/+$/, '')}/transactions`;
+
         const snapPayload = {
           transaction_details: {
             order_id: orderNumber,
@@ -160,6 +172,13 @@ export class PaymentService {
               name: pkg.name,
             },
           ],
+          callbacks: {
+            finish: resolvedFinishUrl,
+          },
+          expiry: {
+            duration: 24,
+            unit: 'hours',
+          },
         };
 
         const response = await fetch(snapApiUrl, {
@@ -437,7 +456,18 @@ export class PaymentService {
       throw new Error(`Pesanan '${orderNumber}' tidak ditemukan.`);
     }
 
-    if (order.status === 'completed' || !this.isMidtransConfigured()) {
+    if (order.status === 'completed') {
+      return { order, synced: false };
+    }
+
+    const orderAgeMs = Date.now() - new Date(order.created_at).getTime();
+    const isLocallyExpired = orderAgeMs > 24 * 60 * 60 * 1000;
+
+    if (!this.isMidtransConfigured()) {
+      if (order.status === 'pending' && isLocallyExpired) {
+        const updatedOrder = await orderModel.markFailed(orderNumber, 'cancelled');
+        return { order: updatedOrder || order, synced: true };
+      }
       return { order, synced: false };
     }
 
@@ -455,6 +485,10 @@ export class PaymentService {
       });
 
       if (!response.ok) {
+        if (order.status === 'pending' && isLocallyExpired) {
+          const updatedOrder = await orderModel.markFailed(orderNumber, 'cancelled');
+          return { order: updatedOrder || order, synced: true };
+        }
         return { order, synced: false };
       }
 
@@ -495,16 +529,41 @@ export class PaymentService {
           synced: true,
         };
       } else if (txStatus === 'cancel' || txStatus === 'expire' || txStatus === 'deny') {
+        const targetStatus = txStatus === 'cancel' ? 'cancelled' : 'failed';
+        const updatedOrder = await orderModel.markFailed(orderNumber, targetStatus);
+        return {
+          order: updatedOrder || order,
+          synced: true,
+        };
+      } else if (
+        statusData.status_code === '404' &&
+        order.status === 'pending' &&
+        isLocallyExpired
+      ) {
+        // Sesi Snap ditinggalkan sebelum memilih channel bayar (> 24 jam -> Snap token sudah kedaluwarsa)
         const updatedOrder = await orderModel.markFailed(orderNumber, 'cancelled');
+        logService.info(
+          'PAYMENT',
+          `Pesanan ${orderNumber} ditandai 'cancelled' karena Snap token kedaluwarsa (> 24 jam) tanpa transaksi aktif di Midtrans.`
+        );
         return {
           order: updatedOrder || order,
           synced: true,
         };
       }
 
+      if (order.status === 'pending' && isLocallyExpired) {
+        const updatedOrder = await orderModel.markFailed(orderNumber, 'cancelled');
+        return { order: updatedOrder || order, synced: true };
+      }
+
       return { order, synced: false };
     } catch (err: any) {
       logService.warn('PAYMENT', `Sinkronisasi aktif Midtrans untuk ${orderNumber} gagal: ${err.message}`);
+      if (order.status === 'pending' && isLocallyExpired) {
+        const updatedOrder = await orderModel.markFailed(orderNumber, 'cancelled');
+        return { order: updatedOrder || order, synced: true };
+      }
       return { order, synced: false };
     }
   }

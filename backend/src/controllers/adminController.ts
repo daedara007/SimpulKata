@@ -6,6 +6,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { logModel, userModel, orderModel } from '../models';
 import { logService } from '../services/logService';
+import { paymentService } from '../services/paymentService';
 
 export class AdminController {
   /**
@@ -264,6 +265,9 @@ export class AdminController {
     if (!this.checkAdminRole(request, reply)) return;
 
     try {
+      // Pastikan order pending > 24 jam otomatis ditandai kedaluwarsa sebelum menghitung statistik
+      await orderModel.expireStalePendingOrders(24);
+
       const query = (request.query || {}) as {
         status?: string;
         search?: string;
@@ -276,7 +280,7 @@ export class AdminController {
       const page = Math.max(1, parseInt(query.page || '1', 10));
       const limit = Math.min(100, Math.max(1, parseInt(query.limit || '50', 10)));
 
-      const [orderResult, stats] = await Promise.all([
+      let [orderResult, stats] = await Promise.all([
         orderModel.findGlobalOrders({
           status: query.status,
           search: query.search,
@@ -287,6 +291,30 @@ export class AdminController {
         }),
         orderModel.getRevenueStats(query.startDate, query.endDate),
       ]);
+
+      // Sinkronkan otomatis maksimal 5 pesanan pending aktif pada halaman saat ini dengan Midtrans
+      const pendingOrders = orderResult.orders.filter((o) => o.status === 'pending').slice(0, 5);
+      if (pendingOrders.length > 0) {
+        const syncResults = await Promise.allSettled(
+          pendingOrders.map((o) => paymentService.syncOrderStatus(o.order_number))
+        );
+        const anySynced = syncResults.some(
+          (r) => r.status === 'fulfilled' && r.value.synced
+        );
+        if (anySynced) {
+          [orderResult, stats] = await Promise.all([
+            orderModel.findGlobalOrders({
+              status: query.status,
+              search: query.search,
+              startDate: query.startDate,
+              endDate: query.endDate,
+              page,
+              limit,
+            }),
+            orderModel.getRevenueStats(query.startDate, query.endDate),
+          ]);
+        }
+      }
 
       return reply.status(200).send({
         status: 'success',
@@ -313,6 +341,9 @@ export class AdminController {
     if (!this.checkAdminRole(request, reply)) return;
 
     try {
+      // Pastikan order pending > 24 jam otomatis ditandai kedaluwarsa sebelum menghitung statistik
+      await orderModel.expireStalePendingOrders(24);
+
       const query = (request.query || {}) as {
         status?: string;
         search?: string;

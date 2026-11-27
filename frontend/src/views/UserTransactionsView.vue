@@ -251,8 +251,8 @@
 
               <!-- Aksi Interaktif -->
               <td class="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
-                <!-- Jika status pending, sediakan opsi bayar ulang dan cek status -->
-                <div v-if="order.status === 'pending'" class="flex items-center justify-end gap-2">
+                <!-- Jika status pending dan belum lewat 24 jam, sediakan opsi bayar ulang dan cek status -->
+                <div v-if="order.status === 'pending' && !isOrderExpired(order)" class="flex items-center justify-end gap-2">
                   <button
                     type="button"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all cursor-pointer"
@@ -279,7 +279,7 @@
                   </button>
                 </div>
                 <span v-else class="text-[11px] text-slate-500 italic">
-                  {{ order.status === 'completed' ? 'Terverifikasi' : 'Tidak aktif' }}
+                  {{ order.status === 'completed' ? 'Terverifikasi' : (isOrderExpired(order) && order.status === 'pending' ? 'Kedaluwarsa' : 'Tidak aktif') }}
                 </span>
               </td>
             </tr>
@@ -447,15 +447,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
   paymentModel,
   type OrderRow,
   type QuotaMutation,
 } from '../models/paymentModel';
-import { authModel } from '../models/authModel';
+import { useCurrentUser } from '../composables/useCurrentUser';
 import TopUpModal from '../components/dashboard/TopUpModal.vue';
 import { formatDuration } from '../utils';
+
+const route = useRoute();
+const router = useRouter();
+const { currentUser, transactionsVersion, refreshUser } = useCurrentUser();
 
 // State Tab Aktif ('orders' = Pembelian/Topup, 'mutations' = Mutasi Saldo)
 const activeSubTab = ref<'orders' | 'mutations'>('orders');
@@ -477,8 +482,12 @@ const mutationTypeFilter = ref<'ALL' | 'CREDIT' | 'DEBIT'>('ALL');
 
 const errorMessage = ref('');
 const isTopUpOpen = ref(false);
-const currentUserBalance = ref(0);
+const currentUserBalance = computed(() => currentUser.value?.balance ?? 0);
 const isSyncing = ref<string | null>(null);
+
+const hasActivePendingOrders = computed(() =>
+  orders.value.some((o) => o.status === 'pending' && !isOrderExpired(o))
+);
 
 // Hitung transaksi berstatus completed di halaman saat ini / riwayat
 const completedOrdersCount = computed(() => {
@@ -553,9 +562,11 @@ function formatStatusText(status: string): string {
 }
 
 // Memuat riwayat pesanan (SRS UC-18 / SD-18)
-async function fetchOrders(page = 1) {
-  isLoading.value = true;
-  errorMessage.value = '';
+async function fetchOrders(page = 1, silent = false) {
+  if (!silent) {
+    isLoading.value = true;
+    errorMessage.value = '';
+  }
 
   try {
     const data = await paymentModel.getMyOrders(page, 20);
@@ -563,10 +574,17 @@ async function fetchOrders(page = 1) {
     totalOrders.value = data.total || 0;
     currentPage.value = data.page || 1;
     totalPages.value = data.totalPages || 1;
+    if (silent) {
+      errorMessage.value = '';
+    }
   } catch (err: any) {
-    errorMessage.value = err.response?.data?.message || 'Gagal memuat riwayat transaksi, silakan coba lagi.';
+    if (!silent) {
+      errorMessage.value = err.response?.data?.message || 'Gagal memuat riwayat transaksi, silakan coba lagi.';
+    }
   } finally {
-    isLoading.value = false;
+    if (!silent) {
+      isLoading.value = false;
+    }
   }
 }
 
@@ -618,13 +636,51 @@ function handleRefresh() {
   }
 }
 
-// Lanjutkan pembayaran untuk order pending
+// Cek apakah pesanan pending telah melewati batas waktu Snap 24 jam
+function isOrderExpired(order: OrderRow): boolean {
+  if (!order.created_at) return false;
+  return Date.now() - new Date(order.created_at).getTime() > 24 * 60 * 60 * 1000;
+}
+
+// Lanjutkan pembayaran untuk order pending yang masih valid
 async function resumePayment(order: OrderRow) {
-  if (order.snap_token) {
-    await paymentModel.loadSnapScript();
+  errorMessage.value = '';
+  if (isOrderExpired(order)) {
+    await checkStatus(order);
+    errorMessage.value = `Pesanan ${order.order_number} telah melewati batas waktu 24 jam. Silakan buat transaksi Top Up baru.`;
+    return;
+  }
+
+  let freshOrder = order;
+  let clientKey: string | undefined;
+
+  // Verifikasi status aktif ke backend/Midtrans sebelum membuka popup agar token expired tidak dibuka
+  try {
+    isSyncing.value = order.order_number;
+    const detail = await paymentModel.getOrderDetail(order.order_number);
+    freshOrder = detail.order;
+    clientKey = detail.clientKey;
+  } catch {
+    // fallback ke data lokal jika network error sementara
+  } finally {
+    isSyncing.value = null;
+  }
+
+  if (freshOrder.status !== 'pending') {
+    await fetchOrders(currentPage.value);
+    await refreshUserBalance();
+    if (freshOrder.status !== 'completed') {
+      errorMessage.value = `Pesanan ${freshOrder.order_number} sudah tidak aktif atau telah kedaluwarsa. Silakan buat transaksi Top Up baru.`;
+    }
+    return;
+  }
+
+  if (freshOrder.snap_token) {
+    await paymentModel.loadSnapScript(clientKey);
     if (window.snap) {
-      window.snap.pay(order.snap_token, {
+      window.snap.pay(freshOrder.snap_token, {
         onSuccess: async () => {
+          await paymentModel.syncOrder(freshOrder.order_number).catch(() => {});
           await fetchOrders(currentPage.value);
           await refreshUserBalance();
           if (activeSubTab.value === 'mutations') {
@@ -634,21 +690,24 @@ async function resumePayment(order: OrderRow) {
         onPending: async () => {
           await fetchOrders(currentPage.value);
         },
-        onError: () => {
-          errorMessage.value = 'Pembayaran gagal atau dibatalkan.';
+        onError: async () => {
+          await checkStatus(freshOrder);
+          errorMessage.value = 'Pembayaran gagal, dibatalkan, atau sesi telah kedaluwarsa.';
+        },
+        onClose: async () => {
+          await checkStatus(freshOrder);
         },
       });
       return;
     }
   }
 
-  // Fallback: Jika ada payment URL atau simulasi
-  if (order.payment_url) {
-    window.open(order.payment_url, '_blank');
+  // Fallback: Jika hanya ada payment URL (non-mock redirect) atau simulator
+  if (freshOrder.payment_url && !freshOrder.snap_token?.startsWith('mock-snap-')) {
+    window.open(freshOrder.payment_url, '_blank');
   } else {
-    // Jalankan simulator
     try {
-      await paymentModel.simulatePay(order.order_number);
+      await paymentModel.simulatePay(freshOrder.order_number);
       await fetchOrders(currentPage.value);
       await refreshUserBalance();
       if (activeSubTab.value === 'mutations') {
@@ -680,32 +739,127 @@ async function checkStatus(order: OrderRow) {
 }
 
 async function refreshUserBalance() {
-  try {
-    const res = await authModel.getProfile();
-    if (res?.data && typeof res.data.balance === 'number') {
-      currentUserBalance.value = res.data.balance;
-      return;
-    }
-  } catch {
-    // fallback ke stored user
-  }
-  const user = authModel.getStoredUser();
-  if (user) {
-    currentUserBalance.value = user.balance || 0;
-  }
+  await refreshUser();
 }
 
-function handlePaymentSuccess(newBalance?: number) {
-  if (typeof newBalance === 'number' && newBalance > 0) {
-    currentUserBalance.value = newBalance;
-  }
+function handlePaymentSuccess(_newBalance?: number) {
   fetchOrders(1);
   fetchMutations(1);
   refreshUserBalance();
 }
 
-onMounted(() => {
-  refreshUserBalance();
-  fetchOrders(1);
+// Auto-polling & focus sync untuk pesanan pending yang mungkin dibayar via tab/simulator lain
+const POLL_INTERVAL_MS = 5000;
+const MAX_POLL_ATTEMPTS = 60;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollAttempts = 0;
+let isBackgroundSyncing = false;
+
+async function syncPendingStateSilently(trigger: 'poll' | 'focus') {
+  if (isBackgroundSyncing || isSyncing.value !== null) return;
+  if (trigger === 'poll' && !hasActivePendingOrders.value) {
+    stopPendingPoll();
+    return;
+  }
+  if (trigger === 'focus' && !hasActivePendingOrders.value) {
+    return;
+  }
+
+  isBackgroundSyncing = true;
+  const previousCompletedIds = new Set(
+    orders.value.filter((o) => o.status === 'completed').map((o) => o.id)
+  );
+  const previousPendingCount = orders.value.filter((o) => o.status === 'pending').length;
+
+  try {
+    await fetchOrders(currentPage.value, true);
+    const hasNewlyCompleted = orders.value.some(
+      (o) => o.status === 'completed' && !previousCompletedIds.has(o.id)
+    );
+    const currentPendingCount = orders.value.filter((o) => o.status === 'pending').length;
+
+    if (hasNewlyCompleted || currentPendingCount !== previousPendingCount) {
+      await refreshUserBalance();
+      if (activeSubTab.value === 'mutations') {
+        await fetchMutations(1);
+      }
+    }
+  } finally {
+    isBackgroundSyncing = false;
+  }
+}
+
+function startPendingPoll() {
+  if (pollTimer !== null || !hasActivePendingOrders.value) return;
+  pollAttempts = 0;
+  pollTimer = setInterval(async () => {
+    if (document.hidden || !hasActivePendingOrders.value) {
+      if (!hasActivePendingOrders.value) stopPendingPoll();
+      return;
+    }
+    pollAttempts += 1;
+    if (pollAttempts > MAX_POLL_ATTEMPTS) {
+      stopPendingPoll();
+      return;
+    }
+    await syncPendingStateSilently('poll');
+  }, POLL_INTERVAL_MS);
+}
+
+function stopPendingPoll() {
+  if (pollTimer !== null) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function handleWindowFocus() {
+  if (document.visibilityState === 'hidden') return;
+  if (hasActivePendingOrders.value) {
+    pollAttempts = 0;
+    syncPendingStateSilently('focus');
+  }
+}
+
+watch(hasActivePendingOrders, (hasPending) => {
+  if (hasPending) {
+    startPendingPoll();
+  } else {
+    stopPendingPoll();
+  }
+});
+
+watch(transactionsVersion, async () => {
+  await fetchOrders(1, true);
+  if (activeSubTab.value === 'mutations') {
+    await fetchMutations(1);
+  }
+});
+
+onMounted(async () => {
+  window.addEventListener('focus', handleWindowFocus);
+  document.addEventListener('visibilitychange', handleWindowFocus);
+
+  // Jika diarahkan balik dari tombol "Return to merchant's page" Midtrans (?order_id=...)
+  const returnedOrderId = typeof route.query.order_id === 'string' ? route.query.order_id.trim() : '';
+  if (returnedOrderId) {
+    try {
+      await paymentModel.syncOrder(returnedOrderId);
+    } catch {
+      // Abaikan jika gagal sinkronisasi otomatis saat redirect
+    }
+    router.replace({ query: {} }).catch(() => {});
+  }
+
+  await Promise.all([refreshUserBalance(), fetchOrders(1)]);
+  if (hasActivePendingOrders.value) {
+    startPendingPoll();
+  }
+});
+
+onUnmounted(() => {
+  stopPendingPoll();
+  window.removeEventListener('focus', handleWindowFocus);
+  document.removeEventListener('visibilitychange', handleWindowFocus);
 });
 </script>

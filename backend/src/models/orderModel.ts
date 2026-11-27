@@ -101,6 +101,20 @@ export class OrderModel {
   }
 
   /**
+   * Menandai pesanan berstatus 'pending' yang melewati masa kedaluwarsa Snap (default 24 jam) sebagai 'cancelled'
+   */
+  async expireStalePendingOrders(hours = 24): Promise<number> {
+    const res = await db.query(
+      `UPDATE orders
+       SET status = 'cancelled', updated_at = NOW()
+       WHERE status = 'pending'
+         AND created_at < NOW() - make_interval(hours => $1)`,
+      [hours]
+    );
+    return res.rowCount ?? 0;
+  }
+
+  /**
    * Mengambil riwayat pesanan milik pengguna tertentu (SD-18 Langkah 3-4)
    */
   async findUserOrders(userId: string, page = 1, limit = 20): Promise<OrderListResult> {

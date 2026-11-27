@@ -21,7 +21,7 @@ import multipart from '@fastify/multipart';
 import jwt from '@fastify/jwt';
 
 import db from './db';
-import { transcriptModel, sessionModel, otpModel } from './models';
+import { transcriptModel, sessionModel, otpModel, orderModel } from './models';
 import { cleanupExpiredChunks } from './controllers/uploadController';
 import authRoutes from './routes/auth';
 import audioRoutes from './routes/audio';
@@ -262,6 +262,16 @@ const start = async () => {
       }
     } catch (chunkErr: any) {
       fastify.log.warn({ err: chunkErr }, '[Startup] Gagal membersihkan folder chunk kedaluwarsa');
+    }
+
+    // Pembersihan pesanan pending > 24 jam agar tidak menggantung selamanya
+    try {
+      const expiredOrders = await orderModel.expireStalePendingOrders(24);
+      if (expiredOrders > 0) {
+        fastify.log.info(`[Startup] Menandai ${expiredOrders} pesanan pending yang kedaluwarsa (> 24 jam) sebagai 'cancelled'.`);
+      }
+    } catch (orderErr: any) {
+      fastify.log.warn({ err: orderErr }, '[Startup] Gagal membersihkan pesanan pending kedaluwarsa');
     }
 
     // Jalankan server

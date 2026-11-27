@@ -25,6 +25,35 @@ export class PaymentController {
   }
 
   /**
+   * Menentukan URL asal klien (untuk callback redirect Midtrans Snap kembali ke domain aktif pengguna)
+   */
+  private resolveClientOrigin(request: FastifyRequest): string {
+    const originHeader = request.headers.origin;
+    if (typeof originHeader === 'string' && /^https?:\/\//i.test(originHeader)) {
+      return originHeader.replace(/\/+$/, '');
+    }
+
+    const refererHeader = request.headers.referer;
+    if (typeof refererHeader === 'string' && /^https?:\/\//i.test(refererHeader)) {
+      try {
+        return new URL(refererHeader).origin;
+      } catch {
+        // abaikan referer rusak
+      }
+    }
+
+    const forwardedHost = request.headers['x-forwarded-host'];
+    const forwardedProto = request.headers['x-forwarded-proto'] || 'https';
+    if (typeof forwardedHost === 'string' && forwardedHost.trim() !== '') {
+      const host = forwardedHost.split(',')[0].trim();
+      const proto = String(forwardedProto).split(',')[0].trim();
+      return `${proto}://${host}`;
+    }
+
+    return (process.env.FRONTEND_URL || 'http://localhost:8080').replace(/\/+$/, '');
+  }
+
+  /**
    * POST /api/orders/checkout
    * Inisiasi pesanan pembelian kuota baru dan pembuatan sesi Midtrans Snap (SRS UC-13 / SD-13)
    */
@@ -46,14 +75,15 @@ export class PaymentController {
     }
 
     try {
-      const dbUser = await orderModel.findById(user.id); // or find user
+      const finishUrl = `${this.resolveClientOrigin(request)}/transactions`;
       const checkoutResult = await paymentService.createCheckout(
         {
           id: user.id,
           name: (user as any).name || user.email.split('@')[0] || 'Pengguna SimpulKata',
           email: user.email,
         },
-        packageId
+        packageId,
+        finishUrl
       );
 
       return reply.status(201).send({
@@ -109,6 +139,7 @@ export class PaymentController {
       data: {
         order: currentOrder,
         newBalance,
+        clientKey: paymentService.getClientKey(),
       },
     });
   }
@@ -236,11 +267,29 @@ export class PaymentController {
     }
 
     try {
+      // Kedaluwarsakan otomatis order pending yang sudah lewat > 24 jam
+      await orderModel.expireStalePendingOrders(24);
+
       const query = (request.query || {}) as { page?: string; limit?: string };
       const page = Math.max(1, parseInt(query.page || '1', 10));
       const limit = Math.min(100, Math.max(1, parseInt(query.limit || '20', 10)));
 
-      const result = await orderModel.findUserOrders(user.id, page, limit);
+      let result = await orderModel.findUserOrders(user.id, page, limit);
+
+      // Sinkronkan otomatis pesanan yang masih berstatus 'pending' ke Midtrans (jika webhook tertunda/terhalang)
+      const activePending = result.orders.filter((o) => o.status === 'pending').slice(0, 5);
+      if (activePending.length > 0) {
+        const syncResults = await Promise.allSettled(
+          activePending.map((o) => paymentService.syncOrderStatus(o.order_number))
+        );
+        const anySynced = syncResults.some(
+          (r) => r.status === 'fulfilled' && r.value.synced
+        );
+        if (anySynced) {
+          result = await orderModel.findUserOrders(user.id, page, limit);
+        }
+      }
+
       return reply.status(200).send({
         status: 'success',
         data: result,

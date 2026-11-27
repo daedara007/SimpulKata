@@ -232,8 +232,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import paymentModel, { OrderPackage, CheckoutResult, SimulatePayResult } from '../../models/paymentModel';
-import authModel from '../../models/authModel';
+import useCurrentUser from '../../composables/useCurrentUser';
 import { formatDuration } from '../../utils';
+
+const { refreshUser, notifyTransactionsUpdated } = useCurrentUser();
 
 const props = defineProps<{
   isOpen: boolean;
@@ -298,24 +300,18 @@ async function handleCheckout() {
         isLoading.value = true;
         try {
           const detailResult = await paymentModel.getOrderDetail(result.order.order_number);
-          let freshBalance = detailResult.newBalance;
-          try {
-            const profileRes = await authModel.getProfile();
-            if (profileRes?.data && typeof profileRes.data.balance === 'number') {
-              freshBalance = profileRes.data.balance;
-            }
-          } catch (e) {
-            console.warn('[TopUpModal] Gagal ambil profil terkini:', e);
-          }
+          const freshUser = await refreshUser();
+          const freshBalance = freshUser?.balance ?? detailResult.newBalance ?? 0;
 
           successResult.value = {
             success: true,
             orderNumber: detailResult.order.order_number,
             addedMinutes: detailResult.order.package_minutes,
-            newBalance: freshBalance ?? 0,
+            newBalance: freshBalance,
           };
           viewState.value = 'success';
-          emit('success', freshBalance ?? 0);
+          notifyTransactionsUpdated();
+          emit('success', freshBalance);
         } catch {
           handleSuccessClose();
         } finally {
@@ -323,13 +319,16 @@ async function handleCheckout() {
         }
       },
       onPending: () => {
+        notifyTransactionsUpdated();
         handleClose();
       },
       onError: (err: any) => {
+        notifyTransactionsUpdated();
         errorMessage.value = err?.status_message || 'Pembayaran gagal diproses oleh gateway.';
       },
       onClose: () => {
-        // Pengguna menutup popup Snap
+        // Pengguna menutup popup Snap — segarkan daftar order agar status terbaru langsung muncul
+        notifyTransactionsUpdated();
       },
     });
   } catch (err: any) {
@@ -347,21 +346,15 @@ async function handleSimulatePay() {
 
   try {
     const result = await paymentModel.simulatePay(activeCheckout.value.order.order_number);
-    let freshBalance = result.newBalance;
-    try {
-      const profileRes = await authModel.getProfile();
-      if (profileRes?.data && typeof profileRes.data.balance === 'number') {
-        freshBalance = profileRes.data.balance;
-      }
-    } catch {
-      // fallback ke hasil simulate
-    }
+    const freshUser = await refreshUser();
+    const freshBalance = freshUser?.balance ?? result.newBalance;
 
     successResult.value = {
       ...result,
       newBalance: freshBalance,
     };
     viewState.value = 'success';
+    notifyTransactionsUpdated();
     emit('success', freshBalance);
   } catch (err: any) {
     errorMessage.value = err.response?.data?.message || 'Gagal memproses simulasi pembayaran.';

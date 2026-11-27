@@ -115,10 +115,10 @@ export const paymentModel = {
   /**
    * Mengambil status pesanan terkini berdasarkan nomor order (auto-sync ke gateway jika pending)
    */
-  async getOrderDetail(orderNumber: string): Promise<{ order: OrderRow; newBalance?: number }> {
+  async getOrderDetail(orderNumber: string): Promise<{ order: OrderRow; newBalance?: number; clientKey?: string }> {
     const response = await apiClient.get<{
       status: string;
-      data: { order: OrderRow; newBalance?: number };
+      data: { order: OrderRow; newBalance?: number; clientKey?: string };
     }>(`/api/orders/${orderNumber}`);
     return response.data.data;
   },
