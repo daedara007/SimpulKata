@@ -38,8 +38,8 @@ export const AVAILABLE_PACKAGES: OrderPackage[] = [
     features: [
       '450 Menit (27.000 detik) Saldo Kuota',
       'Transkrip Lengkap & Rangkuman AI',
-      'Prioritas Pemrosesan Whisper & Llama',
-      'Penyimpanan Riwayat Permanen',
+      'Format Audio hingga 200MB',
+      'Masa Berlaku Selamanya',
     ],
   },
   {
@@ -47,13 +47,13 @@ export const AVAILABLE_PACKAGES: OrderPackage[] = [
     name: 'Paket Enterprise',
     minutes: 1200,
     amount: 250000,
-    description: 'Dirancang untuk tim bisnis, rapat mingguan, podcast panjang, dan kebutuhan profesional.',
-    badge: 'Nilai Terbaik',
+    description: 'Pilihan hemat untuk kebutuhan transkripsi rekaman berdurasi panjang hingga 20 jam.',
+    badge: 'Kapasitas Besar',
     features: [
       '1.200 Menit (72.000 detik) Saldo Kuota',
-      'Seluruh Fitur Edukasi Pro',
-      'Kapasitas Unggah Skala Besar',
-      'Dukungan Teknis Prioritas',
+      'Transkrip Lengkap & Rangkuman AI',
+      'Format Audio hingga 200MB',
+      'Masa Berlaku Selamanya',
     ],
   },
 ];

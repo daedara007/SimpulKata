@@ -57,24 +57,23 @@ const faqs = reactive<FaqItem[]>([
   },
   {
     q: 'Bagaimana cara kerja saldo kuota transkripsi?',
-    a: 'Saldo kuota Anda dihitung berdasarkan durasi aktual rekaman audio dalam hitungan detik. Durasi diperiksa di awal sebelum pemrosesan agar saldo Anda tidak terpotong jika berkas bermasalah.',
+    a: 'Saldo kuota Anda dihitung berdasarkan durasi aktual rekaman audio dalam hitungan detik. Durasi diperiksa secara lokal di awal sebelum pemanggilan AI agar saldo Anda aman dan tidak terpotong jika berkas bermasalah.',
     open: false,
   },
   {
     q: 'Berapa lama proses transkripsi dan rangkuman berlangsung?',
-    a: 'Rata-rata proses membutuhkan waktu sekitar 10 hingga 30 detik untuk audio berdurasi menengah, tergantung panjang rekaman yang diunggah.',
+    a: 'Rata-rata proses membutuhkan waktu sekitar 10 hingga 30 detik untuk audio berdurasi menengah, tergantung panjang rekaman yang diunggah serta antrean pemrosesan model AI.',
     open: false,
   },
   {
     q: 'Apakah data rekaman dan transkripsi saya aman?',
-    a: 'Sangat aman. Setiap akun memiliki isolasi data masing-masing sehingga transkrip dan rangkuman hanya dapat diakses oleh Anda setelah berhasil login.',
+    a: 'Sangat aman. Setiap akun memiliki isolasi data masing-masing sehingga rekaman, transkrip, dan rangkuman hanya dapat diakses oleh Anda setelah berhasil masuk ke akun.',
     open: false,
   },
   {
     q: 'Apakah paket kuota tambahan sudah dapat dibeli sekarang?',
-    a: 'Saat ini paket kuota berbayar masih berstatus Segera Hadir dalam tahap integrasi payment gateway. Anda dapat langsung memanfaatkan kuota gratis 30 menit yang diberikan secara otomatis saat mendaftarkan akun baru.',
+    a: 'Ya, paket kuota tambahan sudah dapat dibeli langsung! SimpulKata menyediakan Paket Starter (200 menit / Rp 50.000), Edukasi Pro (450 menit / Rp 100.000), dan Enterprise (1.200 menit / Rp 250.000) yang terintegrasi resmi dengan Midtrans Payment Gateway (QRIS, Virtual Account, dan Kartu). Anda juga dapat mencoba simulasi pembayaran sandbox instan melalui menu Top Up di dashboard akun Anda.',
     open: false,
   },
 ]);
 </script>
-

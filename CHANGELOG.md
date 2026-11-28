@@ -20,6 +20,10 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
   - Menambahkan opsi filter sumber modul `PAYMENT` pada halaman Log Sistem Admin (`AdminLogsView.vue`).
 
 ### Changed
+- **Pembaruan Landing Page Paket Kuota & FAQ**:
+  - Memperbarui kartu pilihan paket kuota resmi Midtrans pada halaman utama (`PricingSection.vue`): Starter Free (30 menit, Rp 0), Paket Starter (200 menit, Rp 50.000), Edukasi Pro (450 menit, Rp 100.000), dan Enterprise (1.200 menit, Rp 250.000) dengan tombol navigasi otomatis ke checkout/topup.
+  - Memperbarui jawaban FAQ (`FaqSection.vue`) terkait ketersediaan paket kuota tambahan berbayar via Midtrans Payment Gateway dan simulator sandbox.
+  - Memperbaiki fleksibilitas tab status filter riwayat (`HistoryView.vue`) di layar ponsel agar tidak ter-stretch.
 - **Pembaruan Model AI Summarizer**:
   - Mengganti model rangkuman utama menjadi `google/gemma-4-31B-it` melalui Hugging Face Inference API dengan mekanisme *fallback* otomatis ke `nvidia/nemotron-3-ultra-550b-a55b:free` via OpenRouter.
 - **Penyempurnaan Antarmuka Admin & Tagihan**:

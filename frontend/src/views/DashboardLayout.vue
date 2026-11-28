@@ -96,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import DashboardNavbar from '../components/dashboard/DashboardNavbar.vue';
 import ProfileModal from '../components/dashboard/ProfileModal.vue';
@@ -142,6 +142,11 @@ function openTopUpModal() {
 
 function closeTopUpModal() {
   isTopUpModalOpen.value = false;
+  if (route.query.topup) {
+    const query = { ...route.query };
+    delete query.topup;
+    router.replace({ query });
+  }
 }
 
 async function onTopUpSuccess(_newBalance?: number) {
@@ -164,6 +169,18 @@ function handleLogout() {
 
 onMounted(async () => {
   await refreshUser();
+  if (route.query.topup === 'true') {
+    openTopUpModal();
+  }
 });
+
+watch(
+  () => route.query.topup,
+  (val) => {
+    if (val === 'true') {
+      openTopUpModal();
+    }
+  }
+);
 </script>
 

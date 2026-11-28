@@ -22,7 +22,11 @@ function handleNavigate(view: string, tab?: string) {
       router.push('/login');
     }
   } else if (view === 'dashboard') {
-    router.push('/dashboard');
+    if (tab === 'topup') {
+      router.push({ path: '/dashboard', query: { topup: 'true' } });
+    } else {
+      router.push('/dashboard');
+    }
   } else {
     router.push('/');
   }
