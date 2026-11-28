@@ -7,6 +7,21 @@ dan mengikuti prinsip [Semantic Versioning (SemVer)](https://semver.org/spec/v2.
 
 ---
 
+## [1.0.2-beta] - 2026-11-28 - Bugfix UI Ubah Kata Sandi, Pembaruan Paket Beranda, & Pengujian IPPL Penuh
+
+### Fixed
+- **Perbaikan Alert Sukses Ubah Kata Sandi (`useProfileController.ts`)**: Memperbaiki *bug UX* di mana pesan sukses `pwdSuccessMessage` langsung terhapus oleh pemanggilan `resetPasswordForm()` sebelum sempat dirender di UI saat pengguna mengubah kata sandi.
+- **Perbaikan TypeScript Config (`frontend/tsconfig.node.json`)**: Mengaktifkan `"allowJs": true` agar `vite.config.js` terbaca tanpa galat `No inputs were found`.
+- **Optimasi Header Cache Dev & Layout Kartu Paket (`vite.config.js`, `PricingSection.vue`)**: Memperbaiki *spacing* grid dan *shorthand* CSS jarak kartu paket kuota, menghapus badge tumpang-tindih pada Edukasi Pro, serta menambahkan header `Cache-Control` pada dev server agar perubahan styling langsung termuat melewati Cloudflare Tunnel.
+
+### Added
+- **Pengujian Otomatis White-Box (Vitest — 58/58 Pass)**:
+  - Memperluas suite unit test backend ke **7 modul inti** (58 test case) beserta laporan formal `referensi/TESTING_WHITEBOX.md` dan lampiran verbatim `referensi/TESTING_WHITEBOX_OUTPUT.md`.
+- **Pengujian Otomatis Black-Box E2E (Puppeteer — 52/52 Pass + 43 Screenshot)**:
+  - Menambahkan runner otomatis [`scripts/blackbox/run-blackbox.mjs`](scripts/blackbox/run-blackbox.mjs) berbasis Chromium *headless* beserta **43 bukti tangkapan layar aktual** (`referensi/screenshots/`) yang disematkan langsung ke `referensi/TESTING_BLACKBOX.md` dan `referensi/TESTING_BLACKBOX.csv`.
+
+---
+
 ## [1.0.1-beta] - 2026-11-27 - Admin User Controls, Midtrans Auto-Sync, & Gemma 4 Summarizer
 
 ### Added

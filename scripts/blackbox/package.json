@@ -1,6 +1,6 @@
 {
   "name": "simpulkata-blackbox-e2e",
-  "version": "1.0.1-beta",
+  "version": "1.0.2-beta",
   "private": true,
   "description": "Automated Headless Puppeteer Black-Box Testing Suite for SimpulKata",
   "type": "module",

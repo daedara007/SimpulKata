@@ -201,7 +201,7 @@ async function run() {
       recordResult(
         'BB-53',
         'Healthcheck Backend API (/api/health)',
-        health.status === 200 && health.data?.version === '1.0.1-beta',
+        health.status === 200 && health.data?.version === '1.0.2-beta',
         `HTTP ${health.status}, version=${health.data?.version}`
       );
 

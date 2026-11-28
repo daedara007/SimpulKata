@@ -112,7 +112,7 @@ const healthHandler = async () => {
   return {
     status: 'ok',
     service: 'SimpulKata Backend',
-    version: '1.0.1-beta',
+    version: '1.0.2-beta',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
   };

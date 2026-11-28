@@ -70,7 +70,7 @@
         <span>&copy; 2026 SimpulKata</span>
         <span>&bull;</span>
         <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-          v1.0.1-beta
+          v1.0.2-beta
         </span>
         <span class="hidden sm:inline">&bull;</span>
         <span class="hidden sm:inline">Platform Transkripsi & Rangkuman AI</span>

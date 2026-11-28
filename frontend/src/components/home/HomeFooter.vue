@@ -40,7 +40,7 @@
       <div class="flex items-center gap-2">
         <p>&copy; 2026 SimpulKata. Hak Cipta Dilindungi.</p>
         <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-          v1.0.1-beta
+          v1.0.2-beta
         </span>
       </div>
     </footer>
