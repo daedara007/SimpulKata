@@ -12,6 +12,9 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 8080,
       allowedHosts: true, // Mengizinkan akses host eksternal / Cloudflare Tunnel (simpulkata.fragpoint.my.id)
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      },
       proxy: {
         '/api': {
           target: backendTarget,
