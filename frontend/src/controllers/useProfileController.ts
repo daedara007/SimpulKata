@@ -236,8 +236,8 @@ export function useProfileController(emit?: (...args: any[]) => any) {
         confirmPassword: pwdConfirm.value,
       });
 
-      pwdSuccessMessage.value = response.message || 'Kata sandi berhasil diubah! Mengalihkan ke halaman login...';
       resetPasswordForm();
+      pwdSuccessMessage.value = response.message || 'Kata sandi berhasil diubah! Mengalihkan ke halaman login...';
 
       // Sesi aktif di server telah dicabut, hapus sesi lokal & logout
       authModel.clearSession();

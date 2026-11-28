@@ -1,0 +1,13 @@
+{
+  "name": "simpulkata-blackbox-e2e",
+  "version": "1.0.1-beta",
+  "private": true,
+  "description": "Automated Headless Puppeteer Black-Box Testing Suite for SimpulKata",
+  "type": "module",
+  "scripts": {
+    "test:blackbox": "node run-blackbox.mjs"
+  },
+  "dependencies": {
+    "puppeteer": "^24.0.0"
+  }
+}
